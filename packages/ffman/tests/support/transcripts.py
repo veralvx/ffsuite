@@ -50,4 +50,8 @@ HOSTILE: Final = {
     # decoded -- a decoded tag text, a decoded break a space, an unknown reference as written;
     # inside the corpus's 0.4 s, so the attached SRT holds it too
     "references.vtt": "WEBVTT\n\n00:00.000 --> 00:00.300\nA &amp; B &lt;b&gt;&#10;C &bogus;\n",
+    # LRM and RLM (6.8.1): drawn as nothing, so measured as nothing -- one line at the corpus's
+    # 320 x 180, as wide as one holds (a word more, two), rendered as without them; measured
+    # each a size, two
+    "format-characters.vtt": "WEBVTT\n\n00:00.000 --> 00:00.300\n&lrm;she &lrm;said &lrm;the &lrm;name &lrm;was &lrm;written &lrm;right &lrm;to &lrm;left &lrm;in &lrm;her &lrm;own &lrm;hand &lrm;and&rlm;\n",
 }

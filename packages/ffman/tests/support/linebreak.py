@@ -60,7 +60,7 @@ def source(linebreak: Path, proplist: Path) -> str:
             ", ".join(f"(0x{a:04X}, 0x{b:04X})" for a, b in chunk)
             for chunk in _chunks(ranges(points), 4)
         ]
-        out.append(f"{name}: Final = _points(\n" + "".join(f"    {r},\n" for r in rows) + ")")
+        out.append(f"{name}: Final = points(\n" + "".join(f"    {r},\n" for r in rows) + ")")
     return "\n".join(out)
 
 

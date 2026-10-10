@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from ffman.subs.metrics import Metrics, parse
+from ffman.subs.metrics import SKIPPED, Metrics, parse
 from tests.support.fonts import font
 
 CHARS = {"a": 500, "b": 600, "é": 700, "日": 1000}
@@ -73,10 +73,63 @@ def test_the_shipped_font() -> None:
     assert m.width("café", Fraction(1300), Fraction(1)) == 1910  # HarfBuzz's, shaped
 
 
-def test_a_mark_advances_nothing_in_any_font() -> None:
-    """A mark the font lacks is drawn by another, yet advances nothing; a letter it lacks, a size."""
+def test_a_nonspacing_mark_advances_nothing_in_any_font() -> None:
+    """A nonspacing mark the font lacks is drawn by another, yet advances nothing; a letter, a size."""
     m = Metrics({ord("a"): 1300}, 1300)
     assert m.width("a\u0301", Fraction(13), Fraction(1)) == 13  # an accent: nothing
     assert (
         m.width("\u0e27\u0e31", Fraction(13), Fraction(1)) == 13
     )  # Thai: the letter a size, its vowel mark nothing
+
+
+# libass's is_harfbuzz_ignorable, read in ass_shaper.c (0.17.1, 0.17.4)
+LIBASS = (
+    (0x00AD, 0x00AD),
+    (0x034F, 0x034F),
+    (0x061C, 0x061C),
+    (0x17B4, 0x17B5),
+    (0x180B, 0x180E),
+    (0x200B, 0x200F),
+    (0x202A, 0x202E),
+    (0x2060, 0x206F),
+    (0xFE00, 0xFE0F),
+    (0xFEFF, 0xFEFF),
+    (0xFFF0, 0xFFF8),
+    (0x1D173, 0x1D17A),
+    (0xE0000, 0xE0FFF),
+)
+
+
+@pytest.mark.parametrize(("first", "last"), LIBASS)
+def test_what_libass_skips_is_its_list(first: int, last: int) -> None:
+    """Each of its ranges whole, the code points beside it not (U+180F, U+FFF9: drawn)."""
+    assert {chr(c) for c in range(first, last + 1)} <= SKIPPED
+    assert chr(first - 1) not in SKIPPED
+    assert chr(last + 1) not in SKIPPED
+
+
+def test_libass_skips_nothing_else() -> None:
+    """Its 13 ranges, 4165 code points: no other."""
+    assert len(SKIPPED) == sum(last - first + 1 for first, last in LIBASS)
+
+
+@pytest.mark.parametrize("c", ["\u200e", "\u200f", "\u200b", "\ufe0f", "\U000e0041"])
+def test_what_libass_skips_advances_nothing_mapped_or_not(c: str) -> None:
+    """LRM, RLM (&lrm;, &rlm;), a zero-width space this font maps wide, a variation selector, a
+    tag: drawn as nothing (+0 px rendered, libass 0.17.1)."""
+    m = Metrics({ord("a"): 1300, 0x200B: 650}, 1300)
+    assert m.width(f"a{c}a", Fraction(13), Fraction(1)) == 26
+
+
+def test_a_format_character_libass_draws_is_a_size() -> None:
+    """U+0600, an Arabic number sign: a format character libass draws (+32 px rendered)."""
+    m = Metrics({ord("a"): 1300}, 1300)
+    assert m.width("a\u0600a", Fraction(13), Fraction(1)) == 39
+
+
+def test_the_shipped_font_skips_lrm_and_rlm() -> None:
+    """Plex maps neither: measured as two fallback glyphs, they broke a line early."""
+    m, size, missing = parse(SHIPPED.read_bytes()), Fraction(60), Fraction(1)
+    assert 0x200E not in m.advances
+    assert 0x200F not in m.advances
+    assert m.width("M\u200e\u200fM", size, missing) == m.width("MM", size, missing)

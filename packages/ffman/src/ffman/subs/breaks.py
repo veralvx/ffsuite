@@ -18,12 +18,13 @@ import unicodedata
 from typing import Final
 
 
-def _points(*spans: tuple[int, int]) -> frozenset[str]:
+def points(*spans: tuple[int, int]) -> frozenset[str]:
+    """The characters of inclusive code point ranges."""
     return frozenset(chr(c) for first, last in spans for c in range(first, last + 1))
 
 
 # generated: python -m tests.support.linebreak LineBreak.txt PropList.txt (Unicode 15.1.0)
-NO_START: Final = _points(
+NO_START: Final = points(
     (0x0009, 0x0009),
     (0x0021, 0x0021),
     (0x0025, 0x0025),
@@ -312,7 +313,7 @@ NO_START: Final = _points(
     (0x1ECB0, 0x1ECB0),
     (0x1F679, 0x1F67B),
 )
-NO_END: Final = _points(
+NO_END: Final = points(
     (0x0024, 0x0024),
     (0x0028, 0x0028),
     (0x002B, 0x002B),
@@ -464,7 +465,7 @@ NO_END: Final = _points(
     (0x1E2FF, 0x1E2FF),
     (0x1E95E, 0x1E95F),
 )
-SA: Final = _points(
+SA: Final = points(
     (0x0E01, 0x0E3A),
     (0x0E40, 0x0E4E),
     (0x0E81, 0x0E82),
@@ -501,7 +502,7 @@ SA: Final = _points(
     (0x1173A, 0x1173B),
     (0x1173F, 0x11746),
 )
-PREPOSED: Final = _points(
+PREPOSED: Final = points(
     (0x0E40, 0x0E44),
     (0x0EC0, 0x0EC4),
     (0x19B5, 0x19B7),

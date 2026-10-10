@@ -21,7 +21,7 @@ from typing import Final, final
 
 from subverter.transcript import Chunk, Transcript, Word
 
-from ffman.subs.breaks import breakable, is_mark, segments
+from ffman.subs.breaks import breakable, segments
 from ffman.subs.colorize import (
     GOLD,
     WHITE,
@@ -31,7 +31,7 @@ from ffman.subs.colorize import (
     outline_for,
 )
 from ffman.subs.layout import CANVAS, font_size
-from ffman.subs.metrics import UNKNOWN, Metrics
+from ffman.subs.metrics import UNKNOWN, Metrics, counts
 from ffman.subs.paint import Painter, solid
 from ffman.values import decimal, div_half_up, finite_decimal, round_half_up
 
@@ -118,10 +118,10 @@ def script(  # noqa: PLR0913 -- the transcript; its frames' size; its style; the
 def _estimate(c: str) -> Fraction:
     """A character's width in sizes, the font unread.
 
-    A mark nothing (marks do not advance), a wide one (an ideograph, kana) a size, any other
-    ``_EM``.
+    Nothing if it does not count (``metrics.counts``), a size if wide (an ideograph, kana), any
+    other ``_EM``.
     """
-    if is_mark(c):
+    if not counts(c):
         return Fraction(0)
     return Fraction(1) if unicodedata.east_asian_width(c) in ("W", "F") else _EM
 
@@ -404,7 +404,7 @@ class _Events:
                 last = m + 1 == len(lines.words) or lines.line_of[m + 1] != n
                 # space, or the line's edge, on each side
                 room = (not out or sp == " ") and (last or lines.gaps[m + 1] == " ")
-                glyphs = sum(1 for c in word if not is_mark(c))  # what the peak is over: not a mark
+                glyphs = sum(map(counts, word))  # what the peak is over
                 tags = self._hl_tags(e - s, glyphs, room=room)
                 fade = self._in(e - s)
                 shown = self.paint.letters(word, s, e - s, fade, lines.first[m], lines.letters)

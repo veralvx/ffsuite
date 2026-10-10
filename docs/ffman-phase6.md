@@ -2597,10 +2597,41 @@ Decided too (the owner's, 2026-10-09; each tool's writer its source: whisper.cpp
       `&bsol;n` read as a break (now text), a reference a tag split glued (each
       run alone now). An SRT from it (`--add-subs`) holds the decoded text as it is
       (SubRip has no escape): 6.8's writers.*
-- [ ] Found by 6.8.1's review: LRM and RLM (`&lrm;`, `&rlm;`), absent from
+- [x] Found by 6.8.1's review: LRM and RLM (`&lrm;`, `&rlm;`), absent from
       the fonts, are measured an em (`subs/metrics.py`'s unknown glyph) and
       rendered as none -- a decoded one breaks a line early; with the font
       unread, any format character is estimated at 0.55 em (`ass.py`).
+      *Done: what libass skips -- its `is_harfbuzz_ignorable` (ass_shaper.c,
+      0.17.1 and 0.17.4 alike: HarfBuzz's default ignorables, which HarfBuzz
+      8.3.0 and 13.2.1 zero when shaped), 13 ranges -- is `metrics.SKIPPED`:
+      measured nothing, mapped or not; with a mark, what does not count
+      (`metrics.counts`), in the measure, the estimate and a pop's peak
+      alike. Measured first: each rendered +0 px between two Ms; U+0600,
+      U+FFF9 and U+180F, outside it, drawn. Proven: the outcome report, 429
+      identical, `burn/hostile/format-characters.vtt` changed -- one line,
+      not two, its frame byte for byte the one without its marks; the tests,
+      failing on the old code, and five mutations of the set and the rule,
+      each caught. Reviewed: the rule moved to `metrics.py` (one for the
+      three), the set built by `breaks.points`; "marks do not advance"
+      corrected (a spacing one does: the box after next). What else they
+      touch: the next box.*
+- [ ] Found by the box before: the characters libass skips are not yet whole
+      in `subs/breaks.py` and `subs/paint.py`. UAX #14 keeps them where its
+      rules put them -- no break before a CM (LRM, RLM: LB9), none beside a
+      WJ (word joiner: LB11), one after a ZW (zero-width space: LB8) -- yet
+      `breakable` allows a break before an LRM and beside a word joiner
+      between ideographs, and none after a zero-width space in Latin;
+      `segments` makes each its own unit, so a painted word counts it a
+      letter (a colour step on nothing). And U+180F, a Mongolian selector
+      libass draws as tofu (+27 px), is measured nothing, as a mark.
+- [ ] Found by the LRM box's review: a spacing mark (Mc: an Indic vowel
+      sign) advances -- rendered at 60, Devanagari's AA +11 px, Tamil's +26
+      -- yet counts nothing (`metrics.counts`). Measured, harmless: Plex
+      maps neither it nor its script, so its base, a size, over-measures the
+      cluster (Tamil, Hindi and Bengali lines rendered 0.82, 0.56 and 0.48
+      of their measure). Estimated (the font unread), one Tamil line
+      rendered 1.27 of it (Hindi 0.78, Bengali 0.72): to weigh on more text,
+      by script.
 - [ ] Each format from its source: SubRip (no standard: as ffmpeg's
       `subrip` reads and writes it -- libass renders ASS alone, SubRip once
       converted), WebVTT (W3C), ASS (v4.00+, Aegisub and libass) and SSA (v4,

@@ -170,6 +170,20 @@ def test_a_line_holds_the_bbc_width_estimated() -> None:
     assert (len(lines_of(fits)), len(lines_of(over))) == (1, 2)
 
 
+def test_what_libass_skips_is_estimated_as_nothing() -> None:
+    """The 36 glyphs that fit, with LRMs and RLMs (&lrm;, &rlm;): still one line (estimated
+    0.55 each, two)."""
+    fits = "\u200eabcdefgh abcdefg\u200f abcdefg abcdefg\u200e abc\u200f"
+    assert len(lines_of(fits)) == 1
+
+
+def test_what_libass_skips_is_measured_as_nothing() -> None:
+    """A font lacking LRM: words of 5 and an LRM still 4 a line (measured a size, 3)."""
+    metrics = Metrics({ord("a"): 1300, ord(" "): 0}, 1300)
+    words = " ".join(["aaaaa\u200e"] * 8)
+    assert lines_of(words, metrics=metrics) == [" ".join(["aaaaa\u200e"] * 4)] * 2
+
+
 def test_a_line_holds_the_bbc_width_measured() -> None:
     """Metrics: a spans a size (64), a space nothing -- 4 words of 5 (1280) fit, 5 do not."""
     metrics = Metrics({ord("a"): 1300, ord(" "): 0}, 1300)
@@ -321,6 +335,14 @@ def test_the_peak_counts_glyphs_not_marks() -> None:
     composed = peak.findall(popped(["caf\u00e9", "x"], "caf\u00e9 x"))
     assert composed == peak.findall(popped(["cafe\u0301", "x"], "cafe\u0301 x"))
     assert composed[0] != "100"
+
+
+def test_the_peak_counts_glyphs_not_what_libass_skips() -> None:
+    """An LRM before a word draws nothing: the word peaks as it does without one."""
+    peak = re.compile(r"\\fscx([0-9.]+)")
+    plain = peak.findall(popped(["word", "x"], "word x"))
+    assert plain == peak.findall(popped(["\u200eword", "x"], "\u200eword x"))
+    assert plain[0] != "100"
 
 
 def test_the_highlight_takes_the_colour_given() -> None:
