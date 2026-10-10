@@ -83,6 +83,7 @@ LAYERS: Final[dict[str, int]] = {
     "ffman.subs.metrics": 3,
     "ffman.subs.paint": 3,
     "ffman.subs.srt": 3,
+    "ffman.subs.ucd": 3,
     "ffman.graph": 2,
     "ffman.graph.gif": 2,
     "ffman.graph.light": 2,

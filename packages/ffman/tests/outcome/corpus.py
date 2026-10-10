@@ -609,6 +609,11 @@ def _burn() -> list[Case]:
         _conv(f"burn/chunk-word/{t}", *burn, t, "--overlay-mode", "chunk-word") for t in transcripts
     ]
     cases += [_conv(f"burn/hostile/{h}", *burn, f"hostile/{h}") for h in sorted(HOSTILE)]
+    # another font: its lines estimated, not measured (Noto Sans: none the corpus carries)
+    cases += [
+        _conv(f"burn/another-font/{h}", *burn, f"hostile/{h}", "--font", "Noto Sans")
+        for h in ("long-ja.srt", "long-ml.srt", "long-th.srt", "spaces.srt")
+    ]
     for t in _WORDED:
         for mode, light in _MODES:
             extra = ("--highlight-mode", light) if light else ()

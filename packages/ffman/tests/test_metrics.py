@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from ffman.subs.metrics import Metrics, parse
+from ffman.subs.metrics import Metrics, estimate, parse
 from tests.support.fonts import font
 
 CHARS = {"a": 500, "b": 600, "é": 700, "日": 1000}
@@ -109,3 +109,26 @@ def test_the_shipped_font_skips_lrm_and_rlm() -> None:
     assert 0x200E not in m.advances
     assert 0x200F not in m.advances
     assert m.width("M\u200e\u200fM", size, missing) == m.width("MM", size, missing)
+
+
+@pytest.mark.parametrize(
+    ("c", "sizes"),
+    [
+        ("a", Fraction("0.55")),  # Latin, Greek, Cyrillic: a font's own
+        ("\u03b1", Fraction("0.55")),
+        ("\u0434", Fraction("0.55")),
+        (",", Fraction("0.55")),  # Common: punctuation, digits
+        ("\u65e5", Fraction(1)),  # wide: a size
+        ("\u0d15", Fraction(1)),  # Malayalam KA: another script, a fallback's glyph -- a size
+        ("\u0e01", Fraction(1)),  # Thai
+        ("\u05e9", Fraction(1)),  # Hebrew
+        ("\u0378", Fraction(1)),  # unassigned: no script of a font's
+        ("\u0d3e", Fraction(0)),  # a spacing mark: its base holds it (counts)
+        ("\u0301", Fraction(0)),  # a mark
+        ("\u200e", Fraction(0)),  # what libass skips
+    ],
+)
+def test_the_estimate_a_font_s_scripts_at_0_55_another_s_a_size(c: str, sizes: Fraction) -> None:
+    """The font unread: its own scripts' glyphs 0.55 sizes, any other's a fallback's, a size --
+    the UDHR in 26 languages, rendered, at most 0.99 of it (Malayalam at 0.55: 1.64)."""
+    assert estimate(c) == sizes

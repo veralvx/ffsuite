@@ -170,6 +170,13 @@ def test_a_line_holds_the_bbc_width_estimated() -> None:
     assert (len(lines_of(fits)), len(lines_of(over))) == (1, 2)
 
 
+def test_another_script_is_estimated_a_size() -> None:
+    """Malayalam, the font unread: 3 counted characters a word (KA, RA, LLA; two spacing marks
+    nothing), a size each -- 5 words a line (6: 1328 > 1296), not 9 (0.55 each: past the frame)."""
+    words = ["\u0d15\u0d47\u0d30\u0d33\u0d02"] * 12
+    assert [len(line.split()) for line in lines_of(" ".join(words))] == [5, 5, 2]
+
+
 def test_what_libass_skips_is_estimated_as_nothing() -> None:
     """The 36 glyphs that fit, with LRMs and RLMs (&lrm;, &rlm;): still one line (estimated
     0.55 each, two)."""

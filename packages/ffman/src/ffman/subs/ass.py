@@ -13,7 +13,6 @@ characters (bash pinned C.UTF-8 here).
 
 import itertools
 import math
-import unicodedata
 from collections import defaultdict
 from dataclasses import dataclass, field
 from fractions import Fraction
@@ -31,7 +30,7 @@ from ffman.subs.colorize import (
     outline_for,
 )
 from ffman.subs.layout import CANVAS, font_size
-from ffman.subs.metrics import UNKNOWN, Metrics, counts
+from ffman.subs.metrics import UNKNOWN, Metrics, counts, estimate
 from ffman.subs.paint import Painter, solid
 from ffman.values import decimal, div_half_up, finite_decimal, round_half_up
 
@@ -44,7 +43,6 @@ _FORMAT: Final = (
     "Shadow, Alignment, MarginL, MarginR, MarginV, Encoding"
 )
 _EVENTS: Final = "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text"
-_EM: Final = Fraction("0.55")  # a glyph's width, in font sizes: the estimate, for a font unread
 _LINE: Final = Fraction(6, 5)  # the BBC's line: 68% of a 16:9 width, 90% of a 4:3 -- 1.2 heights
 _SAFE: Final = Fraction(9, 10)  # libass's width: the canvas less ffman's 5% margins
 FONT_FILES: Final = {
@@ -94,7 +92,7 @@ def script(  # noqa: PLR0913 -- the transcript; its frames' size; its style; the
     Notes: text past the top; lit runs whose hues are held still (``_MOTION_BUDGET``).
 
     ``frame``: a frame's duration, s (None: unknown) -- a word's animation ends a frame early.
-    ``metrics``: the font's, which lines are measured by (None: estimated, ``_EM`` a glyph).
+    ``metrics``: the font's, which lines are measured by (None: estimated, ``estimate``).
     """
     fs = font_size(style.size, plain=style.mode == "plain")
     px = round_half_up(Fraction(CANVAS * width, height))  # PlayResX: an integer to libass
@@ -113,17 +111,6 @@ def script(  # noqa: PLR0913 -- the transcript; its frames' size; its style; the
     if events.paint.held:
         notes.append(f"{events.paint.held} runs too long to move: their hues held still")
     return text, tuple(notes)
-
-
-def _estimate(c: str) -> Fraction:
-    """A character's width in sizes, the font unread.
-
-    Nothing if it does not count (``metrics.counts``), a size if wide (an ideograph, kana), any
-    other ``_EM``.
-    """
-    if not counts(c):
-        return Fraction(0)
-    return Fraction(1) if unicodedata.east_asian_width(c) in ("W", "F") else _EM
 
 
 def bold(style: Style) -> bool:
@@ -257,10 +244,10 @@ class _Events:
 
     # -- geometry
     def _width(self, text: str) -> Fraction:
-        """``text``'s width, canvas units: by the font's metrics, else estimated (``_estimate``)."""
+        """``text``'s width, canvas units: by the font's metrics, else estimated (``estimate``)."""
         if self.metrics is not None:
             return self.metrics.width(text, self.fs, UNKNOWN)
-        return sum(map(_estimate, text), Fraction(0)) * self.fs
+        return sum(map(estimate, text), Fraction(0)) * self.fs
 
     def _mid(self, bary: Fraction, nl: int) -> Fraction:
         """A block's centre in the bar: its centre, lifted no further than a tall block needs."""
@@ -340,8 +327,10 @@ class _Events:
         between its units there, rather than run past the frame (CSS's overflow-wrap: break-word)
         -- but a timed word is one unit, its highlight one: alone on its line, it stays whole.
         """
-        counts = [len(segments(word)[0]) for word in words]
-        lines = _Lines(words, gaps, list(itertools.accumulate(counts, initial=0))[:-1], sum(counts))
+        letters = [len(segments(word)[0]) for word in words]
+        lines = _Lines(
+            words, gaps, list(itertools.accumulate(letters, initial=0))[:-1], sum(letters)
+        )
         used, nl = Fraction(0), 0
         for run in self._glued(words, gaps):
             wide = self._span(lines, run) > self.limit
@@ -434,10 +423,10 @@ class _Events:
                 texts = self._breaks(*units).texts()
                 if CANVAS - self.mv - len(texts) * self.lh < 0:
                     self.over += 1
-                counts = [len(segments(text)[0]) for text in texts]
-                total = sum(counts)
+                letters = [len(segments(text)[0]) for text in texts]
+                total = sum(letters)
                 # each line's first letter across the subtitle; the budget once, the event's
-                firsts = list(itertools.accumulate(counts, initial=0))
+                firsts = list(itertools.accumulate(letters, initial=0))
                 end = self.paint.text_budget(total, c.end - c.start)
                 painted = [
                     self.paint.text_of(t, f, total, c.start, c.end, end)

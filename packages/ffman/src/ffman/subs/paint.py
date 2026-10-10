@@ -29,7 +29,7 @@ from ffman.subs.metrics import UNKNOWN, Metrics
 # 2,000 letters lit 60 s in lsd made 19 MB of script; a long cue, 84 letters 7 s, ~3,500)
 MOTION_BUDGET: Final = 10_000
 # a space, in sizes, for a font unread: under Plex's 0.18, so a box fits beside a word -- the
-# wrapping's estimate errs the other way (ass._EM, 0.55: lines break early); each, safe
+# wrapping's estimate errs the other way (metrics.estimate, 0.55: lines break early); each, safe
 _SPACE: Final = Fraction(3, 20)
 
 

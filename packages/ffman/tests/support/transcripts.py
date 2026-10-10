@@ -12,6 +12,9 @@ HOSTILE: Final = {
     # code before broke there (の|、, ます|。, และเ|รา)
     "long-ja.srt": "1\n00:00:01,000 --> 00:00:04,000\n日本語の文章は単語の間にスペースを入れないの、ですから一行がとても長くなることがあります。「本当ですか？」と彼は言った。\n",
     "long-th.srt": "1\n00:00:01,000 --> 00:00:04,000\nวันนี้เมื่อวานนี้ฝนตกหนักมากจนน้ำท่วมถนนและเราต้องเดินทางกลับบ้านด้วยความลำบากมากที่สุด\n",
+    # Malayalam (6.8.1): the UDHR's article 1 -- measured, a fallback's glyph a size each; with
+    # another --font (burn/another-font/), estimated so too, where 0.55 ran past the frame
+    "long-ml.srt": "1\n00:00:01,000 --> 00:00:04,000\nമനുഷ്യരെല്ലാവരും തുല്യാവകാശങ്ങളോടും അന്തസ്സോടും സ്വാതന്ത്ര്യത്തോടുംകൂടി ജനിച്ചിട്ടുള്ളവരാണ്\u200c. അന്യോന്യം ഭ്രാതൃഭാവത്തോടെ പെരുമാറുവാനാണ്\u200c മനുഷ്യന്നു വിവേകബുദ്ധിയും മനസ്സാക്ഷിയും സിദ്ധമായിരിക്കുന്നത്\u200c.\n",
     # half a millisecond: through a float 504 and 4024 ms, exactly 505 and 4025 --
     # a centisecond apart in the burned ASS
     "half-ms.srt": "1\n00:00:00,5045 --> 00:00:04,0245\nhalf\n",

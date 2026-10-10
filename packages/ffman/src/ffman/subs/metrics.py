@@ -6,14 +6,16 @@ ass_font.c). No shaping: kerning and ligatures only narrow a line -- kerned widt
 0.961 to 1.0014 of the advances on the corpus's transcripts -- so their sum is a line's
 width well within its rule (the BBC's 68%, inside libass's 90%). Shaping would matter only
 for scripts the font lacks, which libass draws in fallback fonts ffman cannot know. What libass
-skips (``breaks.SKIPPED``) is no glyph at all.
+skips (``breaks.SKIPPED``) is no glyph at all. Without the font, a character's width estimated
+(``estimate``).
 """
 
 from dataclasses import dataclass
 from fractions import Fraction
 from typing import Final
 
-from ffman.subs.breaks import SKIPPED, is_mark
+from ffman.subs.breaks import SKIPPED, is_mark, is_wide
+from ffman.subs.ucd import NARROW
 
 _UNICODE: Final = 0x10FFFF  # the last code point: no font maps past it
 # cmap subtables, preferred first: Unicode in full (format 12), then the BMP's (format 4)
@@ -21,6 +23,7 @@ _FULL: Final = ((3, 10), (0, 4), (0, 6))
 _BMP: Final = ((3, 1), (0, 3))
 
 UNKNOWN: Final = Fraction(1)  # a character the font lacks: a size (a fallback CJK glyph, ~0.77)
+_EM: Final = Fraction("0.55")  # a glyph of a font unread, in sizes: the estimate's
 
 
 def counts(c: str) -> bool:
@@ -33,6 +36,21 @@ def counts(c: str) -> bool:
     0.27-0.81.
     """
     return not (is_mark(c) or c in SKIPPED)
+
+
+def estimate(c: str) -> Fraction:
+    """``c``'s width in sizes, the font unread.
+
+    Nothing if it does not count (``counts``); a size if wide (an ideograph, kana); a fallback
+    font's glyph (``UNKNOWN``) if of a script but Latin, Greek, Cyrillic and Common (``NARROW``),
+    as the measure takes a glyph the font lacks -- the UDHR in 26 languages rendered at most
+    0.99 of it, where at ``_EM`` Brahmic and Southeast Asian text reached 1.76; else ``_EM``.
+    """
+    if not counts(c):
+        return Fraction(0)
+    if is_wide(c):
+        return Fraction(1)
+    return _EM if c in NARROW else UNKNOWN
 
 
 @dataclass(frozen=True, slots=True)

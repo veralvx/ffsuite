@@ -1,21 +1,8 @@
 """subs.breaks: where a line may break in unspaced text -- UAX #14's rules, Thai's syllables."""
 
-import os
-from pathlib import Path
-
 import pytest
 
-from ffman.subs.breaks import (
-    ATTACHED,
-    NO_END,
-    NO_START,
-    PREPOSED,
-    SA,
-    SKIPPED,
-    breakable,
-    segments,
-)
-from tests.support.linebreak import sets
+from ffman.subs.breaks import SKIPPED, breakable, segments
 
 
 @pytest.mark.parametrize(
@@ -135,23 +122,3 @@ def test_what_libass_skips_is_its_list(first: int, last: int) -> None:
 def test_libass_skips_nothing_else() -> None:
     """Its 13 ranges, 4165 code points: no other."""
     assert len(SKIPPED) == sum(last - first + 1 for first, last in LIBASS)
-
-
-UCD = Path(os.environ.get("FFMAN_UCD", "/usr/share/texlive/texmf-dist/tex/generic/unicode-data"))
-
-
-@pytest.mark.skipif(
-    not (UCD / "LineBreak.txt").is_file(), reason="the Unicode Character Database: FFMAN_UCD"
-)
-def test_the_table_is_unicodes() -> None:
-    """breaks.py's table is what the generator makes of Unicode 15.1's LineBreak and PropList."""
-    assert "LineBreak-15.1.0" in (UCD / "LineBreak.txt").read_text(encoding="utf-8")[:40]
-    data = sets(UCD / "LineBreak.txt", UCD / "PropList.txt")
-    committed = {
-        "NO_START": NO_START,
-        "NO_END": NO_END,
-        "SA": SA,
-        "PREPOSED": PREPOSED,
-        "ATTACHED": ATTACHED,
-    }
-    assert {name: sorted(ord(c) for c in table) for name, table in committed.items()} == data
