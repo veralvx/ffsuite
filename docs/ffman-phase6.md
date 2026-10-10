@@ -2714,13 +2714,30 @@ Decided too (the owner's, 2026-10-09; each tool's writer its source: whisper.cpp
       a check that Python's Unicode is 15.1 dropped from the module's test
       -- it failed under Python 3.14 (Unicode 16.0), which the generator's
       output still equals: the next box.*
-- [ ] Found by the estimate box's review: Python 3.14's unicodedata is
+- [x] Found by the estimate box's review: Python 3.14's unicodedata is
       Unicode 16.0, `ucd.py`'s tables 15.1 -- checks runs both (checks.yml),
       so under 3.14 the categories (`is_mark`, `is_wide`, a virama's class)
       know 16.0's new characters (Garay, Todhri, Tulu-Tigalari and more) and
       the tables do not: such a mark held by no LB9 rule, such a letter
       estimated a size. The generator's output equal under both. To weigh:
       tables by the running Python's version, or 15.1 until 3.13 is dropped.
+      *Done: 15.1 for every property, whatever the Python -- one text, one
+      break; a later Unicode is the module regenerated. Diffed on every code
+      point, 3.13's unicodedata against 3.14's: 5,185 new characters (36 Mn,
+      15 Mc, 4 of them viramas; 10 wide), 188 existing ones N to W (the trigrams
+      U+2630-2637 among them), U+1171E Mn to Mc, no combining class changed
+      -- so the categories, not only the new characters, moved. The
+      generator reads UnicodeData.txt and EastAsianWidth.txt (15.1, as the
+      other three) for `MARKS`, `VIRAMAS` and `WIDE` (120 ranges, by
+      bisect) and its quotes and SA marks; `breaks.py` asks no
+      `unicodedata`. Proven: the tables equal 3.13's unicodedata on all
+      1,114,112 code points (a test, run where Python's Unicode is 15.1);
+      the new tests (a 16.0 mark and virama, a trigram) fail on the old
+      code under 3.14, pass under both; the outcome report under 3.14, 436
+      identical, `burn/hostile/unicode-16.srt` changed -- the trigrams broken
+      as under 3.13; under 3.13, 437 identical. Breaking and estimating
+      145,000 characters (English, Japanese, Malayalam): 0.23-0.27 s, as
+      before, run for run; the module imports in 3-5 ms (2.5-3.3 before).*
 - [ ] Each format from its source: SubRip (no standard: as ffmpeg's
       `subrip` reads and writes it -- libass renders ASS alone, SubRip once
       converted), WebVTT (W3C), ASS (v4.00+, Aegisub and libass) and SSA (v4,

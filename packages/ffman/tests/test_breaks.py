@@ -2,7 +2,7 @@
 
 import pytest
 
-from ffman.subs.breaks import SKIPPED, breakable, segments
+from ffman.subs.breaks import SKIPPED, breakable, is_wide, segments
 
 
 @pytest.mark.parametrize(
@@ -122,3 +122,22 @@ def test_what_libass_skips_is_its_list(first: int, last: int) -> None:
 def test_libass_skips_nothing_else() -> None:
     """Its 13 ranges, 4165 code points: no other."""
     assert len(SKIPPED) == sum(last - first + 1 for first, last in LIBASS)
+
+
+@pytest.mark.parametrize(
+    ("text", "units"),
+    [
+        ("a\u0897", ["a", "\u0897"]),  # Arabic Pepet: a 16.0 mark, unassigned in 15.1
+        ("\U000113ce\u0915", ["\U000113ce", "\u0915"]),  # a 16.0 virama: none in 15.1
+    ],
+)
+def test_unicode_is_15_1_whatever_the_python(text: str, units: list[str]) -> None:
+    """Python 3.14's unicodedata is Unicode 16.0, 3.13's 15.1: ffman reads its own 15.1 tables,
+    so a subtitle breaks alike under both."""
+    assert segments(text)[0] == units
+
+
+def test_a_trigram_is_not_wide_whatever_the_python() -> None:
+    """U+2630, wide in 16.0 (Python 3.14), not in 15.1: no size of its own, no break beside."""
+    assert not is_wide("\u2630")
+    assert not breakable("\u2630", "\u2630")

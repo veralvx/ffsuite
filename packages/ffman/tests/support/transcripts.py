@@ -15,6 +15,9 @@ HOSTILE: Final = {
     # Malayalam (6.8.1): the UDHR's article 1 -- measured, a fallback's glyph a size each; with
     # another --font (burn/another-font/), estimated so too, where 0.55 ran past the frame
     "long-ml.srt": "1\n00:00:01,000 --> 00:00:04,000\nമനുഷ്യരെല്ലാവരും തുല്യാവകാശങ്ങളോടും അന്തസ്സോടും സ്വാതന്ത്ര്യത്തോടുംകൂടി ജനിച്ചിട്ടുള്ളവരാണ്\u200c. അന്യോന്യം ഭ്രാതൃഭാവത്തോടെ പെരുമാറുവാനാണ്\u200c മനുഷ്യന്നു വിവേകബുദ്ധിയും മനസ്സാക്ഷിയും സിദ്ധമായിരിക്കുന്നത്\u200c.\n",
+    # Unicode 16.0's changes (6.8.1): trigrams wide there, not in 15.1; Arabic Pepet, a 16.0
+    # mark -- ffman's own 15.1 tables, so alike under Python 3.13 (15.1) and 3.14 (16.0)
+    "unicode-16.srt": "1\n00:00:01,000 --> 00:00:04,000\n\u2630\u2631\u2632\u2633\u2634\u2635\u2636\u2637 trigrams \u2630\u2631\u2632\u2633\u2634\u2635\u2636\u2637\u2630\u2631\u2632\u2633\u2634\u2635\u2636\u2637 and a\u0897 pepet\n",
     # half a millisecond: through a float 504 and 4024 ms, exactly 505 and 4025 --
     # a centisecond apart in the burned ASS
     "half-ms.srt": "1\n00:00:00,5045 --> 00:00:04,0245\nhalf\n",

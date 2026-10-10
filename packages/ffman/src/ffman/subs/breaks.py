@@ -10,15 +10,26 @@ anywhere) and CJ (strict, as its default resolves it), after a zero-width joiner
 which needs a dictionary (UAX #14: SA), but never after a vowel written before its consonant,
 nor before one written after.
 
-The data: UAX #14's classes and PropList's Logical_Order_Exception, generated (``ucd.py``); and
-what libass skips (``SKIPPED``), its own list.
+The data: UAX #14's classes, PropList's Logical_Order_Exception, the marks, viramas and wide
+characters -- Unicode 15.1, generated (``ucd.py``), whatever Python's unicodedata; and what
+libass skips (``SKIPPED``), its own list.
 """
 
 import re
-import unicodedata
+from bisect import bisect_right
 from typing import Final
 
-from ffman.subs.ucd import ATTACHED, NO_END, NO_START, PREPOSED, SA, points
+from ffman.subs.ucd import (
+    ATTACHED,
+    MARKS,
+    NO_END,
+    NO_START,
+    PREPOSED,
+    SA,
+    VIRAMAS,
+    WIDE,
+    points,
+)
 
 # not Unicode's, libass's own: what it skips, every font alike -- no glyph, no advance. Its
 # is_harfbuzz_ignorable (ass_shaper.c, 0.17.1 and 0.17.4), HarfBuzz's default ignorables
@@ -41,11 +52,11 @@ SKIPPED: Final = points(
 )
 
 # Thai's and Lao's vowels and repetition marks written after their consonant: letters (Lo, Lm),
-# not marks (Lo, Lm), so a cluster does not hold them
+# not marks, so a cluster does not hold them
 _FOLLOWING: Final = frozenset("\u0e30\u0e32\u0e33\u0e45\u0e46\u0eb0\u0eb2\u0eb3\u0ec6")
 _ZWJ: Final = "\u200d"  # the zero-width joiner: one sequence of the characters around it
 _ZW: Final = "\u200b"  # the zero-width space: a break after it, none before (LB7, LB8)
-_VIRAMA: Final = 9  # every Indic virama's combining class: the consonant after it, conjunct
+_WIDE_FIRSTS: Final = tuple(first for first, _ in WIDE)  # each wide range's first, for bisect
 _FIELDS: Final = re.compile(r"[ \t\n]+")  # awk's split(t, a, " "): not NBSP, not U+3000
 
 
@@ -96,7 +107,7 @@ def is_mark(c: str) -> bool:
 
     An accent; Thai's vowels and tones (combining class 0, yet marks); an Indic vowel sign.
     """
-    return unicodedata.category(c).startswith("M")
+    return c in MARKS
 
 
 def _joins(unit: str, c: str) -> bool:
@@ -105,13 +116,7 @@ def _joins(unit: str, c: str) -> bool:
     A mark; what attaches to it (LB9: ``ATTACHED``); what libass skips; a character past a
     virama (an Indic conjunct: combining class 9) or a zero-width joiner (an emoji sequence).
     """
-    return (
-        is_mark(c)
-        or c in ATTACHED
-        or c in SKIPPED
-        or unit.endswith(_ZWJ)
-        or unicodedata.combining(unit[-1]) == _VIRAMA
-    )
+    return is_mark(c) or c in ATTACHED or c in SKIPPED or unit.endswith(_ZWJ) or unit[-1] in VIRAMAS
 
 
 def _base(unit: str) -> str:
@@ -124,4 +129,6 @@ def _base(unit: str) -> str:
 
 def is_wide(c: str) -> bool:
     """East Asian Width W or F: ideographs, kana, hangul, fullwidth -- a size, breakable beside."""
-    return unicodedata.east_asian_width(c) in ("W", "F")
+    point = ord(c)
+    k = bisect_right(_WIDE_FIRSTS, point) - 1
+    return k >= 0 and point <= WIDE[k][1]
