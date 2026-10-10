@@ -28,8 +28,9 @@ def counts(c: str) -> bool:
 
     A nonspacing mark (an accent, Thai's vowels and tones) advances nothing. A spacing one (Mc:
     an Indic vowel sign) does, but Plex maps neither it nor its script: its base, a size, already
-    over-measures the cluster (rendered Tamil, Hindi, Bengali lines: 0.82, 0.56, 0.48 of their
-    measure).
+    covers the cluster -- the UDHR in 12 languages of 11 such scripts, 60 lines each, rendered at
+    most 1.01 of its measure (Noto's fallbacks, or FreeFont's and Unifont); counted, a median
+    0.27-0.81.
     """
     return not (is_mark(c) or c in SKIPPED)
 

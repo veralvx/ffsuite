@@ -82,6 +82,13 @@ def test_a_nonspacing_mark_advances_nothing_in_any_font() -> None:
     )  # Thai: the letter a size, its vowel mark nothing
 
 
+def test_a_spacing_mark_counts_nothing_its_base_a_size() -> None:
+    """Devanagari's AA (Mc) advances, but after a base the font lacks, measured a size: the
+    cluster is one (``counts``: rendered, at most 1.01 of its measure in 11 scripts)."""
+    m = Metrics({ord("a"): 1300}, 1300)
+    assert m.width("\u0915\u093e", Fraction(13), Fraction(1)) == 13
+
+
 @pytest.mark.parametrize("c", ["\u200e", "\u200f", "\u200b", "\ufe0f", "\U000e0041"])
 def test_what_libass_skips_advances_nothing_mapped_or_not(c: str) -> None:
     """LRM, RLM (&lrm;, &rlm;), a zero-width space this font maps wide, a variation selector, a

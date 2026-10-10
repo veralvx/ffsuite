@@ -2650,7 +2650,7 @@ Decided too (the owner's, 2026-10-09; each tool's writer its source: whisper.cpp
       it), added with its test; a unit libass draws nothing of tracked as
       `segments` goes, not rescanned; a subject's `#14` would link an issue
       in a release's notes (`CONTRIBUTING.md` now says so).*
-- [ ] Found by the LRM box's review: a spacing mark (Mc: an Indic vowel
+- [x] Found by the LRM box's review: a spacing mark (Mc: an Indic vowel
       sign) advances -- rendered at 60, Devanagari's AA +11 px, Tamil's +26
       -- yet counts nothing (`metrics.counts`). Measured, harmless: Plex
       maps neither it nor its script, so its base, a size, over-measures the
@@ -2658,6 +2658,32 @@ Decided too (the owner's, 2026-10-09; each tool's writer its source: whisper.cpp
       of their measure). Estimated (the font unread), one Tamil line
       rendered 1.27 of it (Hindi 0.78, Bengali 0.72): to weigh on more text,
       by script.
+      *Done, weighed: the UDHR in 12 languages of 11 scripts with spacing
+      marks (Hindi, Marathi, Bengali, Tamil, Telugu, Kannada, Malayalam,
+      Gujarati, Gurmukhi, Sinhala, Myanmar, Khmer; 10-22% of their
+      characters Mc), 60 lines of 6 words each (unicode-org/udhr `588b3f4`;
+      notofonts.github.io `578d18e`), rendered by libass at 60 with Noto
+      Sans' fallbacks alone and with this host's (FreeFont's and Unifont,
+      both in NixOS's `fonts.enableDefaultPackages`). Measured: at most 1.01
+      of the measure (Malayalam with Noto, Khmer with Unifont), a median
+      0.37-0.99; counting the marks drops the median to 0.27-0.81 -- so they
+      count nothing, kept, the rule pinned by a test failing on the other. A
+      pop's peak, over the same `counts`, never reaches a neighbour: ffman's
+      chunk-word script, rendered at each word's peak (Noto), the lit word's
+      ink 5 px from the nearest at the least, in 10 of the languages
+      (English's 9); the marks counted, 6. Estimated, the marks are not the
+      cause: counted at 0.55, Malayalam still renders 1.20 of the estimate
+      with Noto, Khmer 1.56 with Unifont -- the next box.*
+- [ ] Found by the spacing-mark box: the estimate (the font unread: 0.55
+      sizes a glyph, a wide one a size) under-measures Brahmic and Southeast
+      Asian text -- the UDHR rendered up to 1.64 of it with Noto (Malayalam;
+      Tamil 1.61, Sinhala 1.26) and 1.76 with FreeFont's and Unifont (Khmer;
+      Myanmar 1.70, Telugu 1.65), against libass's width from 1.33 on a 16:9
+      frame (1.0 on a 4:3) and the frame's edge from 1.48 (1.11): ffman's
+      own script of a Malayalam paragraph, estimated (another `--font`'s
+      case), rendered with Noto across 5-1919 px of a 1920 frame. To weigh
+      other scripts (Arabic, Hebrew, Thai, Georgian, Armenian, Ethiopic)
+      before a rule.
 - [ ] Each format from its source: SubRip (no standard: as ffmpeg's
       `subrip` reads and writes it -- libass renders ASS alone, SubRip once
       converted), WebVTT (W3C), ASS (v4.00+, Aegisub and libass) and SSA (v4,
