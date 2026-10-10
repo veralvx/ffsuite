@@ -5,7 +5,16 @@ from pathlib import Path
 
 import pytest
 
-from ffman.subs.breaks import NO_END, NO_START, PREPOSED, SA, breakable, segments
+from ffman.subs.breaks import (
+    ATTACHED,
+    NO_END,
+    NO_START,
+    PREPOSED,
+    SA,
+    SKIPPED,
+    breakable,
+    segments,
+)
 from tests.support.linebreak import sets
 
 
@@ -33,6 +42,20 @@ from tests.support.linebreak import sets
         ("ข", "า", False),  # never before one written after
         ("ใคร", "ๆ", False),  # nor a repetition mark
         ("\u0301", "日", True),  # a unit of a mark alone (a text opening on one): itself
+        ("o", "\u200b", False),  # never before a zero-width space (LB7)
+        ("o\u200b", "b", True),  # always after one (LB8), Latin letters too
+        ("x\u200b", "\u200eY", True),  # whatever follows it (LB8 before LB9)
+        ("\u200b", "\u200b", False),  # but another (LB7 before LB8)
+        ("a\u200d", "日", False),  # never after a zero-width joiner (LB8a): a word ending on one
+        ("日", "\u200e", False),  # an LRM: held by the character before it (LB9: CM)
+        ("日", "\u0301", False),  # a word opening on a mark: held too (LB9)
+        ("ก\u200e", "ข", True),  # its unit's class the character's: Thai's syllables part
+        ("日", "\u2060", False),  # a word joiner (WJ): never before it (LB11)
+        ("\u2060", "本", False),  # nor after it
+        ("日", "\u00a0", False),  # a no-break space (GL): never before it (LB12a)
+        ("\u00a0", "本", False),  # nor after it (LB12)
+        ("日\u180e", "本", False),  # nor after a Mongolian vowel separator (GL)
+        ("日\u034f", "本", False),  # nor a combining grapheme joiner: a mark, but GL, not CM
     ],
 )
 def test_where_a_line_may_break(before: str, after: str, *, may: bool) -> None:
@@ -68,6 +91,52 @@ def test_a_text_s_units_and_gaps() -> None:
     )
 
 
+@pytest.mark.parametrize(
+    ("text", "units"),
+    [
+        ("wo\u200erd", ["w", "o\u200e", "r", "d"]),  # in the unit before it
+        ("\u200eword", ["\u200ew", "o", "r", "d"]),  # opening a word: the unit after it
+        ("foo\u200bbar", ["f", "o", "o\u200b", "b", "a", "r"]),  # a zero-width space too
+        ("日本\u2060語", ["日", "本\u2060", "語"]),  # a word joiner too
+        ("\u200e\u200f", ["\u200e\u200f"]),  # nothing else: a unit of its own
+    ],
+)
+def test_what_libass_skips_is_no_unit_of_its_own(text: str, units: list[str]) -> None:
+    """Drawn as nothing, it is no letter: painted, it would be a colour step on nothing."""
+    assert segments(text)[0] == units
+
+
+# libass's is_harfbuzz_ignorable, read in ass_shaper.c (0.17.1, 0.17.4)
+LIBASS = (
+    (0x00AD, 0x00AD),
+    (0x034F, 0x034F),
+    (0x061C, 0x061C),
+    (0x17B4, 0x17B5),
+    (0x180B, 0x180E),
+    (0x200B, 0x200F),
+    (0x202A, 0x202E),
+    (0x2060, 0x206F),
+    (0xFE00, 0xFE0F),
+    (0xFEFF, 0xFEFF),
+    (0xFFF0, 0xFFF8),
+    (0x1D173, 0x1D17A),
+    (0xE0000, 0xE0FFF),
+)
+
+
+@pytest.mark.parametrize(("first", "last"), LIBASS)
+def test_what_libass_skips_is_its_list(first: int, last: int) -> None:
+    """Each of its ranges whole, the code points beside it not (U+180F, U+FFF9: drawn)."""
+    assert {chr(c) for c in range(first, last + 1)} <= SKIPPED
+    assert chr(first - 1) not in SKIPPED
+    assert chr(last + 1) not in SKIPPED
+
+
+def test_libass_skips_nothing_else() -> None:
+    """Its 13 ranges, 4165 code points: no other."""
+    assert len(SKIPPED) == sum(last - first + 1 for first, last in LIBASS)
+
+
 UCD = Path(os.environ.get("FFMAN_UCD", "/usr/share/texlive/texmf-dist/tex/generic/unicode-data"))
 
 
@@ -78,5 +147,11 @@ def test_the_table_is_unicodes() -> None:
     """breaks.py's table is what the generator makes of Unicode 15.1's LineBreak and PropList."""
     assert "LineBreak-15.1.0" in (UCD / "LineBreak.txt").read_text(encoding="utf-8")[:40]
     data = sets(UCD / "LineBreak.txt", UCD / "PropList.txt")
-    committed = {"NO_START": NO_START, "NO_END": NO_END, "SA": SA, "PREPOSED": PREPOSED}
+    committed = {
+        "NO_START": NO_START,
+        "NO_END": NO_END,
+        "SA": SA,
+        "PREPOSED": PREPOSED,
+        "ATTACHED": ATTACHED,
+    }
     assert {name: sorted(ord(c) for c in table) for name, table in committed.items()} == data

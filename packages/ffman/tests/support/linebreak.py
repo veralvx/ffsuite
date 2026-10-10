@@ -8,10 +8,11 @@ import sys
 import unicodedata
 from pathlib import Path
 
-# UAX #14: never before CL, CP, EX, IS (LB13), BA, HY, NS (LB21), IN (LB22), a postfix (PO:
-# LB25's, wherever it is); CJ as NS (strict). Never after OP (LB14), BB (LB21), a prefix (PR)
-NO_START_CLASSES = ("CL", "CP", "EX", "IS", "BA", "HY", "NS", "CJ", "IN", "PO")
-NO_END_CLASSES = ("OP", "BB", "PR")
+# UAX #14: never before WJ (LB11), GL (LB12a -- even after BA or HY, stricter; never asked after
+# a space), CL, CP, EX, IS (LB13), BA, HY, NS (LB21), IN (LB22), a postfix (PO: LB25's, wherever
+# it is); CJ as NS (strict). Never after WJ (LB11), GL (LB12), OP (LB14), BB (LB21), PR (a prefix)
+NO_START_CLASSES = ("WJ", "GL", "CL", "CP", "EX", "IS", "BA", "HY", "NS", "CJ", "IN", "PO")
+NO_END_CLASSES = ("WJ", "GL", "OP", "BB", "PR")
 
 
 def _property(path: Path) -> dict[int, str]:
@@ -28,7 +29,7 @@ def _property(path: Path) -> dict[int, str]:
 
 
 def sets(linebreak: Path, proplist: Path) -> dict[str, list[int]]:
-    """The table's four sets, as code points."""
+    """The table's five sets, as code points."""
     classes = _property(linebreak)
     quote = [c for c, v in classes.items() if v == "QU"]
     no_start = [c for c, v in classes.items() if v in NO_START_CLASSES]
@@ -37,7 +38,19 @@ def sets(linebreak: Path, proplist: Path) -> dict[str, list[int]]:
     no_end += [c for c in quote if unicodedata.category(chr(c)) == "Pi"]  # an opening quote
     complex_context = [c for c, v in classes.items() if v == "SA"]  # Thai, Lao, Khmer, Burmese...
     preposed = [c for c, v in _property(proplist).items() if v == "Logical_Order_Exception"]
-    found = {"NO_START": no_start, "NO_END": no_end, "SA": complex_context, "PREPOSED": preposed}
+    # LB9's X (CM | ZWJ)*, held by the character before: CM, ZWJ, and SA's marks (LB1: as CM)
+    attached = [
+        c
+        for c, v in classes.items()
+        if v in ("CM", "ZWJ") or (v == "SA" and unicodedata.category(chr(c)) in ("Mn", "Mc"))
+    ]
+    found = {
+        "NO_START": no_start,
+        "NO_END": no_end,
+        "SA": complex_context,
+        "PREPOSED": preposed,
+        "ATTACHED": attached,
+    }
     return {name: sorted(points) for name, points in found.items()}
 
 

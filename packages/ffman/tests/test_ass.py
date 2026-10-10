@@ -500,6 +500,30 @@ def test_a_font_in_motion_paints_every_letter() -> None:
     assert event.count("\\t(") >= 4
 
 
+def test_what_libass_skips_is_no_letter() -> None:
+    """LRM and RLM, drawn as nothing, take no hue of the rainbow: its 4 letters, as without them."""
+    t = Transcript(
+        "srt",
+        ".srt",
+        has_words=False,
+        chunks=(Chunk(500, 3000, "\u200eab c\u200fd", ""),),
+        words=(),
+        notes=(),
+    )
+    ((_, _, event),) = dialogues(script(t, 1920, 1080, Style(text=MOTIONS["rainbow"]))[0])
+    expected = [colour_at(MOTIONS["rainbow"], k, 4, 500).ass() for k in range(4)]
+    assert first_colours(event, "1c") == expected
+
+
+def test_a_word_joiner_glues_and_a_zero_width_space_parts() -> None:
+    """A word joiner glues ideographs a line would part (LB11); a zero-width space parts Latin
+    letters (LB8) -- each line within its width (57 a size, 22 ideographs a line)."""
+    joined = "日本語の文章は単語の間にスペースを入れないの\u2060で一行がとても長くなる"
+    assert lines_of(joined, "plain") == [joined[:21], joined[21:]]  # not after の: before it
+    spaced = "a" * 30 + "\u200b" + "b" * 30
+    assert lines_of(spaced, "plain") == ["a" * 30 + "\u200b", "b" * 30]
+
+
 def test_a_letter_s_hue_runs_on_from_event_to_event() -> None:
     """chunk-word redraws the line each word: a letter starts each event where it was."""
     words = (Word("0", 0, 700, "one"), Word("0", 700, 1400, "two"))

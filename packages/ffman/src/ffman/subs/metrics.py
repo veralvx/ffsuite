@@ -6,14 +6,14 @@ ass_font.c). No shaping: kerning and ligatures only narrow a line -- kerned widt
 0.961 to 1.0014 of the advances on the corpus's transcripts -- so their sum is a line's
 width well within its rule (the BBC's 68%, inside libass's 90%). Shaping would matter only
 for scripts the font lacks, which libass draws in fallback fonts ffman cannot know. What libass
-skips (``SKIPPED``) is no glyph at all.
+skips (``breaks.SKIPPED``) is no glyph at all.
 """
 
 from dataclasses import dataclass
 from fractions import Fraction
 from typing import Final
 
-from ffman.subs.breaks import is_mark, points
+from ffman.subs.breaks import SKIPPED, is_mark
 
 _UNICODE: Final = 0x10FFFF  # the last code point: no font maps past it
 # cmap subtables, preferred first: Unicode in full (format 12), then the BMP's (format 4)
@@ -21,24 +21,6 @@ _FULL: Final = ((3, 10), (0, 4), (0, 6))
 _BMP: Final = ((3, 1), (0, 3))
 
 UNKNOWN: Final = Fraction(1)  # a character the font lacks: a size (a fallback CJK glyph, ~0.77)
-# what libass skips, every font alike -- no glyph, no advance: its is_harfbuzz_ignorable
-# (ass_shaper.c, 0.17.1 and 0.17.4), HarfBuzz's default ignorables (is_default_ignorable, 8.3.0
-# and 13.2.1), which HarfBuzz zeroes when it shapes; LRM and RLM (&lrm;, &rlm;) among them
-SKIPPED: Final = points(
-    (0x00AD, 0x00AD),  # soft hyphen
-    (0x034F, 0x034F),  # combining grapheme joiner
-    (0x061C, 0x061C),  # Arabic letter mark
-    (0x17B4, 0x17B5),  # Khmer inherent vowels
-    (0x180B, 0x180E),  # Mongolian variation selectors, vowel separator
-    (0x200B, 0x200F),  # zero-width space, ZWNJ, ZWJ, LRM, RLM
-    (0x202A, 0x202E),  # bidirectional embeddings and overrides
-    (0x2060, 0x206F),  # word joiner, invisible operators, isolates, deprecated formats
-    (0xFE00, 0xFE0F),  # variation selectors
-    (0xFEFF, 0xFEFF),  # zero-width no-break space (BOM)
-    (0xFFF0, 0xFFF8),  # unassigned
-    (0x1D173, 0x1D17A),  # musical formatting
-    (0xE0000, 0xE0FFF),  # tags, variation selectors 17 to 256
-)
 
 
 def counts(c: str) -> bool:

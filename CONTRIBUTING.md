@@ -44,7 +44,9 @@ that ffman's behaviour is its contract.
 1. [Conventional Commits](https://www.conventionalcommits.org/) are enforced: by the
    `commit-msg` hook and by CI (`cog.toml`). A commit's subject is its changelog entry --
    git-cliff writes each package's `CHANGELOG.md` from the commits touching it, at its release
-   -- so write it for that package's users.
+   -- so write it for that package's users. It is Markdown there and in the GitHub release:
+   code in backticks -- Markdown decodes a bare `&lrm;`, and a release links a bare `#14` to an
+   issue.
 2. Run the checks. The `justfile` runs the workflows' commands:
 
 ```sh

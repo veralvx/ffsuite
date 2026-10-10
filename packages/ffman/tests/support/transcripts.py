@@ -54,4 +54,8 @@ HOSTILE: Final = {
     # 320 x 180, as wide as one holds (a word more, two), rendered as without them; measured
     # each a size, two
     "format-characters.vtt": "WEBVTT\n\n00:00.000 --> 00:00.300\n&lrm;she &lrm;said &lrm;the &lrm;name &lrm;was &lrm;written &lrm;right &lrm;to &lrm;left &lrm;in &lrm;her &lrm;own &lrm;hand &lrm;and&rlm;\n",
+    # a word joiner and zero-width spaces (6.8.1): UAX #14's, where libass draws neither -- the
+    # joined Japanese line breaks before の, not after it; the three words, a line's width and
+    # more, part at a zero-width space, not inside a word
+    "joiners.srt": "1\n00:00:00,000 --> 00:00:00,300\n日本語の文章は単語の間にスペースを入れないの\u2060で一行がとても長くなる\n\n2\n00:00:00,300 --> 00:00:00,400\nSupercalifragilisticexpialidocious\u200bantidisestablishmentarianism\u200bfloccinaucinihilipilification\n",
 }

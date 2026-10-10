@@ -2603,7 +2603,7 @@ Decided too (the owner's, 2026-10-09; each tool's writer its source: whisper.cpp
       unread, any format character is estimated at 0.55 em (`ass.py`).
       *Done: what libass skips -- its `is_harfbuzz_ignorable` (ass_shaper.c,
       0.17.1 and 0.17.4 alike: HarfBuzz's default ignorables, which HarfBuzz
-      8.3.0 and 13.2.1 zero when shaped), 13 ranges -- is `metrics.SKIPPED`:
+      8.3.0 and 13.2.1 zero when shaped), 13 ranges -- is `SKIPPED` (`metrics.py`; `breaks.py` since the next box):
       measured nothing, mapped or not; with a mark, what does not count
       (`metrics.counts`), in the measure, the estimate and a pop's peak
       alike. Measured first: each rendered +0 px between two Ms; U+0600,
@@ -2615,7 +2615,7 @@ Decided too (the owner's, 2026-10-09; each tool's writer its source: whisper.cpp
       three), the set built by `breaks.points`; "marks do not advance"
       corrected (a spacing one does: the box after next). What else they
       touch: the next box.*
-- [ ] Found by the box before: the characters libass skips are not yet whole
+- [x] Found by the box before: the characters libass skips are not yet whole
       in `subs/breaks.py` and `subs/paint.py`. UAX #14 keeps them where its
       rules put them -- no break before a CM (LRM, RLM: LB9), none beside a
       WJ (word joiner: LB11), one after a ZW (zero-width space: LB8) -- yet
@@ -2624,6 +2624,32 @@ Decided too (the owner's, 2026-10-09; each tool's writer its source: whisper.cpp
       `segments` makes each its own unit, so a painted word counts it a
       letter (a colour step on nothing). And U+180F, a Mongolian selector
       libass draws as tofu (+27 px), is measured nothing, as a mark.
+      *Done: UAX #14's rules, read in LineBreak 15.1 (the table's version):
+      what libass skips is LRM, RLM, bidirectional controls, tags and
+      selectors (CM), a word joiner and U+FEFF (WJ), a zero-width space
+      (ZW), CGJ and U+180E (GL), the soft hyphen (BA). `breaks.py` now holds
+      `SKIPPED` (from `metrics.py`) and the generated `ATTACHED` (LB9's CM
+      and ZWJ, SA's marks by LB1); WJ and GL join the classes never broken
+      before or after (LB11, LB12; GL even after a hyphen, stricter than
+      LB12a). `breakable` in UAX #14's order: never before a zero-width
+      space (LB7), always after one (LB8), never after a zero-width joiner
+      (LB8a), never before what LB9 holds, the character before it deciding
+      a break after it -- a CGJ, a mark but GL, its own. `segments`: what
+      libass skips joins the unit before it, or, opening a word, the one
+      after -- no letter of its own, so `paint.py` is unchanged. U+180F
+      kept: Noto Sans Mongolian's features turn it, after its letter, into
+      an empty glyph (`fvs4.valid`, `fvs4.ignored`), a box only where
+      invalid or in a font without Mongolian (Unifont here: its words 1.10
+      of their measure, 0.96 without). Proven: the tests, 11 break rows, 5
+      segmentations, a rainbow's letters and two wrapped lines failing on
+      the old code, and six mutations of the rules, each caught; the outcome
+      report, 430 identical, `burn/hostile/joiners.srt` changed -- the
+      joined line broken before の, not after it, the words at a zero-width
+      space, not inside one -- rendered, each line within its width.
+      Reviewed: LB8a, missed (a timed word ending on a joiner broke after
+      it), added with its test; a unit libass draws nothing of tracked as
+      `segments` goes, not rescanned; a subject's `#14` would link an issue
+      in a release's notes (`CONTRIBUTING.md` now says so).*
 - [ ] Found by the LRM box's review: a spacing mark (Mc: an Indic vowel
       sign) advances -- rendered at 60, Devanagari's AA +11 px, Tamil's +26
       -- yet counts nothing (`metrics.counts`). Measured, harmless: Plex
