@@ -9,7 +9,8 @@ nixpkgs' pin), Aegisub 3.4.2 (`src/subtitle_format_ass.cpp`, `ass_style.cpp`, `a
 `ass_parser.cpp`, `libaegisub/ass/time.cpp`; nixpkgs' pin), libass's "ASS File Format Guide"
 (wiki) and Aegisub's "ASS Override Tags" page. Measured by `../scripts/measure.py` with
 `../scripts/assdump.c` built against libass 0.17.4 (its output is the tables marked
-*measured*). ffmpeg's `ass` reader and writer are the next research box's.
+*measured*). ffmpeg's `ass` reader and writer: their section below, measured by
+`../scripts/measure_ffmpeg.py`.
 
 ## The file
 
@@ -82,15 +83,15 @@ warns and takes the file's last `Default` (else libass's own: Arial 18, white, o
 
 ## Events
 
-| Field                     | Value                                                                                                                                                   |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Layer` (SSA: `Marked=0`) | an integer; higher layers are drawn over lower; collisions are resolved within a layer                                                                  |
-| `Start`, `End`            | `h:mm:ss.cc` -- hundredths of a second. libass: `%d:%d:%d.%d`, the fraction read as an integer of centiseconds whatever its digits; Aegisub: positional |
-| `Style`                   | a style's name (above)                                                                                                                                  |
-| `Name` (`Actor`)          | free text, the speaker by convention; no effect                                                                                                         |
-| `MarginL/R/V`             | 0 means the style's                                                                                                                                     |
-| `Effect`                  | `Banner;delay[;lefttoright]`, `Scroll up;y1;y2;delay`, `Scroll down;y1;y2;delay`; anything else ignored                                                 |
-| `Text`                    | the text, with override blocks `{...}`; `\N` a forced break, `\n` a break only under WrapStyle 2 (a space otherwise), `\h` a non-breaking space         |
+| Field                     | Value                                                                                                                                                                                                                                   |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Layer` (SSA: `Marked=0`) | an integer; higher layers are drawn over lower; collisions are resolved within a layer                                                                                                                                                  |
+| `Start`, `End`            | `h:mm:ss.cc` -- hundredths of a second. libass: `%d:%d:%d.%d`, the fraction read as an integer of centiseconds whatever its digits; Aegisub: positional                                                                                 |
+| `Style`                   | a style's name (above)                                                                                                                                                                                                                  |
+| `Name` (`Actor`)          | free text, the speaker by convention; no effect                                                                                                                                                                                         |
+| `MarginL/R/V`             | 0 means the style's                                                                                                                                                                                                                     |
+| `Effect`                  | `Banner;delay[;lefttoright]`, `Scroll up;y1;y2;delay`, `Scroll down;y1;y2;delay`; anything else ignored                                                                                                                                 |
+| `Text`                    | the text, with override blocks `{...}`; `\N` a forced break, `\n` a break only under WrapStyle 2 (a space otherwise), `\h` a non-breaking space; `\{` and `\}` a literal brace (`ass_get_next_char`), a `\` before anything else itself |
 
 *Measured* (libass 0.17.4; times in ms):
 
@@ -147,6 +148,48 @@ fade fad org t clip c 1c 2c 3c 4c 1a 2a 3a 4a r be b i kt kf K ko k shad s u pbo
 | Karaoke (word timing) | `\k<d>` (fill at once), `\kf<d>` = `\K<d>` (sweep), `\ko<d>` (border too): each the duration of the syllable after it, centiseconds -- libass reads decimals, so to the millisecond; no argument 100. `\kt<t>` (v4++, libass 0.17+) the next syllable's start, centiseconds from the event's start |
 | Reset                 | `\r` to the event's style, `\r<style>` to another                                                                                                                                                                                                                                                  |
 
+## ffmpeg's reading and writing
+
+FFmpeg n8.1.2's `ass` demuxer and muxer (`libavformat/assdec.c`, `assenc.c`) and its `ass`
+decoder and encoder (`libavcodec/assdec.c`, `assenc.c`): a script's events pass as they are;
+everything else is the header, written back verbatim.
+
+| Rule                                                                                                                                                                                                                                                                                     | Source                         |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| Detection: `[Script Info]` after any blank lines                                                                                                                                                                                                                                         | `ass_probe`                    |
+| An event: a line `Dialogue: <layer>,%d:%d:%d<any>%d,%d:%d:%d<any>%d,` -- the fraction an integer of **centiseconds**, any width; the packet `ReadOrder,Layer,` and the rest of the line. Every other line -- `Comment:`, a `Dialogue:` it cannot read, every section -- joins the header | `read_dialogue`                |
+| Times in centiseconds (time base 1/100); sorted by start, a negative duration becomes the gap to the next start; duplicates kept                                                                                                                                                         | `ff_subtitles_queue_finalize`  |
+| The decoder and encoder pass each event's text through untouched: the header is the decoder's script, the encoder's too                                                                                                                                                                  | `ass_decode_frame`             |
+| The muxer: the header up to the `[Events]` `Format:` line, then the events in their ReadOrder (the file's order), then the rest of the header; times `h:mm:ss.cc`, **9:59:59.99 at most**; SSA (no `[V4+ Styles]` line) gets `Marked=`                                                   | `write_packet`, `write_header` |
+
+*Measured* -- read, then written back by a stream copy and by a transcoding (alike unless said):
+
+| Script                                                        | ffmpeg's reading and writing                                                                                        |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `0:00:01.00` to `0:00:02.00`, `Hello\Nworld`                  | 100, 100 cs; written back as read                                                                                   |
+| `0:00:01.5`; `0:00:01.500`                                    | 1.05 s; 6 s: centiseconds whatever the digits, as libass                                                            |
+| a last event ending before it starts (`0:00:06.00` -> `2.00`) | copied as read; transcoded, its end `9:59:59.99`                                                                    |
+| `10:00:00.00`                                                 | read; written `9:59:59.99` to `9:59:59.99`: no length, never shown (libass draws an event while start <= now < end) |
+| layers 0 and 5; commas in the text                            | kept                                                                                                                |
+| events out of order; overlapping; two identical               | written in the file's order; kept; both kept                                                                        |
+| an event ending before it starts, another after               | its end the next one's start (`3.00 -> 5.00`)                                                                       |
+| zero duration; empty text                                     | kept                                                                                                                |
+| a `Comment:` between events                                   | moved after every `Dialogue:` (the header's rest)                                                                   |
+| `[Fonts]` after the events                                    | kept, at the end                                                                                                    |
+| `Dialogue: 0,0:00:01.00,0:00:02.00` (no more fields)          | no event: moved to the end, as header text                                                                          |
+| `[Events]` without its `Format:` line                         | read; written without one                                                                                           |
+| CRLF; a UTF-8 BOM; blank lines first                          | read alike; written LF                                                                                              |
+| SSA v4 (`[V4 Styles]`, `Marked=0`)                            | read (`Marked=0` layer 0); written back as SSA, `Marked=0`                                                          |
+| `v4.00++` (`[V4++ Styles]`)                                   | read; written with `Marked=0` under a `Layer` Format line: taken for SSA                                            |
+
+The header -- `[Script Info]`, the styles -- is written back as it was read, ffmpeg's comment
+not added. From SubRip, WebVTT or LRC, ffmpeg's default script instead (their records):
+`PlayResX: 384`, `PlayResY: 288`, one `Default` style.
+
+*Measured* -- libass through ffmpeg's `ass` filter (the frame's digest; that ffmpeg's libass
+0.17.1, whose `ass_get_next_char` 0.17.4 keeps): `a{x}b` draws as `ab` (`{x}` an override
+block); `a\{x\}b` draws otherwise -- its braces and `x` shown.
+
 ## Aegisub's writing (3.4.2)
 
 | What         | How                                                                                                                                                                                                                                                           |
@@ -161,12 +204,12 @@ fade fad org t clip c 1c 2c 3c 4c 1a 2a 3a 4a r be b i kt kf K ko k shad s u pbo
 
 ## What ASS holds
 
-| Property    | ASS (SSA)                                                                                                                                         |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Times       | start and end, centiseconds; libass reads more digits as centiseconds too, so ms precision cannot be written                                      |
-| Text        | one line per event, `\N` for breaks; no escape for `{` `}` or `\` (a `{` starts a block wherever it is)                                           |
-| Styling     | named styles (font, size, four colours with alpha, bold, italic, underline, strike, scale, spacing, angle, border, shadow) and per-span overrides |
-| Position    | alignment, margins, `\pos`, `\move`, `\org`, `\clip`, layers; PlayRes as the coordinate space                                                     |
-| Word timing | `\k` family: syllable durations in centiseconds, from the event's start, consecutive; `\kt` for gaps                                              |
-| Speakers    | `Name` (`Actor`), free text                                                                                                                       |
-| Other       | `Comment:` events, `Effect`, embedded fonts and graphics, the script's header keys                                                                |
+| Property    | ASS (SSA)                                                                                                                                           |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Times       | start and end, centiseconds; libass reads more digits as centiseconds too, so ms precision cannot be written                                        |
+| Text        | one line per event, `\N` for breaks; `\{` and `\}` for literal braces (libass; a bare `{` starts a block); no escape for `\` before `N`, `n` or `h` |
+| Styling     | named styles (font, size, four colours with alpha, bold, italic, underline, strike, scale, spacing, angle, border, shadow) and per-span overrides   |
+| Position    | alignment, margins, `\pos`, `\move`, `\org`, `\clip`, layers; PlayRes as the coordinate space                                                       |
+| Word timing | `\k` family: syllable durations in centiseconds, from the event's start, consecutive; `\kt` for gaps                                                |
+| Speakers    | `Name` (`Actor`), free text                                                                                                                         |
+| Other       | `Comment:` events, `Effect`, embedded fonts and graphics, the script's header keys                                                                  |

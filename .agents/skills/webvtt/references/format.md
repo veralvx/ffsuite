@@ -6,8 +6,9 @@ source: the editor's draft, `w3c/webvtt` `index.bs` at commit `0648025` of the s
 `../scripts/measure.py` in Chromium 141.0.7390.37 (Playwright's): its `<track>` parser
 implements the specification's algorithm, its `VTTCue` the data model -- but not regions,
 `lineAlign` or `positionAlign` (absent from its `VTTCue`), so those rows are the
-specification's alone. ffmpeg's `webvtt` reader and writer are the next research box's; the
-writers in use (whisper.cpp, OpenAI whisper, WhisperX) the `whisper-transcripts` skill's.
+specification's alone. ffmpeg's `webvtt` reader and writer: their section below, measured by
+`../scripts/measure_ffmpeg.py`; the writers in use (whisper.cpp, OpenAI whisper, WhisperX) the
+`whisper-transcripts` skill's.
 
 ## The file
 
@@ -112,6 +113,79 @@ Each `name:value`, separated by spaces or tabs, each at most once (the parser ta
 | tabs, runs of spaces, trailing spaces      | kept                                             |
 
 A text holding `<` or `&` must write them `&lt;` and `&amp;`; `-->` cannot be held at all.
+
+## ffmpeg's reading and writing
+
+FFmpeg n8.1.2's `webvtt` demuxer and muxer (`libavformat/webvttdec.c`, `webvttenc.c`) and its
+`webvtt` decoder and encoder (`libavcodec/webvttdec.c`, `webvttenc.c`, `ass_split.c`): not the
+specification's parser. Every use but a stream copy decodes a cue into ASS and encodes it back.
+
+| Rule                                                                                                                                                                                                                                                                                                           | Source                        |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| Blocks are read between blank lines; one starting `WEBVTT`, `STYLE`, `REGION` or `NOTE` is skipped (its text unread) -- a cue whose identifier starts so, too                                                                                                                                                  | `webvtt_read_header`          |
+| A cue: an identifier line when the first line holds no `-->`; the timing line, `%u:%u:%u.%u` or `%u:%u.%u` -- the fraction an integer of **milliseconds**, any width; the rest of the line the settings, unread                                                                                                | `read_ts`                     |
+| A timing line it cannot read **ends the reading**: that cue and every later one lost                                                                                                                                                                                                                           | `webvtt_read_header`          |
+| The identifier and the settings ride the packet as side data: a stream copy writes them back, a decoding drops them                                                                                                                                                                                            | `SET_SIDE_DATA`               |
+| After reading: sorted by start; a negative duration becomes the gap to the next start; duplicates dropped but one (as SubRip's)                                                                                                                                                                                | `ff_subtitles_queue_finalize` |
+| The decoder: `<b>`, `<i>`, `<u>` -- any tag whose name **starts** with `b`, `i` or `u` -- become `\b`, `\i`, `\u`; every other tag is dropped, its text kept; six references decoded (`&amp; &lt; &gt; &lrm; &rlm;`, `&nbsp;` as `\h`), others kept as written; `{` and `\` escaped for ASS; a line break `\N` | `webvtt_event_to_ass`         |
+| The encoder: `\b`, `\i`, `\u` (a style's too) as `<b>`, `<i>`, `<u>`; every other override dropped; the text written as it is -- no `&` or `<` escaped                                                                                                                                                         | `webvtt_encode_frame`         |
+| The muxer: `WEBVTT`, then each cue after a blank line: its identifier, `[hh:]mm:ss.ttt --> ...` (hours only when non-zero), its settings, its text. LF, no BOM                                                                                                                                                 | `webvtt_write_packet`         |
+
+*Measured* -- the demuxer (start and duration in ms, the text):
+
+| File                                                    | ffmpeg's reading                                                                  |
+| ------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `00:01.000 --> 00:02.500`, `Hello`, `world`             | 1000, 1500, `Hello\nworld`                                                        |
+| `01:00:01.000`; `75:00.000` (no hours)                  | 3601000; 4500000: minutes past 59 taken                                           |
+| `00:01.5 --> 00:02.25`                                  | 1005, 1020: the digits are milliseconds                                           |
+| `00:01.5000 --> 00:02.0000`                             | 6000, -4000                                                                       |
+| a cue timed `00:01,000` (comma) mid-file                | the cues before it read; it and every later one lost                              |
+| an identifier line holding `-->` (`a --> b`)            | the reading ends there: no cue                                                    |
+| a cue whose identifier is `NOTE`                        | skipped whole, the next one read (Chromium reads it, named `NOTE`)                |
+| `intro-1`; settings `align:start line:0 position:10%`   | dropped by decoding; a stream copy writes both back                               |
+| `NOTE`, `STYLE`, `REGION` blocks; a `NOTE` between cues | skipped                                                                           |
+| `WEBVTT - a title`, `Kind: captions`                    | read; the header's text not kept (a stream copy writes `WEBVTT` alone)            |
+| no blank line after `WEBVTT`                            | no cue: the block taken for the header (Chromium reads the cue)                   |
+| a UTF-8 BOM; CRLF                                       | read; a CRLF's CR kept in the text, dropped by the decoder                        |
+| no blank line between two cues                          | one cue: the second's timing line and text its text (Chromium ends the cue there) |
+| a timing line, no text                                  | a cue of empty text, which the decoder drops                                      |
+| `00:01.000 --> 00:01.000`                               | 1000, 0: kept                                                                     |
+| end before start (`00:03 --> 00:01`)                    | 3000, 2000: the gap to the next start (Chromium keeps 3 -> 1)                     |
+| cues out of order; overlapping; two identical           | sorted; overlaps kept; one                                                        |
+
+*Measured* -- the decoder, a cue's text into an ASS event's:
+
+| Cue text                                                     | ASS                                                                  |
+| ------------------------------------------------------------ | -------------------------------------------------------------------- |
+| `<b>b</b> <i>i</i> <u>u</u>`; `<b.loud>b</b>`                | `{\b1}b{\b0} {\i1}i{\i0} {\u1}u{\u0}`; `{\b1}b{\b0}`                 |
+| `<bogus>x</bogus> <image>y</image> <underline>z</underline>` | `{\b1}x{\b0} {\i1}y{\i0} {\u1}z{\u0}`: by first letter               |
+| `<c.yellow>c</c> <v Bob>v</v> <lang en>l</lang>`             | `c v l`: classes, voices (speakers), languages lost                  |
+| `<ruby>kanji<rt>reading</rt></ruby>`                         | `kanjireading`                                                       |
+| `one <00:00:01.500>two <00:00:01.800>three`                  | `one two three`: the word times lost                                 |
+| `&amp; &lt; &gt; &lrm;&rlm; &nbsp;`                          | `& < >`, U+200E U+200F, `\h`                                         |
+| `&copy; &#38; &#x26; &bogus;`                                | kept as written                                                      |
+| `a < b and c > d`                                            | `a  d`: `< b and c >` read as a tag                                  |
+| `before <b ends` (no `>`)                                    | `before `: the rest lost                                             |
+| `{\an8}not an override {x}`; `one\Ntwo`                      | `\{{}\` + U+2060 `an8}...`; `one\` + U+2060 `Ntwo`: shown as written |
+| two lines; leading and trailing spaces                       | `one\Ntwo`; kept                                                     |
+
+The decoder's script: ffmpeg's default -- `PlayResX: 384`, `PlayResY: 288`, one `Default`
+style (Arial 16, white, bottom centre, margins 10), as SubRip's.
+
+*Measured* -- the encoder and muxer, an ASS event into WebVTT:
+
+| ASS                                                         | WebVTT                                                              |
+| ----------------------------------------------------------- | ------------------------------------------------------------------- |
+| `{\b1}b{\b0} {\i1}i{\i0} {\u1}u{\u0} {\s1}s{\s0}`           | `<b>b</b> <i>i</i> <u>u</u> s`: strike-through dropped              |
+| `{\b1}bold to the end`                                      | `<b>bold to the end</b>`: closed                                    |
+| colour, font, size; `\an8`, `\pos`, `\move`; `\k`           | dropped, the text kept: no class, setting or timestamp written      |
+| `hard\Nbreak soft\nbreak hard\hspace`                       | line breaks for `\N` and `\n`; `\h` written as text                 |
+| `a <b> c & d < e`                                           | as is: invalid WebVTT -- read back by the decoder, `a {\b1} c & d ` |
+| `{\b1}bold{\r}plain`                                        | `<b>bold</b>plain`                                                  |
+| an empty event                                              | a cue of empty text                                                 |
+| a style bold, italic, underline, strike, red, Serif 24, top | `<b><i><u>styled</u></i></b>`: the rest dropped                     |
+| `0:00:01.23`; `1:00:00.00`; `100:00:00.00`                  | `00:01.230`; `01:00:00.000`; `100:00:00.000`                        |
+| overlapping events                                          | overlapping cues                                                    |
 
 ## What WebVTT holds
 

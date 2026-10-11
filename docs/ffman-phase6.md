@@ -2860,11 +2860,36 @@ Decided too (the owner's, 2026-10-09; each tool's writer its source: whisper.cpp
       after blank lines. The outcome report, 3.13 and 3.14 alike: 442
       identical; `burn/hostile/late-header.csv` changed -- burned, "no timed
       text found" before.*
-- [ ] What ffmpeg converts between them (its `subrip`, `webvtt`, `ass`, `lrc`
+- [x] What ffmpeg converts between them (its `subrip`, `webvtt`, `ass`, `lrc`
       demuxers, muxers, decoders, encoders), measured both ways -- text,
       markup, positions, overlaps, empty cues, word timing -- against what
       ffman's readers already do; JSON, CSV, TSV, plain text: none in ffmpeg,
       so ffman's.
+      *Done, three records (the owner's layout, 2026-10-11): ffmpeg n8.1.2's
+      `webvtt` and `ass` reading and writing in the `webvtt` and `ass` records
+      (`scripts/measure_ffmpeg.py` each), and every direction among SubRip,
+      WebVTT, ASS and LRC, against subverter's readings, in a new
+      `subtitle-mappings` directory (`references/ffmpeg.md`,
+      `scripts/ffmpeg.py`; the mappings box's record joins it). Every
+      conversion decodes to ASS events and encodes again, a format into itself
+      too: SubRip trims spaces and makes coordinates `{\an5}`, WebVTT drops
+      identifiers and settings. ffmpeg's WebVTT reader is not the
+      specification's: a timing line it cannot read (a comma) ends the
+      reading, a missing blank line merges two cues, any tag led by `b`, `i`
+      or `u` is bold, italic or underline, six references decoded; its writer
+      escapes nothing. ASS: centiseconds whatever the digits, `Comment:` lines
+      moved after the events, 10 h written as 9:59:59.99, `v4.00++` taken for
+      SSA. Into ASS a start and a duration round apart (an end can pass the
+      next start); into LRC, SubRip's markup as text and no ends. Lost by
+      ffmpeg: WebVTT's settings, classes, speakers and timestamps; ASS's
+      positions, colours and karaoke; SubRip's strike-through and colours into
+      WebVTT. ffman's readers: milliseconds and text exact, WhisperX's
+      highlights as words, every chunk plain text, no ASS. Found too, the ASS
+      record corrected: libass reads `\{` and `\}` as braces (0.17.1 and
+      0.17.4's `ass_get_next_char`; a frame drawn), not "no escape". Reviewed:
+      measured too -- a cue whose identifier starts `NOTE` is skipped whole, a
+      CRLF decoded as one break, the WebVTT writer's `a <b> c & d < e` read
+      back `a {\b1} c & d `; an ASS event at 10 h has no length, never shown.*
 - [ ] Words and chunks: how each holds word times (`-ojf`'s tokens, WhisperX's
       `words`, WebVTT's inline `<hh:mm:ss.ttt>`, ASS's `\k`); a chunk's words
       from none (impossible: noted), chunks from words (by segment); what a
