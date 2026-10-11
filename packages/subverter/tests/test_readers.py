@@ -279,6 +279,125 @@ def test_a_language_without_spaces_makes_every_token_a_word() -> None:
     )
 
 
+# whisper-cli writes each token's bytes (whisper_token_to_str) and escapes only `"` and `\`: a
+# character its vocabulary lacks spans tokens, so the file is not UTF-8; a control character raw
+
+
+def _with_bytes(value: object, texts: list[bytes]) -> bytes:
+    """``value`` as JSON, each ``"@N@"`` string written as ``texts[N]``'s bytes: whisper-cli's way."""
+    data = json.dumps(value).encode()
+    for k, text in enumerate(texts):
+        data = data.replace(f'"@{k}@"'.encode(), b'"' + text + b'"')
+    return data
+
+
+def _sentence(start: int, end: int, text: str, *tokens: dict[str, object]) -> dict[str, object]:
+    return {"offsets": {"from": start, "to": end}, "text": text, "tokens": list(tokens)}
+
+
+# " café", its é split over two tokens: C3, then A9
+_SPLIT: Final = _with_bytes(
+    {
+        "transcription": [
+            _sentence(0, 1000, "@0@", _token("@1@", 0, 500, 10), _token("@2@", 500, 1000, 60))
+        ]
+    },
+    [" café".encode(), b" caf\xc3", b"\xa9"],
+)
+
+
+@pytest.mark.parametrize("bom", [b"", b"\xef\xbb\xbf"], ids=["", "a BOM"])
+def test_a_character_split_across_tokens_is_joined_into_its_word(bom: bytes) -> None:
+    reading = subverter.read("json", bom + _SPLIT, "a.json")
+    assert reading.cues == (Cue(0, 1000, " café", "0"),)
+    assert reading.words == (Timing("0", 100, 1000, " café"),)
+
+
+def test_without_spaces_a_split_character_is_one_word_over_its_tokens() -> None:
+    # 鬱 (E9 AC B1), not one of whisper's tokens: two of them -- one word, from the first's start
+    tokens = (_token("@1@", 0, 300), _token("@2@", 300, 600), _token("は", 600, 900))
+    sentence = _sentence(0, 900, "@0@", *tokens)
+    data = _with_bytes(
+        {"result": {"language": "ja"}, "transcription": [sentence]},
+        ["鬱は".encode(), b"\xe9\xac", b"\xb1"],
+    )
+    assert subverter.read("json", data, "a.json").words == (
+        Timing("0", 0, 600, "鬱"),
+        Timing("0", 600, 900, "は"),
+    )
+
+
+def test_a_character_over_three_tokens_is_one() -> None:
+    # 😀 (F0 9F 98 80) over " F0 9F", "98", "80": one word, the three tokens' span
+    tokens = (_token("@0@", 0, 100), _token("@1@", 100, 200), _token("@2@", 200, 300))
+    sentence = _sentence(0, 300, " 😀", *tokens)
+    data = _with_bytes({"transcription": [sentence]}, [b" \xf0\x9f", b"\x98", b"\x80"])
+    assert subverter.read("json", data, "a.json").words == (Timing("0", 0, 300, " 😀"),)
+
+
+def test_a_character_split_across_sentences_is_the_one_where_it_starts() -> None:
+    # -ml N splits a sentence between tokens: é's C3 ends one, its A9 starts the next
+    first = _sentence(0, 500, "@0@", _token("@0@", 0, 500))
+    second = _sentence(500, 1000, "@1@", _token("@2@", 500, 600), _token(" ok", 600, 1000))
+    data = _with_bytes({"transcription": [first, second]}, [b" caf\xc3", b"\xa9 ok", b"\xa9"])
+    reading = subverter.read("json", data, "a.json")
+    assert reading.cues == (Cue(0, 500, " café", "0"), Cue(500, 1000, " ok", "1"))
+    assert reading.words == (Timing("0", 0, 500, " café"), Timing("1", 600, 1000, " ok"))
+
+
+@pytest.mark.parametrize(
+    ("data", "where"),
+    [
+        (_with_bytes({"transcription": [{"text": "@0@"}]}, [b"caf\xe9"]), ".transcription[0].text"),
+        (
+            _with_bytes(
+                {"transcription": [_sentence(0, 500, " ok", _token("@0@", 0, 500))]}, [b" \xc3"]
+            ),
+            ".transcription[0].tokens[0].text",
+        ),
+        (
+            _with_bytes({"transcription": [{"text": "@0@"}, {"text": "@1@"}]}, [b"\xc3", b"x"]),
+            ".transcription[0].text",
+        ),
+        (
+            _with_bytes(
+                {"transcription": [{"text": "@0@"}, {"text": "@1@"}]}, [b"\xc3", b"\xa9\xff"]
+            ),
+            ".transcription[1].text",
+        ),
+        (_with_bytes({"segments": [{"text": "@0@"}]}, [b"\xff"]), ".segments[0].text"),
+        (
+            b'{"segments": [{"text": "a", "words": [{"word": "\\ud800"}]}]}',
+            ".segments[0].words[0].word",
+        ),
+    ],
+    ids=[
+        "a Latin-1 byte",
+        "a character never completed",
+        "a character broken by the next text",
+        "a byte past a character joined",
+        "WhisperX",
+        "a lone surrogate",
+    ],
+)
+def test_text_not_utf8_once_joined_is_refused_where_it_is(data: bytes, where: str) -> None:
+    with pytest.raises(subverter.Error, match=f"^{re.escape(f'not UTF-8: a.json ({where})')}$"):
+        _ = subverter.read("json", data, "a.json")
+
+
+def test_in_a_file_not_utf8_an_escaped_byte_surrogate_is_its_byte() -> None:
+    # surrogateescape's: the raw byte B1 and the escape \udcb1 are one string once read
+    data = b'{"segments": [{"text": "\xe9\xac"}, {"text": "\\udcb1"}]}'
+    assert [c.text for c in subverter.read("json", data, "a.json").cues] == ["鬱", ""]
+
+
+def test_a_raw_control_character_reads_as_its_escaped_form() -> None:
+    escaped = _cli([{"offsets": {"from": 0, "to": 1500}, "text": " a\tb\nc"}])
+    raw = escaped.replace(b"\\t", b"\t").replace(b"\\n", b"\n")
+    assert raw != escaped
+    assert subverter.read("json", raw, "a.json") == subverter.read("json", escaped, "a.json")
+
+
 # --- WhisperX: segments in seconds, their words their own; a value of the wrong kind is none
 
 

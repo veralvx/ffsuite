@@ -2782,7 +2782,7 @@ Decided too (the owner's, 2026-10-09; each tool's writer its source: whisper.cpp
       temporary path; invisible BOMs in four scripts written as `\ufeff`;
       measured too -- a style name's trailing space is its own, a Latin-1 byte
       passes ffmpeg unchanged, the muxer warns on the cue it drops.*
-- [ ] Found by the formats' box: whisper-cli's `-ojf` writes each token's bytes
+- [x] Found by the formats' box: whisper-cli's `-ojf` writes each token's bytes
       raw (`whisper_token_to_str`), and whisper's vocabulary splits what it
       lacks into byte tokens (`multilingual.tiktoken`: 1,476 of 50,257 not UTF-8
       alone; `鬱` and `😀` no token), so a transcript holding such a character is
@@ -2790,6 +2790,25 @@ Decided too (the owner's, 2026-10-09; each tool's writer its source: whisper.cpp
       writer's output). Its JSON escapes `"` and `\` alone: a control character
       in a text is refused too. To read: tokens as bytes, a character joined
       across them; a control character as text or refused, decided.
+      *Done: a file not UTF-8 is read as bytes, each character joined across
+      the texts it spans -- tokens, and with `-ml` sentences -- and given to the
+      one it starts in; a token that only continues one extends that word, or
+      is dropped at a sentence's start. A control character is text, as its
+      escape reads. What is still no UTF-8 is refused where it is, `not UTF-8:
+      NAME (.transcription[0].tokens[3].text)` -- the text holding the byte, or
+      the one an unfinished character starts in, by its jq path. Proved failing
+      first: 13 subverter tests, ffman's `test_ingest`; `hostile/bytes.json` (鬱
+      over two tokens, 心 over two sentences, a raw tab). The outcome report,
+      3.13 and 3.14 alike: 437 identical; `burn/hostile/bytes.json` changed --
+      burned, refused before.*
+- [ ] Found by the box before: a SubRip, WebVTT, LRC, CSV or TSV file not UTF-8
+      -- a Latin-1 byte; whisper-cli's `-ml` cues, split between tokens
+      (`whisper_wrap_segment`), so maybe inside a character -- is read with each
+      undecodable byte a surrogate, "as the shell kept them", and ffman stops on
+      a traceback writing the burn's ASS or `--add-subs`' SRT
+      (`UnicodeEncodeError`, measured: `--burn-subs` and `--add-subs` of
+      `caf\xe9` in each). To decide: refused by name, or read (joined across
+      cues, as whisper JSON's; another encoding).
 - [ ] What ffmpeg converts between them (its `subrip`, `webvtt`, `ass`, `lrc`
       demuxers, muxers, decoders, encoders), measured both ways -- text,
       markup, positions, overlaps, empty cues, word timing -- against what

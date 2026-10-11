@@ -1,10 +1,16 @@
 """Transcripts that break the rules on purpose: each one aimed at a reader's or a normaliser's edge.
 
-Stage A proved them equal to bash's (its bash comparison); tests/test_ingest.py
-checks what must hold of any transcript, on each.
+Stage A proved its first ones equal to bash's (its bash comparison); a later one names its
+box. tests/test_ingest.py checks what must hold of any transcript, on each.
 """
 
 from typing import Final
+
+
+def encoded(text: str | bytes) -> bytes:
+    """A transcript's bytes: a ``str`` as UTF-8, ``bytes`` as they are."""
+    return text if isinstance(text, bytes) else text.encode()
+
 
 HOSTILE: Final = {
     # a line too long for one line, in scripts without spaces: Japanese by kinsoku, Thai by
@@ -64,4 +70,19 @@ HOSTILE: Final = {
     # joined Japanese line breaks before の, not after it; the three words, a line's width and
     # more, part at a zero-width space, not inside a word
     "joiners.srt": "1\n00:00:00,000 --> 00:00:00,300\n日本語の文章は単語の間にスペースを入れないの\u2060で一行がとても長くなる\n\n2\n00:00:00,300 --> 00:00:00,400\nSupercalifragilisticexpialidocious\u200bantidisestablishmentarianism\u200bfloccinaucinihilipilification\n",
+    # whisper-cli -ojf's bytes (6.8.1): each token's as whisper wrote them -- 鬱 over two
+    # tokens, 心 over two sentences (-ml), a tab raw -- each character in the token and the
+    # sentence it starts; before, refused whole: "not valid JSON"
+    "bytes.json": (
+        b'{"result": {"language": "ja"}, "transcription": ['
+        b'{"offsets": {"from": 0, "to": 1000}, "text": "\xe9\xac\xb1\xe3\x81\xaf", "tokens": ['
+        b'{"text": "\xe9\xac", "offsets": {"from": 0, "to": 300}, "t_dtw": 5}, '
+        b'{"text": "\xb1", "offsets": {"from": 300, "to": 600}, "t_dtw": 30}, '
+        b'{"text": "\xe3\x81\xaf", "offsets": {"from": 600, "to": 900}, "t_dtw": 60}]}, '
+        b'{"offsets": {"from": 1000, "to": 2000}, "text": "\xe5\xbf", "tokens": ['
+        b'{"text": "\xe5\xbf", "offsets": {"from": 1000, "to": 1900}, "t_dtw": 105}]}, '
+        b'{"offsets": {"from": 2000, "to": 3000}, "text": "\x83\t\xe3\x81\x84", "tokens": ['
+        b'{"text": "\x83", "offsets": {"from": 2000, "to": 2100}, "t_dtw": 205}, '
+        b'{"text": "\t\xe3\x81\x84", "offsets": {"from": 2100, "to": 2900}, "t_dtw": 215}]}]}'
+    ),
 }

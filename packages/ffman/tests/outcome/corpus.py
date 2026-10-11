@@ -15,7 +15,7 @@ from importlib import resources
 from pathlib import Path
 from typing import Final
 
-from tests.support.transcripts import HOSTILE
+from tests.support.transcripts import HOSTILE, encoded
 
 EVERYTHING: Final = "all.mkv"  # every kind of stream (6.6.5, proven): built last, by hand
 FIXTURES: Final = Path(__file__).resolve().parent.parent / "fixtures" / "transcripts"
@@ -144,7 +144,7 @@ def build(corpus: Path, ffmpeg: str) -> None:
         _ = shutil.copy(transcript, corpus / transcript.name)
     (corpus / "hostile").mkdir()
     for name, text in HOSTILE.items():
-        _ = (corpus / "hostile" / name).write_text(text)
+        _ = (corpus / "hostile" / name).write_bytes(encoded(text))
     _ = shutil.copy(corpus / "v.mp4", corpus / "noext")
     _ = (corpus / "t.ass").write_text(_ASS)
     _ = (corpus / "badtoken.json").write_text(_UNREADABLE_OJF)

@@ -13,7 +13,7 @@ with its reason -- for what cannot be read.
 | WebVTT  | cues, as SubRip's; `has_references`: its texts hold HTML character references, each run between tags `decoded` |
 | LRC     | a line's time, its text                                                                                        |
 | CSV/TSV | start, end, text (milliseconds), columns by header, as whisper-cli and WhisperX write them                     |
-| JSON    | whisper-cli's and WhisperX's: chunks and word timings                                                          |
+| JSON    | whisper-cli's and WhisperX's: chunks and word timings; whisper-cli's token bytes joined into characters        |
 
 ## Installing
 

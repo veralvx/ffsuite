@@ -12,12 +12,12 @@ from ffman.errors import REFUSALS
 from ffman.subs.ass import Style, script
 from ffman.subs.srt import srt
 from tests.support.ingesting import ingested
-from tests.support.transcripts import HOSTILE
+from tests.support.transcripts import HOSTILE, encoded
 
 
-def put(tmp_path: Path, name: str, text: str) -> str:
+def put(tmp_path: Path, name: str, text: str | bytes) -> str:
     path = tmp_path / name
-    _ = path.write_bytes(text.encode())
+    _ = path.write_bytes(encoded(text))
     return str(path)
 
 
@@ -103,6 +103,17 @@ def test_whisper_cli_words(tmp_path: Path) -> None:
         )
     )
     assert (plain.source, plain.chunks) == ("whisper-cli JSON", (Chunk(5, 900, "7", "0"),))
+
+
+def test_whisper_cli_token_bytes_are_joined_into_characters(tmp_path: Path) -> None:
+    t = ingested(put(tmp_path, "bytes.json", HOSTILE["bytes.json"]))
+    assert t.chunks == (Chunk(0, 1000, "鬱は", "0"), Chunk(1000, 2000, "心", "1"), Chunk(2000, 3000, "い", "2"))  # fmt: skip
+    assert t.words == (
+        Word("0", 50, 600, "鬱"),
+        Word("0", 600, 1000, "は"),
+        Word("1", 1050, 2000, "心"),
+        Word("2", 2150, 3000, "い"),
+    )  # each in the token and the sentence it starts; the tab trimmed as any space
 
 
 def test_whisperx_ties_and_gaps(tmp_path: Path) -> None:
