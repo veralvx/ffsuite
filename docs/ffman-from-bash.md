@@ -130,6 +130,14 @@ which git-cliff writes at each release from the commits (`packages/ffman/CHANGEL
   time; JSON nested past 1000 levels is refused as such; a CSV or
   TSV field past `csv`'s 128 KiB is refused, naming the limit (no subtitle's
   text is that long; bash's gawk read it). Each was a Python traceback.
+- **A transcript's texts are UTF-8.** whisper-cli writes its tokens' bytes, and
+  `-ml` splits a segment between tokens, so a character can span two cues: it is
+  joined into the cue it starts in (in whisper JSON, the token too). bash kept
+  the bytes: libass reads a byte not UTF-8 as its Latin-1 character, so such a
+  character burned as wrong ones, a byte each, and a Latin-1 file as Latin-1; ffmpeg
+  dropped such a cue from `--add-subs`' track. What else is not UTF-8 is
+  refused by its line (a JSON's by its path); the port had stopped on a
+  traceback (a JSON: refused whole).
 - **Times are exact, to the millisecond.** A time is read from its decimal
   text -- JSON's numbers included -- never through a float, and rounded half up
   to the whole millisecond, one rule in every format (bash had three: SubRip and

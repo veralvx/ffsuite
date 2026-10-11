@@ -85,4 +85,21 @@ HOSTILE: Final = {
         b'{"text": "\x83", "offsets": {"from": 2000, "to": 2100}, "t_dtw": 205}, '
         b'{"text": "\t\xe3\x81\x84", "offsets": {"from": 2100, "to": 2900}, "t_dtw": 215}]}]}'
     ),
+    # whisper-cli -osrt -ml 1 (6.8.1): " Это ёлка и 😀" by whisper's tokens, wrapped by its own
+    # whisper_wrap_segment -- ё and 😀 split between cues (its times halved: the corpus's 0.4 s),
+    # each joined into the cue it starts; bash burned each byte as libass reads it, the port
+    # stopped on a traceback
+    "split.srt": (
+        b"1\n00:00:00,000 --> 00:00:00,050\n \xd0\xad\xd1\x82\xd0\xbe\n\n"
+        b"2\n00:00:00,050 --> 00:00:00,100\n \xd1\n\n"
+        b"3\n00:00:00,100 --> 00:00:00,200\n\x91\xd0\xbb\n\n"
+        b"4\n00:00:00,200 --> 00:00:00,250\n\xd0\xba\xd0\xb0\n\n"
+        b"5\n00:00:00,250 --> 00:00:00,300\n \xd0\xb8\n\n"
+        b"6\n00:00:00,300 --> 00:00:00,350\n \xf0\x9f\x98\n\n"
+        b"7\n00:00:00,350 --> 00:00:00,400\n\x80\n\n"
+    ),
+    # a Latin-1 é (6.8.1): refused by its line -- bash burned it as libass reads a byte not
+    # UTF-8, its Latin-1 character, and ffmpeg dropped its cue from --add-subs' track; the
+    # port stopped on a traceback
+    "latin-1.srt": b"1\n00:00:00,000 --> 00:00:00,300\ncaf\xe9\n",
 }

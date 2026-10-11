@@ -3,23 +3,20 @@ r"""whisper-cli's and WhisperX's JSON: chunks and word timings, their values as 
 A time is a number (fields.number: a JSON number, or a decimal string); any other value
 is no time. A text is the JSON string, or a non-string written as JSON (jq's tostring).
 
-whisper-cli writes each token's bytes as they are (``whisper_token_to_str``) and escapes only
-``"`` and ``\`` (``cli.cpp``): a character whisper's vocabulary lacks spans tokens -- 1,476 of
-its 50,257 are not UTF-8 alone -- and, with ``-ml``, sentences; a tab or newline is written raw.
-So the file is read as bytes where it is not UTF-8, and each character joined across the texts
-it spans, given to the one it starts in (``_spread``); a control character is text, as its
-escaped form reads. What still is no UTF-8 is refused where it is.
+whisper-cli writes each token's bytes as they are and escapes only ``"`` and ``\``
+(``cli.cpp``): the file is read as bytes where it is not UTF-8, each character joined across
+the texts it spans (``utf8``) -- what still is not, refused by the text's jq path; a tab or
+newline, written raw, is text, as its escaped form reads.
 """
 
-import codecs
 import json
-from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from fractions import Fraction
-from typing import Final, Literal, cast
+from typing import Final, cast
 
 from subverter._errors import refuse
 from subverter.readers.fields import json_number, ms, number, time_ms
+from subverter.readers.utf8 import Errors, Source, joined
 from subverter.transcript import Cue, Reading, Timing
 
 __all__ = ["read"]
@@ -29,10 +26,6 @@ __all__ = ["read"]
 # InternalDocs/stack_protection.md), so what parses varies with the machine -- 100000 levels
 # do with a 64 MiB stack, not with 8 MiB. A whisper-cli transcript nests 6 deep.
 _DEEPEST: Final = 1000
-
-
-# how a file's strings give back their bytes: as UTF-8, or each surrogate U+DC80-DCFF its byte
-type _Errors = Literal["strict", "surrogateescape"]
 
 
 def read(data: bytes, name: str) -> Reading:
@@ -46,7 +39,7 @@ def read(data: bytes, name: str) -> Reading:
         refuse(too_deep)
     if _deeper_than(root, _DEEPEST):
         refuse(too_deep)
-    doc, source = _obj(root), _Source(name, errors)
+    doc, source = _obj(root), Source(name, errors)
     if isinstance(doc.get("transcription"), list):
         return _whisper_cli(doc, source)
     if not isinstance(doc.get("segments"), list):
@@ -56,7 +49,7 @@ def read(data: bytes, name: str) -> Reading:
     return Reading("WhisperX JSON", has_words=bool(words), cues=cues, words=words)
 
 
-def _loads(data: bytes) -> tuple[object, _Errors]:
+def _loads(data: bytes) -> tuple[object, Errors]:
     """The JSON's value, and how its strings give back their bytes.
 
     Its numbers exact; a control character in a string, text. ``strict`` for UTF-8;
@@ -68,44 +61,6 @@ def _loads(data: bytes) -> tuple[object, _Errors]:
     except UnicodeDecodeError:  # -ojf's tokens, a character split across them
         text = data.decode("utf-8", "surrogateescape").removeprefix("\ufeff")
         return json.loads(text, parse_float=json_number, strict=False), "surrogateescape"
-
-
-@dataclass(frozen=True, slots=True)
-class _Source:
-    """The file read: its name, for messages; how its strings give back their bytes (``_loads``)."""
-
-    name: str
-    errors: _Errors
-
-
-def _spread(texts: Sequence[str], source: _Source, where: Callable[[int], str]) -> list[str]:
-    """``texts`` as UTF-8, each character joined across the texts it spans, in the one it starts.
-
-    Refused at ``where``, the text's jq path: a byte no character takes, a character the texts
-    end inside, a lone surrogate (a JSON escape) -- but in a file not UTF-8, an escaped
-    U+DC80-DCFF reads as the byte ``surrogateescape`` keeps so: the two are one string.
-    """
-    decoder = codecs.getincrementaldecoder("utf-8")()
-    spread: list[str] = []
-    started: int | None = None  # the text an unfinished character starts in
-    for k, text in enumerate(texts):
-        pending = len(decoder.getstate()[0])  # the unfinished character's bytes, in ``started``
-        try:
-            found = decoder.decode(text.encode("utf-8", source.errors))
-        except UnicodeEncodeError:  # a lone surrogate
-            refuse(f"not UTF-8: {source.name} ({where(k)})")
-        except UnicodeDecodeError as e:  # a byte no character takes: in ``started``'s, or here
-            at = k if started is None or e.start >= pending else started
-            refuse(f"not UTF-8: {source.name} ({where(at)})")
-        if started is not None and found:  # its first character, the one started before
-            spread[started] += found[0]
-            found, started = found[1:], None
-        spread.append(found)
-        if started is None and decoder.getstate()[0]:
-            started = k
-    if started is not None:
-        refuse(f"not UTF-8: {source.name} ({where(started)})")
-    return spread
 
 
 def _deeper_than(root: object, limit: int) -> bool:
@@ -154,9 +109,9 @@ def _text(value: object) -> str:
 _NO_SPACES: Final = frozenset({"zh", "yue", "ja", "th", "lo", "km", "my"})
 
 
-def _whisper_cli(doc: dict[str, object], source: _Source) -> Reading:
+def _whisper_cli(doc: dict[str, object], source: Source) -> Reading:
     entries = [_obj(e) for e in _list(doc["transcription"])]
-    texts = _spread(
+    texts = joined(
         [_text(e.get("text")) for e in entries], source, lambda k: f".transcription[{k}].text"
     )
     cues = tuple(
@@ -181,7 +136,7 @@ def _window(value: dict[str, object]) -> tuple[int | None, int | None]:
 
 
 def _tokens(
-    entries: list[dict[str, object]], *, no_spaces: bool, source: _Source
+    entries: list[dict[str, object]], *, no_spaces: bool, source: Source
 ) -> tuple[tuple[Timing, ...], int, int]:
     """Words from tokens, timed by DTW where its times sit in order inside their sentence."""
     words: list[Timing] = []
@@ -212,7 +167,7 @@ def _tokens(
 
 @dataclass(frozen=True, slots=True)
 class _Token:
-    """A token, as it reads once its characters are joined (``_spread``).
+    """A token, as it reads once its characters are joined (``utf8.joined``).
 
     Its whole characters; whether its bytes only continue a character an earlier token began;
     its offsets; its DTW time.
@@ -225,8 +180,8 @@ class _Token:
     dtw: Fraction | None
 
 
-def _sentences(entries: list[dict[str, object]], source: _Source) -> list[list[_Token]]:
-    """Each sentence's tokens ([_...] tokens dropped), their texts spread over them all."""
+def _sentences(entries: list[dict[str, object]], source: Source) -> list[list[_Token]]:
+    """Each sentence's tokens ([_...] tokens dropped), their texts joined over them all."""
     found: list[tuple[int, int, str, dict[str, object]]] = []
     for key, e in enumerate(entries):
         for j, token in enumerate(_list(e.get("tokens"))):
@@ -239,7 +194,7 @@ def _sentences(entries: list[dict[str, object]], source: _Source) -> list[list[_
             if not isinstance(text, str):  # malformed: bash's jq stopped here, "unreadable"
                 refuse(f"unreadable whisper-cli -ojf JSON: {source.name}")
             found.append((key, j, text, t))
-    texts = _spread(
+    texts = joined(
         [text for _, _, text, _ in found],
         source,
         lambda n: f".transcription[{found[n][0]}].tokens[{found[n][1]}].text",
@@ -284,11 +239,9 @@ def _token_words(tokens: list[_Token], *, no_spaces: bool) -> list[_Word]:
 # WhisperX: .segments[] -- seconds; their words, each its own
 
 
-def _whisperx(
-    doc: dict[str, object], source: _Source
-) -> tuple[tuple[Cue, ...], tuple[Timing, ...]]:
+def _whisperx(doc: dict[str, object], source: Source) -> tuple[tuple[Cue, ...], tuple[Timing, ...]]:
     segments = [_obj(s) for s in _list(doc["segments"])]
-    texts = _spread(
+    texts = joined(
         [_text(s.get("text")) for s in segments], source, lambda k: f".segments[{k}].text"
     )
     cues = tuple(
@@ -301,7 +254,7 @@ def _whisperx(
         for j, word in enumerate(_list(s.get("words")))
         if isinstance(word, dict)
     ]
-    spoken = _spread(
+    spoken = joined(
         [_text(w.get("word")) for _, _, w in found],
         source,
         lambda n: f".segments[{found[n][0]}].words[{found[n][1]}].word",

@@ -8,13 +8,18 @@ import csv
 import io
 
 from subverter.readers.fields import time_ms
+from subverter.readers.utf8 import by_line
 from subverter.transcript import Cue
 
 __all__ = ["rows"]
 
 
-def rows(kind: str, text: str) -> list[Cue]:
-    """whisper-cli .csv (RFC 4180 quoting) or WhisperX .tsv (tabs, none); a time read, or none."""
+def rows(kind: str, text: str, name: str) -> list[Cue]:
+    """whisper-cli .csv (RFC 4180 quoting) or WhisperX .tsv (tabs, none); a time read, or none.
+
+    Each character joined across the texts it spans (``utf8.by_line``: what is still not
+    UTF-8, refused by the line its record starts on).
+    """
     lines = io.StringIO(text, newline="")
     records = (
         csv.reader(lines, delimiter="\t", quoting=csv.QUOTE_NONE)
@@ -22,17 +27,20 @@ def rows(kind: str, text: str) -> list[Cue]:
         else csv.reader(lines)
     )
     si, ei, ti = 1, 2, 3
-    found: list[Cue] = []
+    found: list[tuple[int, str, str, str]] = []  # each record's first line, start, end, text
+    before = 0  # the lines read before a record
     for n, fields in enumerate(records):
+        line, before = before + 1, records.line_num
         names = [f.lower() for f in fields] if n == 0 else []
         if "start" in names and "end" in names:  # a header: its columns, any order (the last named)
-            for i, name in enumerate(names, 1):
-                si = i if name == "start" else si
-                ei = i if name == "end" else ei
-                ti = i if name == "text" else ti
+            for i, column in enumerate(names, 1):
+                si = i if column == "start" else si
+                ei = i if column == "end" else ei
+                ti = i if column == "text" else ti
             continue
         if fields and len(fields) >= ti:
-            found.append(
-                Cue(time_ms(fields[si - 1], 1), time_ms(fields[ei - 1], 1), fields[ti - 1])
-            )
-    return found
+            found.append((line, fields[si - 1], fields[ei - 1], fields[ti - 1]))
+    whole = by_line([(first, cell) for first, *_, cell in found], name)
+    return [
+        Cue(time_ms(a, 1), time_ms(z, 1), t) for (_, a, z, _), t in zip(found, whole, strict=True)
+    ]

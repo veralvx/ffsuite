@@ -3,11 +3,13 @@
 Each output is defined by its writer alone. Researched at nixpkgs' pins: whisper.cpp v1.8.4
 (`examples/cli/cli.cpp`, `examples/common-whisper.cpp`, `src/whisper.cpp`,
 `models/convert-pt-to-ggml.py`), openai-whisper v20250625 (`whisper/utils.py`, `transcribe.py`,
-`timing.py`), WhisperX v3.8.5 (`whisperx/utils.py`, `transcribe.py`, `asr.py`, `alignment.py`,
-`diarize.py`, `schema.py`, `__main__.py`). Measured by `../scripts/measure.py`: whisper.cpp's
-writers cut from `cli.cpp` verbatim and compiled against stubs serving their segments and
-tokens; OpenAI's and WhisperX's writers imported and called (its output is the tables marked
-*measured*). SubRip, WebVTT and LRC as formats: the `subrip`, `webvtt` and `lrc` skills.
+`timing.py`, `assets/multilingual.tiktoken`), WhisperX v3.8.5 (`whisperx/utils.py`,
+`transcribe.py`, `asr.py`, `alignment.py`, `diarize.py`, `schema.py`, `__main__.py`). Measured
+by `../scripts/measure.py`: whisper.cpp's writers cut from `cli.cpp` verbatim and compiled
+against stubs serving their segments and tokens, and `whisper_wrap_segment` from
+`src/whisper.cpp`, fed tokens by openai-whisper's `multilingual.tiktoken`; OpenAI's and
+WhisperX's writers imported and called (its output is the tables marked *measured*). SubRip,
+WebVTT and LRC as formats: the `subrip`, `webvtt` and `lrc` skills.
 
 ## whisper.cpp (`whisper-cli`)
 
@@ -15,8 +17,11 @@ Times are integers of **centiseconds** (`whisper_full_get_segment_t0`); every wr
 by 10, so milliseconds always end in 0. A segment's text is its tokens' bytes joined -- a
 leading space usually included (`" Hello"`); tokens are raw bytes of the byte-level BPE
 (`convert-pt-to-ggml.py`'s `byte_decoder`), so one token can be part of a UTF-8 character, and
-`-ml N` splits a segment between tokens (`whisper_wrap_segment`), so possibly inside one (from
-the source; not measured). No writer escapes anything but what its row says.
+`-ml N` splits a segment between tokens (`whisper_wrap_segment`, counting characters by their
+first bytes), so at times inside one -- *measured*: at `-ml 1`, `" Это ёлка и 😀"` in whisper's own
+tokens became the segments `" Это"`, `" \xd1"`, `"\x91л"`, `"ка"`, `" и"`, `" \xf0\x9f\x98"`,
+`"\x80"`; with `-sow` (a split only before a token opening with a space) `ё` and `😀` stayed
+whole; at `-ml 16`, one segment. No writer escapes anything but what its row says.
 
 | Flag    | File    | Content                                                                                                                                                                                                           |
 | ------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

@@ -116,6 +116,24 @@ def test_whisper_cli_token_bytes_are_joined_into_characters(tmp_path: Path) -> N
     )  # each in the token and the sentence it starts; the tab trimmed as any space
 
 
+def test_a_character_split_between_cues_is_joined_into_the_one_it_starts(tmp_path: Path) -> None:
+    t = ingested(put(tmp_path, "split.srt", HOSTILE["split.srt"]))
+    assert [(c.start, c.end, c.text) for c in t.chunks] == [
+        (0, 50, "Это"),
+        (50, 100, "ё"),
+        (100, 200, "л"),
+        (200, 250, "ка"),
+        (250, 300, "и"),
+        (300, 350, "😀"),
+    ]  # the last cue's text, 😀's last byte alone, given to the one before: no text, no chunk
+
+
+def test_a_transcript_not_utf8_is_refused_by_its_line(tmp_path: Path) -> None:
+    path = put(tmp_path, "latin-1.srt", HOSTILE["latin-1.srt"])
+    with pytest.raises(REFUSALS, match=f"^{re.escape(f'not UTF-8: {path} (line 3)')}$"):
+        _ = ingested(path)
+
+
 def test_whisperx_ties_and_gaps(tmp_path: Path) -> None:
     doc = {"segments": [{"start": 1, "end": 2, "text": "a b c", "words": [{"word": "a", "start": 1.0}, {"word": "b", "start": 1.0}, {"word": "c"}]}, {"start": 3, "end": 4, "text": "bare", "words": [{"word": "bare"}]}]}  # fmt: skip
     t = ingested(put(tmp_path, "x.json", json.dumps(doc)))

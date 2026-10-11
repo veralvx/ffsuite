@@ -21,7 +21,7 @@ def read(fmt: str, data: bytes, name: str) -> Reading:
         refuse(f"unsupported subtitle format '.{fmt}' ({', '.join(FORMATS)})")
     match fmt:
         case "srt" | "vtt":
-            cues = subrip.rows(_lines(data))
+            cues = subrip.rows(_lines(data), name)
             references = fmt == "vtt"  # SubRip has none: ffmpeg's subrip decodes none
             if not subrip.is_highlighted(cues):
                 return Reading(
@@ -37,10 +37,10 @@ def read(fmt: str, data: bytes, name: str) -> Reading:
                 has_references=references,
             )
         case "lrc":
-            return Reading(".lrc", has_words=False, cues=tuple(lrc.rows(_lines(data))))
+            return Reading(".lrc", has_words=False, cues=tuple(lrc.rows(_lines(data), name)))
         case "csv" | "tsv":
             try:
-                cues = table.rows(fmt, _text(data))
+                cues = table.rows(fmt, _text(data), name)
             except csv.Error as error:  # a field past csv's limit (128 KiB): no subtitle's text
                 refuse(f"unreadable .{fmt}: {name}: {error}")
             return Reading(f".{fmt}", has_words=False, cues=tuple(cues))
@@ -49,7 +49,11 @@ def read(fmt: str, data: bytes, name: str) -> Reading:
 
 
 def _text(data: bytes) -> str:
-    """The bytes as UTF-8 (undecodable bytes kept, as the shell kept them), a BOM off."""
+    """The bytes as UTF-8, a BOM off; each byte no character takes kept as a surrogate.
+
+    The readers join a character split across their texts (``utf8.joined``), as whisper-cli's
+    ``-ml`` writes one, and refuse what still is not UTF-8 by its line.
+    """
     return data.decode("utf-8", "surrogateescape").removeprefix("\ufeff")
 
 

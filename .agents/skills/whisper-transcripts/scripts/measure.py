@@ -2,17 +2,22 @@
 
 whisper.cpp's writers (`examples/cli/cli.cpp`: `output_txt`, `_vtt`, `_srt`, `_csv`, `_json`,
 `_lrc`, and `to_timestamp` from `examples/common-whisper.cpp`) are cut from the source verbatim
-and compiled against stubs that serve their segments and tokens -- no model needed. OpenAI
+and compiled against stubs that serve their segments and tokens -- no model needed; so is
+`-ml`'s `whisper_wrap_segment` (`src/whisper.cpp`), run on whisper's own tokens of a sentence
+(its BPE: `multilingual.tiktoken`'s ranks). OpenAI
 whisper's and WhisperX's (`utils.py`: `WriteTXT`, `WriteVTT`, `WriteSRT`, `WriteTSV`,
 `WriteJSON`, WhisperX's `WriteAudacity`) are imported from the file and called.
 
-Usage: python3 measure.py CLI_CPP COMMON_WHISPER_CPP WHISPER_UTILS_PY WHISPERX_UTILS_PY
-(whisper.cpp v1.8.4, openai-whisper v20250625, WhisperX v3.8.5: nixpkgs' pins). Needs g++.
+Usage: python3 measure.py CLI_CPP COMMON_WHISPER_CPP WHISPER_CPP WHISPER_UTILS_PY
+WHISPERX_UTILS_PY MULTILINGUAL_TIKTOKEN (whisper.cpp v1.8.4, openai-whisper v20250625, WhisperX
+v3.8.5: nixpkgs' pins). Needs g++.
 Prints what it found; references/format.md's tables are this output.
 """
 
+import base64
 import importlib.util
 import io
+import itertools
 import json
 import subprocess
 import sys
@@ -20,7 +25,9 @@ import tempfile
 from pathlib import Path
 from types import ModuleType
 
-CLI_CPP, COMMON_CPP, WHISPER_UTILS, WHISPERX_UTILS = (Path(a) for a in sys.argv[1:5])
+CLI_CPP, COMMON_CPP, WHISPER_CPP, WHISPER_UTILS, WHISPERX_UTILS, TIKTOKEN = (
+    Path(a) for a in sys.argv[1:7]
+)
 
 # --- whisper.cpp ------------------------------------------------------------------------------
 
@@ -201,6 +208,88 @@ def run_whisper_cpp(work: Path) -> None:
         print(f"-o{what} -di (stereo, channel 0 louder):\n{out[:600]!r}\n")
 
 
+# --- whisper.cpp's -ml: whisper_wrap_segment, a segment split between tokens -----------------
+
+# a sentence as whisper's pattern splits it (a word with its space): its tokens, BPE's
+WRAPPED = (" Это", " ёлка", " и", " 😀")
+
+WRAP_STUBS = r"""
+#include <cstdint>
+#include <cstdio>
+#include <iostream>
+#include <string>
+#include <vector>
+typedef int whisper_token;
+struct whisper_token_data { whisper_token id; int64_t t0, t1; };
+struct whisper_segment { int64_t t0, t1; std::string text; float no_speech_prob;
+                         std::vector<whisper_token_data> tokens; bool speaker_turn_next; };
+struct whisper_state { std::vector<whisper_segment> result_all; };
+struct whisper_context { std::vector<std::string> vocab; };
+static const char *whisper_token_to_str(whisper_context *c, whisper_token id) { return c->vocab[id].c_str(); }
+static whisper_token whisper_token_eot(whisper_context *c) { return (whisper_token) c->vocab.size(); }
+"""
+
+WRAP_MAIN = r"""
+// argv: max_len, split_on_word; stdin: a token a line, in hex, each 10 cs; out: each segment
+int main(int, char **argv) {
+    whisper_context ctx; whisper_state state; whisper_segment seg{0, 0, "", 0, {}, false};
+    std::string h;
+    while (std::cin >> h) {
+        std::string b; for (size_t i = 0; i + 1 < h.size(); i += 2) b += (char) std::stoi(h.substr(i, 2), nullptr, 16);
+        int64_t t = 10 * (int64_t) ctx.vocab.size();
+        seg.tokens.push_back({(whisper_token) ctx.vocab.size(), t, t + 10}); ctx.vocab.push_back(b); seg.text += b; }
+    seg.t1 = 10 * (int64_t) ctx.vocab.size(); state.result_all.push_back(seg);
+    whisper_wrap_segment(ctx, state, std::stoi(argv[1]), std::string(argv[2]) == "1");
+    for (auto &s : state.result_all) {
+        for (unsigned char c : s.text) printf("%02x", c);
+        printf(" %lld %lld\n", (long long) s.t0, (long long) s.t1); } }
+"""
+
+
+def bpe(piece: bytes, ranks: dict[bytes, int]) -> list[bytes]:
+    """tiktoken's byte-pair encoding: the adjacent pair of the lowest rank merged, until none."""
+    parts = [bytes([b]) for b in piece]
+    while True:
+        pairs = [
+            (ranks[a + b], i)
+            for i, (a, b) in enumerate(itertools.pairwise(parts))
+            if a + b in ranks
+        ]
+        if not pairs:
+            return parts
+        _, i = min(pairs)
+        parts[i : i + 2] = [parts[i] + parts[i + 1]]
+
+
+def run_wrap(work: Path) -> None:
+    source = WHISPER_CPP.read_text(encoding="utf-8")
+    code = "\n".join((
+        WRAP_STUBS,
+        cut(source, "static inline bool should_split_on_word(", "static void whisper_exp_compute_token_level_timestamps_dtw("),
+        cut(source, "static int whisper_wrap_segment(", "static const std::vector<std::string> non_speech_tokens"),
+        WRAP_MAIN,
+    ))  # fmt: skip
+    src, exe = work / "wrap.cpp", work / "wrap"
+    _ = src.write_text(code, encoding="utf-8")
+    subprocess.run(["g++", "-std=c++17", "-O1", "-w", str(src), "-o", str(exe)], check=True)
+    ranks = {
+        base64.b64decode(token): int(rank)
+        for token, rank in (line.split() for line in TIKTOKEN.read_text().splitlines() if line)
+    }
+    tokens = [t for word in WRAPPED for t in bpe(word.encode(), ranks)]
+    print(f"{''.join(WRAPPED)!r}, whisper's tokens: {tokens!r}")
+    for max_len, sow in (("1", "0"), ("1", "1"), ("16", "0")):
+        run = subprocess.run(
+            [str(exe), max_len, sow],
+            input="\n".join(t.hex() for t in tokens).encode(),
+            capture_output=True,
+            check=True,
+        )
+        segments = [bytes.fromhex(line.split()[0]) for line in run.stdout.decode().splitlines()]
+        print(f"-ml {max_len}{' -sow' if sow == '1' else ''}: {segments!r}")
+    print()
+
+
 # --- OpenAI whisper and WhisperX --------------------------------------------------------------
 
 
@@ -332,6 +421,7 @@ def main() -> None:
     print(f"whisper.cpp's writers, cut from {CLI_CPP}\n")
     with tempfile.TemporaryDirectory() as tmp:
         run_whisper_cpp(Path(tmp))
+        run_wrap(Path(tmp))
     run_python()
 
 

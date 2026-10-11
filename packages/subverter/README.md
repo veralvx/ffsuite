@@ -13,7 +13,7 @@ with its reason -- for what cannot be read.
 | WebVTT  | cues, as SubRip's; `has_references`: its texts hold HTML character references, each run between tags `decoded` |
 | LRC     | a line's time, its text                                                                                        |
 | CSV/TSV | start, end, text (milliseconds), columns by header, as whisper-cli and WhisperX write them                     |
-| JSON    | whisper-cli's and WhisperX's: chunks and word timings; whisper-cli's token bytes joined into characters        |
+| JSON    | whisper-cli's and WhisperX's: chunks and word timings                                                          |
 
 ## Installing
 
@@ -39,7 +39,9 @@ subverter.Error: not a whisper-cli (.transcription) or WhisperX (.segments) JSON
 ```
 
 Times are milliseconds. A text that cannot be read is refused:
-`subverter.Error`, its message the reason.
+`subverter.Error`, its message the reason. Texts are UTF-8: a character whisper-cli splits
+between tokens or, with `-ml`, cues is joined into the text it starts in; what else is not
+UTF-8 is refused by its line (`not UTF-8: talk.srt (line 3)`), a JSON's by its path.
 
 ## Licence
 

@@ -181,6 +181,135 @@ def test_a_field_past_csvs_limit_is_refused_by_name() -> None:
         _ = subverter.read("csv", data.encode(), "big.csv")
 
 
+# --- not UTF-8: whisper-cli -ml 1 splits a segment between tokens, so inside a character --
+# " Это ёлка и 😀" by whisper's tokens, wrapped by its whisper_wrap_segment: each character
+# joined across the texts it spans, in the one it starts; what is still not UTF-8 refused by line
+
+# each cue's start and end (ms) and text, as whisper-cli's -ml 1 made them: ё and 😀 split
+_SPLIT_CUES: Final = ((0, 100, b" \xd1"), (100, 200, b"\x91\xd0\xbb"), (200, 300, b" \xf0\x9f\x98"), (300, 400, b"\x80"))  # fmt: skip
+
+
+def _srt_time(t: int, comma: str = ",") -> str:
+    return f"00:00:{t // 1000:02d}{comma}{t % 1000:03d}"
+
+
+def _whisper_cli_srt() -> bytes:
+    cues = (
+        b"%d\n%s --> %s\n%s\n\n" % (n, _srt_time(a).encode(), _srt_time(z).encode(), text)
+        for n, (a, z, text) in enumerate(_SPLIT_CUES, 1)
+    )
+    return b"".join(cues)
+
+
+def _whisper_cli_vtt() -> bytes:
+    cues = (
+        b"%s --> %s\n%s\n\n" % (_srt_time(a, ".").encode(), _srt_time(z, ".").encode(), text)
+        for a, z, text in _SPLIT_CUES
+    )
+    return b"WEBVTT\n\n" + b"".join(cues)
+
+
+def _whisper_cli_lrc() -> bytes:
+    lines = (b"[00:00.%02d]%s\n" % (a // 10, text) for a, _, text in _SPLIT_CUES)
+    return b"[by:whisper.cpp]\n" + b"".join(lines)
+
+
+def _whisper_cli_csv() -> bytes:
+    return b"start,end,text\n" + b"".join(b'%d,%d,"%s"\n' % cue for cue in _SPLIT_CUES)
+
+
+@pytest.mark.parametrize(
+    ("fmt", "data", "last"),
+    [
+        ("srt", _whisper_cli_srt(), 400),
+        ("vtt", _whisper_cli_vtt(), 400),
+        ("lrc", _whisper_cli_lrc(), 3300),  # starts only: the last 3 s later
+        ("csv", _whisper_cli_csv(), 400),
+    ],
+    ids=["srt", "vtt", "lrc", "csv"],
+)
+def test_a_character_split_across_cues_is_the_one_where_it_starts(
+    fmt: str, data: bytes, last: int
+) -> None:
+    assert subverter.read(fmt, data, f"a.{fmt}").cues == (
+        Cue(0, 100, " ё"),
+        Cue(100, 200, "л"),
+        Cue(200, 300, " 😀"),
+        Cue(300, last, ""),
+    )
+
+
+def test_lrc_lines_are_joined_as_written_then_sorted() -> None:
+    data = b"[00:05.00] \xd1\n[00:01.00]\x91x\n"  # ё begun at 5 s, ended in the line at 1 s
+    assert subverter.read("lrc", data, "a.lrc").cues == (
+        Cue(1000, 5000, "x"),
+        Cue(5000, 8000, " ё"),
+    )
+
+
+def test_a_cues_lines_are_joined_each_its_characters_whole() -> None:
+    # é begun in a line, ended in the next: its lines joined by a space, as any cue's
+    data = b"1\n00:00:01,000 --> 00:00:02,000\ncaf\xc3\n\xa9 ok\n"
+    assert subverter.read("srt", data, "a.srt").cues == (Cue(1000, 2000, "café  ok"),)
+
+
+@pytest.mark.parametrize(
+    ("fmt", "data", "end"),
+    [
+        ("srt", b"1\xe9\n00:00:01,000 --> 00:00:02,000\nok\n", 2000),  # an index
+        ("vtt", b"WEBVTT \xe9\n\n00:01.000 --> 00:02.000\nok\n", 2000),  # a header
+        ("lrc", b"[ti:caf\xe9]\n[00:01.00]ok\n", 4000),  # a tag
+    ],
+)
+def test_only_the_texts_read_must_be_utf8(fmt: str, data: bytes, end: int) -> None:
+    assert subverter.read(fmt, data, f"a.{fmt}").cues == (Cue(1000, end, "ok"),)
+
+
+@pytest.mark.parametrize(
+    ("fmt", "data", "line"),
+    [
+        ("srt", b"1\n00:00:01,000 --> 00:00:02,000\ncaf\xe9\n", 3),
+        ("srt", b"1\n00:00:01,000 --> 00:00:02,000\nok\ncaf\xe9\n", 4),
+        ("srt", b"\xef\xbb\xbf1\r\n00:00:01,000 --> 00:00:02,000\r\ncaf\xe9\r\n", 3),
+        ("srt", b"1\n00:00:01,000 --> 00:00:02,000\n \xd1\n", 3),
+        ("srt", b"1\n00:00:01,000 --> 00:00:02,000\n\x91x\n", 3),
+        (
+            "srt",
+            b"1\n00:00:01,000 --> 00:00:02,000\n \xd1\n\n2\n00:00:02,000 --> 00:00:03,000\nx\n",
+            3,
+        ),
+        (
+            "srt",
+            b"1\n00:00:01,000 --> 00:00:02,000\n \xd1\n\n2\n00:00:02,000 --> 00:00:03,000\n\x91\xff\n",
+            7,
+        ),
+        ("vtt", b"WEBVTT\n\n00:01.000 --> 00:02.000\ncaf\xe9\n", 4),
+        ("lrc", b"[00:05.00]ok\n[00:01.00]caf\xe9\n", 2),
+        ("csv", b'start,end,text\n0,1,"a\nb"\n1,2,"caf\xe9"\n', 4),
+        ("tsv", b"start\tend\ttext\n0\t1\tcaf\xe9\n", 2),
+    ],
+    ids=[
+        "a Latin-1 byte",
+        "in a cue's second line",
+        "a BOM and CRs",
+        "a character never completed",
+        "a character never begun",
+        "a character broken by the next cue",
+        "a byte past a character joined",
+        "WebVTT",
+        "LRC, as written, not as sorted",
+        "CSV, a record's first line",
+        "TSV",
+    ],
+)
+def test_a_text_not_utf8_once_joined_is_refused_by_its_line(
+    fmt: str, data: bytes, line: int
+) -> None:
+    message = f"not UTF-8: a.{fmt} (line {line})"
+    with pytest.raises(subverter.Error, match=f"^{re.escape(message)}$"):
+        _ = subverter.read(fmt, data, f"a.{fmt}")
+
+
 # --- whisper JSON: refused unless whisper-cli's or WhisperX's
 
 _NOT_A_TRANSCRIPT: Final = (

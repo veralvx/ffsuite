@@ -2801,7 +2801,7 @@ Decided too (the owner's, 2026-10-09; each tool's writer its source: whisper.cpp
       over two tokens, 心 over two sentences, a raw tab). The outcome report,
       3.13 and 3.14 alike: 437 identical; `burn/hostile/bytes.json` changed --
       burned, refused before.*
-- [ ] Found by the box before: a SubRip, WebVTT, LRC, CSV or TSV file not UTF-8
+- [x] Found by the box before: a SubRip, WebVTT, LRC, CSV or TSV file not UTF-8
       -- a Latin-1 byte; whisper-cli's `-ml` cues, split between tokens
       (`whisper_wrap_segment`), so maybe inside a character -- is read with each
       undecodable byte a surrogate, "as the shell kept them", and ffman stops on
@@ -2809,6 +2809,29 @@ Decided too (the owner's, 2026-10-09; each tool's writer its source: whisper.cpp
       (`UnicodeEncodeError`, measured: `--burn-subs` and `--add-subs` of
       `caf\xe9` in each). To decide: refused by name, or read (joined across
       cues, as whisper JSON's; another encoding).
+      *Done, the owner's choice of three (2026-10-10): each character joined
+      across the cue lines it spans, as the file holds them (LRC's before its
+      sort), into the line it starts in; what is still not UTF-8 refused by its
+      line, `not UTF-8: NAME (line N)` -- a CSV record's first; only the texts
+      read must be. A Latin-1 file is refused. Measured first: `-ml 1` splits
+      `ё` and `😀` of " Это ёлка и 😀" in whisper's own tokens
+      (`whisper_wrap_segment` cut and run, now in the `whisper-transcripts`
+      record), `-sow` none; bash burned a byte not UTF-8 as libass reads it,
+      its Latin-1 character (pixels equal), and ffmpeg 8.1.2 drops such a cue
+      from a track. The joining is one module, `readers/utf8.py`, whisper
+      JSON's too. ffman writes its ASS and SRT in UTF-8: in the C locale
+      without UTF-8 mode they were ASCII, a traceback. Proved failing first: 17
+      subverter tests, 2 of ffman's ingest, 2 of its writers; on valid UTF-8,
+      20,000 random transcripts read alike before and after; mutated, every
+      text UTF-8, no traceback but the next box's. The outcome report, 3.13 and 3.14 alike:
+      438 identical; `burn/hostile/split.srt`, `attach/split` (joined) and
+      `burn/hostile/latin-1.srt` (refused) changed, each a traceback before.*
+- [ ] Found by the box before's fuzzing: a CSV or TSV whose header puts `text`
+      before `start` or `end` (`text,start,end`), then a record short of those
+      (`hello`), stops ffman on a traceback -- `IndexError` in `table.rows`,
+      which checks a record holds its text, not its times (measured at
+      `81c63a2`, `--burn-subs`). To decide: the record dropped, as one short of
+      its text, or its missing times none.
 - [ ] What ffmpeg converts between them (its `subrip`, `webvtt`, `ass`, `lrc`
       demuxers, muxers, decoders, encoders), measured both ways -- text,
       markup, positions, overlaps, empty cues, word timing -- against what

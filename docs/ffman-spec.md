@@ -183,6 +183,10 @@ camcorder:date=D,time=T`.
   keep their refusals (`X is now --overlay-mode Y`).
 - The output must be a video: `the output must be a video to burn subtitles
   into`.
+- A transcript's texts are UTF-8: a character whisper-cli splits between tokens
+  or, with `-ml`, cues is joined into the text it starts in; what else is not
+  UTF-8 is refused by its line, `not UTF-8: FILE (line N)`, a JSON's by the
+  text's path, `not UTF-8: FILE (.transcription[0].tokens[3].text)` (New).
 
 ### 3.5 Soft subtitles (A; from `attach`)
 

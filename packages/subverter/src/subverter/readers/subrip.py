@@ -6,6 +6,7 @@ from typing import Final
 
 from subverter.markup import untagged
 from subverter.readers.fields import ms, prefix
+from subverter.readers.utf8 import by_line
 from subverter.transcript import Cue, Timing
 
 __all__ = ["highlighted", "is_highlighted", "rows"]
@@ -28,29 +29,32 @@ def _time(text: str) -> int | None:
     return ms(h * 3600 + m * 60 + s, 1000)
 
 
-def rows(lines: list[str]) -> list[Cue]:
+def rows(lines: list[str], name: str) -> list[Cue]:
     """Cues, their text kept with its tags (a WhisperX <u> marks a word).
 
     A cue opens at its "-->" line and closes at a blank line, or at the next cue
-    (bash's intext and its set st, which always changed together).
+    (bash's intext and its set st, which always changed together). Its text lines joined by a
+    space, each character joined across the lines it spans (``utf8.by_line``: what is still not
+    UTF-8, refused by its line).
     """
-    found: list[Cue] = []
-    cue: tuple[int | None, int | None] | None = None
-    text = ""
-    for line in lines:
+    times: list[tuple[int | None, int | None]] = []
+    texts: list[tuple[int, int]] = []  # each text line: its cue, its index among the lines
+    is_open = False
+    for i, line in enumerate(lines):
         if "-->" in line:
-            if cue is not None:
-                found.append(Cue(*cue, text))
             left, right = _ARROW.split(line, maxsplit=1)
-            cue, text = (_time(left), _time(_BLANKS.split(right)[0])), ""
-        elif cue is not None and _BLANK_LINE.fullmatch(line):
-            found.append(Cue(*cue, text))
-            cue, text = None, ""
-        elif cue is not None:
-            text = f"{text} {line}" if text else line
-    if cue is not None:
-        found.append(Cue(*cue, text))
-    return found
+            times.append((_time(left), _time(_BLANKS.split(right)[0])))
+            is_open = True
+        elif is_open and _BLANK_LINE.fullmatch(line):
+            is_open = False
+        elif is_open:
+            texts.append((len(times) - 1, i))
+    whole = by_line([(i + 1, lines[i]) for _, i in texts], name)
+    parts: list[list[str]] = [[] for _ in times]
+    for (cue, _), text in zip(texts, whole, strict=True):
+        if text:  # a line of a character's last bytes alone: given to the line it starts in
+            parts[cue].append(text)
+    return [Cue(*t, " ".join(p)) for t, p in zip(times, parts, strict=True)]
 
 
 def is_highlighted(cues: list[Cue]) -> bool:

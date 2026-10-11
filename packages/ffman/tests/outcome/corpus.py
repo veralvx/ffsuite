@@ -759,6 +759,8 @@ def _attach() -> list[Case]:
             "-o",
             "x.mkv",
         ),
+        # whisper-cli -ml 1's characters split between cues, joined into SubRip (6.8.1)
+        _conv("attach/split", "-i", "v.mp4", "--add-subs", "hostile/split.srt", "-o", "x.mkv"),
         _conv("attach/onto-track", "-i", "tracks.mkv", "--add-subs", "wx.srt"),
         _conv("attach/language-alone", "-i", "v.mp4", "--language", "por"),
         # the SRT clip: the duration in whole ms, floored (bash's float made 1.005 s 1004)
