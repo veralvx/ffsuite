@@ -6,16 +6,17 @@ times) written in each format that can hold it. Every source is converted into e
 (`ffmpeg -i in.X out.Y`: the source's decoder into ASS, the target's encoder from it), and each
 result back into the source's format; ffman's reading is `subverter.read` on the source.
 
-Usage: python3 ffmpeg.py FFMPEG PYTHON  (PYTHON: an interpreter that imports subverter). Prints
-what it found; references/ffmpeg.md's tables are this output, at ffmpeg n8.1.2.
+Usage: python3 ffmpeg.py FFMPEG PYTHON  (PYTHON: an interpreter that imports subverter and
+ffman). Prints what it found; references/ffmpeg.md's tables are this output, at ffmpeg n8.1.2.
 """
 
-import json
 import re
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
+
+from readers import converted, read_back
 
 FFMPEG, PYTHON = sys.argv[1], sys.argv[2]
 FORMATS = ("srt", "vtt", "ass", "lrc")
@@ -175,35 +176,6 @@ CASES: dict[str, dict[str, str]] = {
     },
 }
 
-# subverter's reading of a source: its cues (start, end, text) and words, as JSON
-READ = """
-import json, sys
-import subverter
-fmt = sys.argv[1]
-try:
-    r = subverter.read(fmt, sys.stdin.buffer.read(), "in." + fmt)
-except subverter.Error as e:
-    print(json.dumps(["refused", str(e)]))
-else:
-    print(json.dumps([[c.start, c.end, c.text] for c in r.cues]
-                     + ([["words"] + [[w.start, w.end, w.text] for w in r.words]] if r.words else [])))
-"""
-
-
-def logged(stderr: str) -> str:
-    """ffmpeg's messages on one line, without their context's address (``[srt @ 0x...]``)."""
-    return re.sub(r" @ 0x[0-9a-f]+", "", stderr.strip()).replace("\n", "; ")
-
-
-def converted(src: Path, out: Path) -> tuple[str, str]:
-    """``src`` converted by ffmpeg into ``out``: the file written (or why none was), its warnings."""
-    _ = out.unlink(missing_ok=True)
-    argv = [FFMPEG, "-v", "warning", "-y", "-fflags", "+bitexact", "-i", str(src), str(out)]
-    r = subprocess.run(argv, capture_output=True, text=True, check=False)
-    if r.returncode or not out.exists():
-        return f"[failed: {logged(r.stderr)}]", ""
-    return out.read_text(encoding="utf-8", errors="backslashreplace"), logged(r.stderr)
-
 
 def body(fmt: str, text: str) -> list[str]:
     """A file's timed content: its cues' lines (SubRip's indexes and blank lines gone), its
@@ -221,12 +193,15 @@ def body(fmt: str, text: str) -> list[str]:
 
 
 def ffman(fmt: str, data: str) -> object:
-    """subverter's reading of a source (none for ASS: ffman burns it as it is)."""
+    """subverter's reading of a source: its cues, then its words (none for ASS: ffman burns it as
+    it is)."""
     if fmt == "ass":
         return "no reader: burned as it is"
-    r = subprocess.run([PYTHON, "-c", READ, fmt], input=data.encode(), capture_output=True,
-                       check=True)  # fmt: skip
-    return json.loads(r.stdout)
+    got = read_back(PYTHON, fmt, data)["subverter"]
+    if isinstance(got, str):
+        return ["refused", got.removeprefix("refused: ")]
+    words = [["words", *(w[1:] for w in got["words"])]] if got["words"] else []
+    return got["timed"] + words
 
 
 def main() -> None:
@@ -243,10 +218,10 @@ def main() -> None:
                 print(f"    ffman: {ffman(fmt, data)!r}")
                 for target in FORMATS:
                     out = work / f"out.{target}"
-                    text, warnings = converted(src, out)
+                    text, warnings = converted(FFMPEG, src, out)
                     line = f"    -> {target}: {body(target, text)!r}"
                     if target != fmt and not text.startswith("[failed"):
-                        back, back_warnings = converted(out, work / f"back.{fmt}")
+                        back, back_warnings = converted(FFMPEG, out, work / f"back.{fmt}")
                         line += f"\n         back to {fmt}: {body(fmt, back)!r}"
                         warnings = "; ".join(w for w in (warnings, back_warnings) if w)
                     print(line + (f"\n         | {warnings}" if warnings else ""))

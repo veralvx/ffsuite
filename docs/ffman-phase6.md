@@ -2928,8 +2928,40 @@ Decided too (the owner's, 2026-10-09; each tool's writer its source: whisper.cpp
       440 identical; `burn/hostile/texts.json`, `windows.json` and
       `anchors.json` changed -- each a segment without words, now noted, its
       ASS the same.*
-- [ ] The mappings, every direction (a record as `metadata-mappings`'): what
+- [x] The mappings, every direction (a record as `metadata-mappings`'): what
       crosses, what is lost, ffmpeg's or ffman's -- measured, each row sourced.
+      *Done, the owner's layout (2026-10-11: by element; positions, colours and
+      whitespace measured; ffman's side as candidates for 6.8.3):
+      `subtitle-mappings`' `references/mappings.md`, measured by
+      `scripts/mappings.py` -- what each of the eight formats holds, a table an
+      element (times, ends and empty cues, text and escapes, breaks and spaces,
+      bold to strike, colour and font, position, speakers, identifiers and
+      titles; words: `words.md`), each row ffmpeg's, ffman's reading and a
+      candidate. The three scripts now share `frames.py` (drawing, read by
+      colour), `files.py` (the writers by ms) and `readers.py` (ffmpeg's
+      conversion, ffman's reading): `ffmpeg.py`'s and `words.py`'s outputs byte
+      for byte the same. Measured: into ASS ffmpeg rounds start and duration
+      apart, so an end equal to the next start passes it (`2.004` becomes `2.01`
+      and `2.00`); it writes no plain text; ASS's `Name`, `Title` and
+      `Comment:`, WebVTT's title, identifier, `NOTE` and voice, LRC's ID tags
+      all lost. libass's `\an1-9` is Chromium's `line:0`, `line:50%` or no line
+      with `align:left`, none or `align:right`; Chromium has no margin, draws a
+      `STYLE` class's colour, size, font and line-through, but **none of
+      WebVTT's default colour classes**, and keeps every space and tab
+      (`pre-wrap`; the specification's `pre-line` collapses them) -- libass
+      keeps inner runs and lays out without a line's leading and trailing
+      spaces. Found: the next two boxes.*
+- [ ] Found by the mappings box: a SubRip or WebVTT text line holding `-->` is
+      taken for a timing line -- subverter's `rows`, as bash's `subs_srt_vtt`,
+      opens a cue at any line holding it -- so the cue's text is lost (measured:
+      `a --> b` over `c`, the cue gone). ffmpeg reads it as text, SubRip's
+      definition here; WebVTT's specification ends the cue there. whisper-cli
+      and OpenAI's word cues write `-->` as it is. To decide: a SubRip timing
+      line as ffmpeg reads one, WebVTT's as the specification.
+- [ ] Found by the mappings box: LRC's `[offset:+500]` is ignored -- subverter
+      reads no ID tag, as bash did not -- where the convention moves every time
+      by it, in ms (`+` sooner), and ffmpeg applies it in microseconds. To
+      decide: applied, or ignored and noted.
 
 *6.8.2 Skills* (validated, packaged, presented -- before any code)
 

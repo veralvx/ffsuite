@@ -15,20 +15,19 @@ subverter and ffman; this one, playwright and its Chromium; openai-whisper v2025
 n8.1.2 (libass 0.17.1) and Chromium 141.0.7390.37.
 """
 
-import base64
 import functools
 import importlib.util
 import io
 import json
-import subprocess
 import sys
 import tempfile
-from collections import Counter
 from pathlib import Path
 from types import ModuleType
-from typing import Any
 
-from playwright.sync_api import Page, sync_playwright
+import files
+from files import cues, lrc_clock, vtt_clock
+from frames import chromium, dominant, ffmpeg, libass, words_in
+from readers import read_back
 
 FFMPEG, PYTHON, WHISPER_UTILS = sys.argv[1], sys.argv[2], Path(sys.argv[3])
 
@@ -37,37 +36,6 @@ SENTENCES = (
     (("one", 1000, 1500), ("two", 1500, 1800), ("three", 1800, 2000)),
     (("four", 3000, 3400), ("five", 3600, 4000)),
 )
-
-
-def clock(ms: int) -> str:
-    """SubRip's ``HH:MM:SS,mmm``."""
-    return f"{ms // 3600000:02d}:{ms // 60000 % 60:02d}:{ms // 1000 % 60:02d},{ms % 1000:03d}"
-
-
-def vtt_clock(ms: int) -> str:
-    """WebVTT's ``[HH:]MM:SS.mmm``, hours only when some (OpenAI's ``format_timestamp``)."""
-    return clock(ms).replace(",", ".").removeprefix("00:")
-
-
-def ass_clock(ms: int) -> str:
-    """ASS's ``h:mm:ss.cc``."""
-    return f"{ms // 3600000}:{ms // 60000 % 60:02d}:{ms // 1000 % 60:02d}.{ms % 1000 // 10:02d}"
-
-
-def lrc_clock(ms: int) -> str:
-    """LRC's ``mm:ss.xx``."""
-    return f"{ms // 60000:02d}:{ms // 1000 % 60:02d}.{ms % 1000 // 10:02d}"
-
-
-def cues(fmt: str, timed: list[tuple[int, int, str]]) -> str:
-    """SubRip or WebVTT cues: each (start, end, text)."""
-    if fmt == "srt":
-        return "".join(
-            f"{n}\n{clock(a)} --> {clock(z)}\n{t}\n\n" for n, (a, z, t) in enumerate(timed, 1)
-        )
-    return "WEBVTT\n\n" + "".join(
-        f"{vtt_clock(a)} --> {vtt_clock(z)}\n{t}\n\n" for a, z, t in timed
-    )
 
 
 def a_cue_a_sentence(fmt: str) -> str:
@@ -197,24 +165,14 @@ def whisperx(*, unaligned: bool = False) -> str:
     return json.dumps({"segments": segments(unaligned=unaligned)})
 
 
-ASS_HEAD = (
-    "[Script Info]\nScriptType: v4.00+\nPlayResX: 640\nPlayResY: 360\n\n[V4+ Styles]\n"
-    "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, "
-    "BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, "
-    "BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n"
-    # the fill red, karaoke's before-colour blue, the outline green
-    "Style: Default,Arial,48,&H000000FF,&H00FF0000,&H0000FF00,&H00000000,0,0,0,0,100,100,0,0,"
-    "1,{outline},0,2,10,10,20,1\n\n[Events]\n"
-    "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
-)
-
-
 def ass(*events: tuple[int, int, str], outline: int = 0) -> str:
-    """A script of ``events``, each (start, end, text)."""
-    lines = [
-        f"Dialogue: 0,{ass_clock(a)},{ass_clock(z)},Default,,0,0,0,,{t}\n" for a, z, t in events
-    ]
-    return ASS_HEAD.replace("{outline}", str(outline)) + "".join(lines)
+    """A script of ``events``, each (start, end, text), at 640x360: the fill red, karaoke's
+    before-colour blue, the outline green."""
+    style = (
+        "Arial,48,&H000000FF,&H00FF0000,&H0000FF00,&H00000000,0,0,0,0,100,100,0,0,"
+        f"1,{outline},0,2,10,10,20,1"
+    )
+    return files.ass(*events, size=(640, 360), style=style)
 
 
 # each form: its file's extension and text
@@ -260,98 +218,6 @@ def whispers(fmt: str, options: dict[str, object]) -> str:
     return out.getvalue()
 
 
-# subverter's reading, then ffman's: cues and words, then chunks and words, as JSON
-READ = """
-import json, sys
-import subverter
-from ffman.errors import FfmanError
-from ffman.subs.ingest import ingest
-fmt, data = sys.argv[1], sys.stdin.buffer.read()
-out = {}
-try:
-    r = subverter.read(fmt, data, "in." + fmt)
-    out["subverter"] = {"timed": [[c.start, c.end, c.text] for c in r.cues],
-                        "words": [[w.segment, w.start, w.end, w.text] for w in r.words]}
-except subverter.Error as e:
-    out["subverter"] = f"refused: {e}"
-try:
-    t = ingest("in." + fmt, data)
-    out["ffman"] = {"timed": [[c.start, c.end, c.text] for c in t.chunks],
-                    "words": [[w.segment, w.start, w.end, w.text] for w in t.words],
-                    "notes": list(t.notes)}
-    if fmt == "ass" and not t.chunks:
-        out["ffman"] = "nothing read: burned as it is"
-except (subverter.Error, FfmanError) as e:
-    out["ffman"] = f"refused: {e}"
-print(json.dumps(out))
-"""
-
-
-def read_back(fmt: str, data: str) -> dict[str, Any]:
-    """A form's reading by subverter and by ffman, in PYTHON."""
-    r = subprocess.run([PYTHON, "-c", READ, fmt], input=data.encode(), capture_output=True,
-                       check=True)  # fmt: skip
-    return json.loads(r.stdout)
-
-
-# a pixel's channels (0-255): ink, at least INK in one; grey and white, channels within HUE of one
-# another, CSS's gray (128) at least GREY, white at least WHITE; a colour, one at least LIT and
-# the others under DARK -- anti-aliased edges fall between
-INK, HUE, GREY, WHITE, LIT, DARK = 64, 16, 112, 192, 128, 96
-
-
-def colour(r: int, g: int, b: int) -> str | None:
-    """A pixel's colour: white, grey or one channel lit; none on an edge."""
-    lo, hi = min(r, g, b), max(r, g, b)
-    if hi - lo <= HUE:
-        return "white" if lo >= WHITE else "grey" if lo >= GREY else None
-    for name, (main, other) in {"red": (r, max(g, b)), "blue": (b, max(r, g)),
-                                "green": (g, max(r, b))}.items():  # fmt: skip
-        if main >= LIT and other < DARK:
-            return name
-    return None
-
-
-def dominant(word: Counter[str]) -> str:
-    """A word's colour: the one most of its classed pixels have."""
-    return max((k for k in word if k != "ink"), key=word.__getitem__, default="unclassed")
-
-
-GAP = 6  # columns without ink between words: more than between letters, less than a space
-
-
-def words_in(rgb: bytes, width: int) -> list[Counter[str]]:
-    """Each word drawn in an RGB frame, left to right: its pixels' colours, counted."""
-    height = len(rgb) // (3 * width)
-    columns: list[Counter[str]] = []
-    for x in range(width):
-        found: Counter[str] = Counter()
-        for y in range(height):
-            i = 3 * (y * width + x)
-            if max(rgb[i : i + 3]) >= INK:
-                found["ink"] += 1
-                name = colour(*rgb[i : i + 3])
-                if name:
-                    found[name] += 1
-        columns.append(found)
-    words: list[Counter[str]] = []
-    blank = GAP
-    for found in columns:
-        if not found:
-            blank += 1
-            continue
-        if blank >= GAP:
-            words.append(Counter())
-        words[-1] += found
-        blank = 0
-    return words
-
-
-def raw(args: list[str]) -> bytes:
-    """ffmpeg's output on ``args``."""
-    return subprocess.run([FFMPEG, "-v", "error", *args], capture_output=True, check=True).stdout
-
-
 # libass: the karaoke tags, each event drawn alone at the times given (ms)
 KARAOKE: dict[str, tuple[str, int, tuple[int, ...]]] = {
     "\\k": (karaoke(SENTENCES[0]), 0, (999, 1000, 1499, 1500, 1799, 1800, 1999, 2000, 2999)),
@@ -369,23 +235,11 @@ def drawn(work: Path, text: str, outline: int, times: tuple[int, ...]) -> list[s
     karaoke-colour pixels, %, and ``+o`` where its outline (green) is drawn."""
     script = work / "k.ass"
     _ = script.write_text(ass((1000, 3000, text), outline=outline), encoding="utf-8")
-    # each frame at its time + 0.5 ms (time base 1/2000): the filter truncates to whole ms
-    at = "0"
-    for n, ms in reversed(list(enumerate(times))):
-        at = f"if(eq(N,{n}),{2 * ms + 1},{at})"
-    graph = f"settb=1/2000,setpts='{at}',ass='{script}',crop=640:120:0:240"
-    blank = f"color=c=black:s=640x360:r=1:d={len(times)}"  # a frame a time
-    frames = raw(["-f", "lavfi", "-i", blank, "-vf", graph, "-fps_mode", "passthrough",
-                  "-f", "rawvideo", "-pix_fmt", "rgb24", "-"])  # fmt: skip
-    size = 640 * 120 * 3
-    if len(frames) != size * len(times):  # a frame lost would shift every later one
-        raise SystemExit(f"{len(frames) // size} frames drawn of {len(times)}")
     shown: list[str] = []
-    for k in range(len(times)):
-        found = words_in(frames[k * size : (k + 1) * size], 640)
+    for frame in libass(FFMPEG, script, times, (640, 360)):
         parts = [
             f"{100 * w['red'] // max(w['red'] + w['blue'], 1)}" + ("+o" if w["green"] else "")
-            for w in found
+            for w in words_in(frame, 640)
         ]
         shown.append(" ".join(parts) or "nothing")
     return shown
@@ -403,55 +257,18 @@ TRACKS: dict[str, tuple[str, str]] = {
 SEEN = (1200, 1600, 1900)  # ms: within each word of the first sentence
 
 
-def seek(page: Page, ms: int) -> None:
-    """The video at ``ms``, its cues drawn (two frames after the seek)."""
-    page.evaluate(
-        """t => new Promise(done => {
-            const v = document.querySelector("video");
-            const drawn = () => requestAnimationFrame(() => requestAnimationFrame(done));
-            v.addEventListener("seeked", drawn, {once: true});
-            v.currentTime = t;
-        })""",
-        ms / 1000,
-    )
-
-
 def browsed(work: Path) -> tuple[str, dict[str, list[str]]]:
-    clip = work / "clip.webm"
-    _ = raw(["-f", "lavfi", "-i", "color=c=black:s=1280x720:r=10:d=3", "-c:v", "libvpx",
-             "-y", str(clip)])  # fmt: skip
-    video = base64.b64encode(clip.read_bytes()).decode()
-    shot = work / "shot.png"
-    seen: dict[str, list[str]] = {}
-    with sync_playwright() as p:
-        browser = p.chromium.launch()
-        page = browser.new_page(viewport={"width": 1280, "height": 720})
-        for name, (vtt, css) in TRACKS.items():
-            track = base64.b64encode(vtt.encode()).decode()
-            css = css.replace("::cue", "video::cue")
-            page.set_content(
-                f"<style>body {{ margin: 0; background: #000 }} {css}</style>"
-                f'<video width="1280" height="720" src="data:video/webm;base64,{video}">'
-                f'<track default kind="subtitles" src="data:text/vtt;base64,{track}"></video>'
-            )
-            loaded = "document.querySelector('video').readyState >= 1"
-            page.wait_for_function(f"{loaded} && document.querySelector('track').readyState == 2")
-            seen[name] = []
-            for ms in SEEN:
-                seek(page, ms)
-                _ = page.screenshot(
-                    path=shot, clip={"x": 0, "y": 540, "width": 1280, "height": 180}
-                )
-                rgb = raw(["-i", str(shot), "-f", "rawvideo", "-pix_fmt", "rgb24", "-"])
-                found = words_in(rgb, 1280)
-                seen[name].append(" ".join(dominant(w) for w in found) or "nothing")
-        version = browser.version
-        browser.close()
+    """Chromium's version, and each track's words by colour at each time."""
+    version, drawn = chromium(FFMPEG, work, TRACKS, SEEN, (1280, 720))
+    seen = {
+        name: [" ".join(dominant(w) for w in words_in(f, 1280)) or "nothing" for f in frames]
+        for name, frames in drawn.items()
+    }
     return version, seen
 
 
 def main() -> None:
-    print(raw(["-version"]).decode().splitlines()[0])
+    print(ffmpeg(FFMPEG, "-version").decode().splitlines()[0])
     print("\n## The forms OpenAI whisper writes, against its writers\n")
     for fmt in ("srt", "vtt"):
         one = whispers(fmt, {"max_words_per_line": 1}) == a_cue_a_word(fmt)
@@ -460,7 +277,7 @@ def main() -> None:
               f"--highlight_words {'equal' if lit else 'DIFFERENT'}")  # fmt: skip
     print("\n## What ffman reads back (subverter's cues and words; ffman's chunks and words)\n")
     for name, (fmt, data) in FORMS.items():
-        found = read_back(fmt, data)
+        found = read_back(PYTHON, fmt, data)
         print(f"{name} (.{fmt}):")
         for reader in ("subverter", "ffman"):
             got = found[reader]
