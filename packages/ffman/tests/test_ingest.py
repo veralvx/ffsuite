@@ -158,6 +158,19 @@ def test_an_lrc_offset_moves_every_time_noted(tmp_path: Path) -> None:
     )
 
 
+def test_a_fraction_not_of_three_digits_is_ms_in_subrip_no_time_in_webvtt(tmp_path: Path) -> None:
+    srt = ingested(put(tmp_path, "fraction.srt", HOSTILE["fraction.srt"]))
+    assert [(c.start, c.end, c.text) for c in srt.chunks] == [(5, 25, "five"), (250, 400, "next")]
+    assert srt.notes == (
+        "2 times had a fraction not of three digits, read as milliseconds as ffmpeg and VLC read them: the first, 00:00:00,5 on line 2, as 0.005 s",
+    )
+    vtt = ingested(put(tmp_path, "fraction.vtt", HOSTILE["fraction.vtt"]))
+    assert [(c.start, c.end, c.text) for c in vtt.chunks] == [(0, 200, "ok")]
+    assert vtt.notes == (
+        "1 cues dropped: a time with a fraction not of three digits (W3C WebVTT), the first 00:00.2 on line 6",
+    )
+
+
 def test_an_lrc_line_of_several_stamps_is_a_line_each(tmp_path: Path) -> None:
     t = ingested(put(tmp_path, "chorus.lrc", HOSTILE["chorus.lrc"]))
     assert [(c.start, c.end, c.text) for c in t.chunks] == [
@@ -433,8 +446,7 @@ def test_a_huge_dtw_time_is_none_and_the_offsets_used(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize(
     ("name", "text", "start"),
-    [  # each read through a float before (stage A): 500, 500, 500, 999, 999
-        ("a.srt", "1\n00:00:00,5005 --> 00:00:01,000\na\n", 501),
+    [  # each read through a float before (stage A): 500, 500, 999, 999
         ("a.lrc", "[00:00.5005]a\n[00:01.00]b\n", 501),
         ("wx.json", json.dumps({"segments": [{"start": 0.5005, "end": 1, "text": "a"}]}), 501),
         ("a.csv", "start,end,text\n999.5,2000,a\n", 1000),

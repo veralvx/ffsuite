@@ -3050,9 +3050,37 @@ tests with 6.8.3's converters.*
       (description, heading); hours needed by ffmpeg and VLC (`00:01,000`: no cue,
       measured; ffman reads it); a burn command, its streams checked. Found: the next
       three boxes.*
-- [ ] Found by the `subrip` box: subverter reads a short fraction (`00:00:01,5`) as a
+- [x] Found by the `subrip` box: subverter reads a short fraction (`00:00:01,5`) as a
       decimal, 1.5 s -- bash's reading -- where ffmpeg (so mpv) and VLC read its digits as
-      milliseconds, 1.005 s. To decide: as the players, or as now.
+      milliseconds, 1.005 s. To decide: as the players, or as now. *Done: the owner's --
+      SubRip as the players, noted; WebVTT the standard, noted; the layout, `subrip.read`
+      giving the Reading as `lrc.read` does (the dispatcher's srt and vtt branch, the
+      highlighting with it, moved in; `rows`, `is_highlighted`, `highlighted` private;
+      `fields.DECIMAL` public for its groups). A seconds fraction not of three digits, no
+      exponent: SubRip's a count of ms (`_seconds`: `,5` 1.005 s, `,5000` 6 s; bounded,
+      `exact` on its digits), counted, the first named ("2 times had a fraction not of
+      three digits, read as milliseconds as ffmpeg and VLC read them: the first, 00:00:01,5
+      on line 2, as 1.005 s"); in WebVTT no timing line, its block dropped ("2 cues dropped:
+      a time with a fraction not of three digits (W3C WebVTT), the first 00:01.5 on line
+      3"). Three digits read alike either way; an empty fraction, an exponent, a fraction of
+      minutes or hours and minutes alone decimals still. Measured: ffmpeg 8.1.2's srt and
+      webvtt demuxers 1005 ms, `,5000` +5 s; VLC 3's `subtitle.c` ms by source; Chromium
+      141 drops the cue; the W3C's "collect a WebVTT timestamp" by its text. Tests first:
+      `test_readers.py`'s 18 new cases -- the 12 of a changed reading failing on the old
+      code, the 6 of an unchanged one passing -- and ffman's `fraction.srt`, `fraction.vtt`
+      (HOSTILE; an ingest test, failing on the old code). `half-ms.srt` became `half-ms.lrc`
+      (SubRip's fraction no longer a decimal; its burn unchanged, 0.51-4.03) and
+      `test_ingest`'s SubRip row of half-ms rounding went (LRC's and WhisperX's 0.5005 kept).
+      Suite 1943, coverage 100%; matrix 770; `compare HEAD` on 3.13 and 3.14: 447
+      identical, the 2 new cases changed as decided. `decisions.md` "Short fractions";
+      from-bash; subverter's README; the `subrip` skill's rows and eval (measured again: 1005, 2025);
+      `subtitle-mappings`' crossing rows (ffmpeg into SubRip, WebVTT, ASS measured); the
+      next box found. Reviewed to convergence: `_rows`' WebVTT drop made explicit (its timing
+      `None`); the tests name a first odd time that is an end, settings after it, and a line
+      of two odd times -- 13 planted mutations, each caught; subverter's starts equal
+      ffmpeg's for 400 random fractions of 1-6 digits; the skill's description no longer
+      lists the short fraction among the readers' disagreements (all three agree now),
+      revalidated (963 of 1024), eval 2 answered cold from it.*
 - [ ] Found by the `subrip` box: with no blank line before the next cue's index, subverter
       reads the index as the cue's text (`first 2`), where ffmpeg reads it as the index
       (VLC takes the whole next cue for text). To decide: an index line before a timing
@@ -3061,6 +3089,12 @@ tests with 6.8.3's converters.*
       backslash drawn as `/`, so no text makes an override), where ffmpeg, mpv and VLC
       show a break and a hard space (VLC breaks at `\n` too; ffman makes it a space). To
       decide: as the players, or as now.
+- [ ] Found by the short-fraction box: WebVTT's timestamps wholly the W3C's ("collect a
+      WebVTT timestamp"), where subverter still takes bash's lenient forms -- a bare
+      number as minutes (`5 --> 7`), a sign, minutes or seconds not of two digits or past
+      59, a first field of other digits or past 59 with no field after the seconds
+      (`100:00.000`: hours needed), no fraction or an empty one, an exponent, `,` for `.`.
+      To decide, each: the standard (no timing line, its block dropped, noted), or as now.
 - [ ] `webvtt`: the same.
 - [ ] `ass`: the same, SSA (v4) through it.
 - [ ] `lrc`: the same.

@@ -24,9 +24,9 @@ HOSTILE: Final = {
     # Unicode 16.0's changes (6.8.1): trigrams wide there, not in 15.1; Arabic Pepet, a 16.0
     # mark -- ffman's own 15.1 tables, so alike under Python 3.13 (15.1) and 3.14 (16.0)
     "unicode-16.srt": "1\n00:00:01,000 --> 00:00:04,000\n\u2630\u2631\u2632\u2633\u2634\u2635\u2636\u2637 trigrams \u2630\u2631\u2632\u2633\u2634\u2635\u2636\u2637\u2630\u2631\u2632\u2633\u2634\u2635\u2636\u2637 and a\u0897 pepet\n",
-    # half a millisecond: through a float 504 and 4024 ms, exactly 505 and 4025 --
-    # a centisecond apart in the burned ASS
-    "half-ms.srt": "1\n00:00:00,5045 --> 00:00:04,0245\nhalf\n",
+    # half a millisecond: through a float 504 and 4024 ms, exactly 505 and 4025 -- a
+    # centisecond apart in the burned ASS (an LRC: SubRip's fraction is a count of ms, 6.8.2)
+    "half-ms.lrc": "[00:00.5045]half\n[00:04.0245]\n",
     "crlf.csv": 'start,end,text\r\n0,1000,"Hello, ""you"""\r\n1000,2000,Two\r\n',
     "bom.srt": "\ufeff1\n00:00:01,000 --> 00:00:02,000\nFirst\n\n2\n00:00:00,500 --> 00:00:01,500\nEarlier\n",
     "unsorted.lrc": "[00:05.00]Later\n[00:01.50]Sooner\n[00:03]Mid\n",
@@ -126,4 +126,9 @@ HOSTILE: Final = {
     # an LRC line of several stamps (6.8.1): a line each, blanks between them too. Before, as
     # bash, its first alone, the rest its text: `[00:00.30]chorus` from 0, `[00:00.35] spaced`
     "chorus.lrc": "[00:00.00][00:00.30]chorus\n[00:00.15] [00:00.35]\tspaced\n",
+    # a seconds fraction not of three digits (6.8.2): SubRip's a count of ms, as ffmpeg and VLC
+    # read it; in WebVTT no time, its cue dropped (W3C) -- each noted. Before, as bash, a
+    # decimal: `,5` 500 ms, `,25` 250, so `five` ended before it began, dropped; `00:00.2` 200
+    "fraction.srt": "1\n00:00:00,5 --> 00:00:00,25\nfive\n\n2\n00:00:00,250 --> 00:00:00,400\nnext\n",
+    "fraction.vtt": "WEBVTT\n\n00:00.000 --> 00:00.200\nok\n\n00:00.2 --> 00:00.400\ndropped\n",
 }

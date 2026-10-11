@@ -6,6 +6,7 @@ before ffman's normalising (no trim, no sort but LRC's, no clamp, no cue dropped
 
 import json
 import re
+import time
 from typing import Final
 
 import pytest
@@ -74,9 +75,9 @@ def test_a_subrip_line_whose_arrow_has_no_time_each_side_is_text(text: str, read
 
 
 def test_bash_lenient_timing_lines_are_still_timing_lines() -> None:
-    # minutes and seconds alone; a bare number, minutes; seconds a decimal; either fraction
-    # mark; a sign on zero hours (lost, as ffmpeg loses it); spaces; SubRip's coordinates after
-    data = "1\n00:01 --> 00:02\na\n\n2\n5 --> 7\nb\n\n3\n 00:00:08.5 --> -00:00:09,000 X1:1\nc\n"
+    # minutes and seconds alone; a bare number, minutes; either fraction mark; a sign on zero
+    # hours (lost, as ffmpeg loses it); spaces; SubRip's coordinates after
+    data = "1\n00:01 --> 00:02\na\n\n2\n5 --> 7\nb\n\n3\n 00:00:08.500 --> -00:00:09,000 X1:1\nc\n"
     assert subverter.read("srt", data.encode(), "a.srt").cues == (
         Cue(1000, 2000, "a"),
         Cue(300_000, 420_000, "b"),
@@ -112,6 +113,68 @@ def test_a_webvtt_line_whose_arrow_has_no_time_each_side_ends_the_cue_its_block_
 def test_a_file_without_a_final_newline_loses_no_line() -> None:
     data = b"1\n00:00:01,000 --> 00:00:02,000\nlast"  # no newline after the last line
     assert subverter.read("srt", data, "a.srt").cues == (Cue(1000, 2000, "last"),)
+
+
+# --- a seconds fraction not of three digits: SubRip's a count of ms, WebVTT's no time
+
+# each case's first odd time on line 2, its timing line
+_ODD_SUBRIP: Final = (
+    "{n} times had a fraction not of three digits, read as milliseconds as ffmpeg and VLC read"
+    " them: the first, {time} on line 2, as {said}"
+)
+
+
+@pytest.mark.parametrize(
+    ("written", "start", "said"),
+    [  # ffmpeg 8.1.2's srt demuxer and VLC 3's subtitle module: its digits a count of ms
+        ("00:00:01,5", 1005, "1.005 s"),
+        ("00:00:01,25", 1025, "1.025 s"),
+        ("00:00:01,5000", 6000, "6 s"),
+        ("00:00:01.0500", 1500, "1.5 s"),
+        ("00:01,5", 1005, "1.005 s"),  # minutes and seconds
+        ("00:00:.5", 5, "0.005 s"),  # a fraction alone
+        ("00:00:-01,5", -1005, "-1.005 s"),  # its sign the seconds'
+        pytest.param(f"00:00:01,{'9' * 400}", None, "no time (past a double's range)", id="huge"),
+        pytest.param(f"00:00:01,{'1' * 20000}", None, "no time (past a double's range)", id="long"),
+        # three digits, alike either way; no fraction to read so: no note
+        ("00:00:01,500", 1500, None),
+        ("00:00:01,050", 1050, None),
+        ("00:00:01,", 1000, None),
+        ("00:00:01.5e0", 1500, None),  # an exponent: a decimal
+        ("00:00.5:01,000", 31000, None),  # a fraction of minutes: a decimal
+        ("1.5", 90000, None),  # minutes alone
+    ],
+)
+def test_a_subrip_fraction_not_of_three_digits_is_a_count_of_ms_noted(
+    written: str, start: int | None, said: str | None
+) -> None:
+    data = f"1\n{written} --> 00:00:09,000\nx\n"
+    began = time.monotonic()
+    reading = subverter.read("srt", data.encode(), "a.srt")
+    assert time.monotonic() - began < 1  # a long fraction read in bounded work
+    notes = () if said is None else (_ODD_SUBRIP.format(n=1, time=written, said=said),)
+    assert (reading.cues, reading.notes) == ((Cue(start, 9000, "x"),), notes)
+
+
+def test_subrip_odd_fractions_counted_the_first_named() -> None:
+    data = "1\n00:00:01,5 --> 00:00:02,25\na\n\n2\n00:00:03,5000 --> 00:00:09.5\nb\n"
+    reading = subverter.read("srt", data.encode(), "a.srt")
+    assert reading.cues == (Cue(1005, 2025, "a"), Cue(8000, 9005, "b"))
+    assert reading.notes == (_ODD_SUBRIP.format(n=4, time="00:00:01,5", said="1.005 s"),)
+
+
+def test_a_webvtt_fraction_not_of_three_digits_drops_its_cue_noted() -> None:
+    # W3C WebVTT, "collect a WebVTT timestamp": not exactly three digits, an error -- the
+    # timings do not parse, the block dropped (Chromium 141 alike); ffmpeg reads them as ms
+    data = (
+        "WEBVTT\n\n00:00.000 --> 00:01.000\nok\n00:01.000 --> 00:02.5 align:start\na\n\n"
+        "00:03.000 --> 00:04.5000\nb\nmore\n\n00:05.000 --> 00:06.000\nc\n"
+    )
+    reading = subverter.read("vtt", data.encode(), "a.vtt")
+    assert reading.cues == (Cue(0, 1000, "ok"), Cue(5000, 6000, "c"))
+    assert reading.notes == (
+        "2 cues dropped: a time with a fraction not of three digits (W3C WebVTT), the first 00:02.5 on line 5",
+    )
 
 
 # --- WhisperX --highlight_words: by structure, a run of one text a sentence, each <u> a word
@@ -185,6 +248,20 @@ def test_highlighted_a_cue_without_underline_adds_no_word_an_empty_run_no_senten
     reading = subverter.read("srt", data, "a.srt")
     assert reading.cues == (Cue(0, 1500, "a b", "0"),)
     assert reading.words == (Timing("0", 0, 500, "a"), Timing("0", 500, 1000, "b"))
+
+
+def test_a_highlighted_reading_keeps_its_cues_notes() -> None:
+    data = _srt(
+        [
+            ("00:00:00,5", "00:00:01,000", "<u>a</u> b"),
+            ("00:00:01,000", "00:00:02,000", "a <u>b</u>"),
+        ]
+    )
+    reading = subverter.read("srt", data, "a.srt")
+    assert (reading.has_words, reading.notes) == (
+        True,
+        (_ODD_SUBRIP.format(n=1, time="00:00:00,5", said="0.005 s"),),
+    )
 
 
 # --- LRC: starts only, sorted; each line ends where the next starts, the last 3 s later

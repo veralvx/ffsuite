@@ -21,21 +21,7 @@ def read(fmt: str, data: bytes, name: str) -> Reading:
         refuse(f"unsupported subtitle format '.{fmt}' ({', '.join(FORMATS)})")
     match fmt:
         case "srt" | "vtt":
-            cues = subrip.rows(_lines(data), name, webvtt=fmt == "vtt")
-            references = fmt == "vtt"  # SubRip has none: ffmpeg's subrip decodes none
-            if not subrip.is_highlighted(cues):
-                return Reading(
-                    f".{fmt}", has_words=False, cues=tuple(cues), has_references=references
-                )
-            sentences, words = subrip.highlighted(cues)
-            source = f"WhisperX --highlight_words .{fmt}"
-            return Reading(
-                source,
-                has_words=True,
-                cues=tuple(sentences),
-                words=tuple(words),
-                has_references=references,
-            )
+            return subrip.read(_lines(data), name, webvtt=fmt == "vtt")
         case "lrc":
             return lrc.read(_lines(data), name)
         case "csv" | "tsv":

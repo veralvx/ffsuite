@@ -10,7 +10,7 @@
     {
       "id": 2,
       "prompt": "A converter wrote my subtitle times like 00:03:17,25 --> 00:03:19,4 and in mpv the line shows up early and leaves early. What's wrong with the times?",
-      "expected_output": "ffmpeg (so mpv) and VLC read the digits after the comma as a count of milliseconds, not a decimal fraction: ,25 is 25 ms and ,4 is 4 ms, so the cue runs 197.025-199.004 s instead of 197.25-199.4 s -- 225 ms early, ending 396 ms early. Write exactly three digits: 00:03:17,250 --> 00:03:19,400. (ffman's subverter reads them as a decimal, 197.25 s, unlike the players.) Run (ffmpeg 8.1.2): a start of 197025 ms for 1979 ms as given; 197250 ms for 2150 ms with three digits.",
+      "expected_output": "ffmpeg (so mpv) and VLC read the digits after the comma as a count of milliseconds, not a decimal fraction: ,25 is 25 ms and ,4 is 4 ms, so the cue runs 197.025-199.004 s instead of 197.25-199.4 s -- 225 ms early, ending 396 ms early. Write exactly three digits: 00:03:17,250 --> 00:03:19,400. (ffman reads them as the players do, and says so.) Run (ffmpeg 8.1.2): a start of 197025 ms for 1979 ms as given; 197250 ms for 2150 ms with three digits.",
       "files": []
     },
     {

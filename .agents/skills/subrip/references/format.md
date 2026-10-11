@@ -122,7 +122,7 @@ the next start; a backslash drawn as `/`). *Measured*:
 
 | File                                               | subverter                            | ffman burns                    |
 | -------------------------------------------------- | ------------------------------------ | ------------------------------ |
-| `00:00:01,5 --> 00:00:02,25`                       | 1500, 2250: a decimal                | the same                       |
+| `00:00:01,5 --> 00:00:02,25`                       | 1005, 2025: milliseconds, noted      | the same                       |
 | `first`, a blank line, `second`                    | `first`; `second` no cue's           | the same                       |
 | `first`, a line of spaces, `second`                | `first`; `second` no cue's           | the same                       |
 | last line `2024`, the next cue not indexed         | `the year 2024`                      | the same                       |
