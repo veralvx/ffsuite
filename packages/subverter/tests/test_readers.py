@@ -37,7 +37,10 @@ def test_a_format_without_a_reader_is_refused(fmt: str, message: str) -> None:
 def test_srt_a_bom_and_crs_off_lines_joined_the_last_cue_closed_at_the_end() -> None:
     data = "\ufeff1\r\n00:00:01,000 --> 00:00:02,500\r\nHello\r\nthere\r\n\r\n2\r\n00:00:03,000 --> 00:00:04,000\r\nbye\r\n"
     assert subverter.read("srt", data.encode(), "a.srt") == Reading(
-        ".srt", has_words=False, cues=(Cue(1000, 2500, "Hello there"), Cue(3000, 4000, "bye"))
+        ".srt",
+        has_words=False,
+        cues=(Cue(1000, 2500, "Hello there"), Cue(3000, 4000, "bye")),
+        has_ass_escapes=True,
     )
 
 
@@ -275,6 +278,7 @@ def test_highlighted_cues_become_sentences_and_words() -> None:
             Timing("1", 1000, 1500, "Bye"),
             Timing("1", 1500, 2000, "now"),
         ),
+        has_ass_escapes=True,
     )
 
 
@@ -917,3 +921,29 @@ def test_no_other_format_holds_references(fmt: str) -> None:
     reading = subverter.read(fmt, data.encode(), f"a.{fmt}")
     assert not reading.has_references
     assert reading.cues[0].text == "A &amp; B"
+
+
+@pytest.mark.parametrize(
+    ("fmt", "escapes"),
+    [
+        ("srt", True),
+        ("vtt", False),
+        ("lrc", False),
+        ("csv", False),
+        ("tsv", False),
+        ("json", False),
+    ],
+)
+def test_only_a_subrips_texts_hold_ass_escapes(fmt: str, escapes: bool) -> None:
+    # ffmpeg's subrip decoder passes its text to ASS as written; its webvtt and text decoders
+    # escape a backslash (a word joiner after it), and the W3C's WebVTT has no escape
+    data = {
+        "srt": "1\n00:00:01,000 --> 00:00:02,000\none\\Ntwo\n",
+        "vtt": "WEBVTT\n\n00:01.000 --> 00:02.000\none\\Ntwo\n",
+        "lrc": "[00:01.00]one\\Ntwo\n",
+        "csv": "start,end,text\n1000,2000,one\\Ntwo\n",
+        "tsv": "start\tend\ttext\n1000\t2000\tone\\Ntwo\n",
+        "json": json.dumps({"segments": [{"start": 1, "end": 2, "text": "one\\Ntwo"}]}),
+    }[fmt]
+    reading = subverter.read(fmt, data.encode(), f"a.{fmt}")
+    assert (reading.has_ass_escapes, reading.cues[0].text) == (escapes, "one\\Ntwo")

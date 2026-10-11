@@ -1,4 +1,5 @@
-"""markup: a text's tags off, and WebVTT's character references decoded as HTML decodes them."""
+"""markup: a text's tags off; WebVTT's character references decoded as HTML decodes them; SubRip's
+ASS escapes as libass draws them."""
 
 import html
 from typing import Final
@@ -39,3 +40,17 @@ _NUMBERS: Final = ("1114111", "1114112", "\ufffd")  # each side of U+10FFFF, and
 @given(st.lists(st.sampled_from(_PARTS + _NUMBERS), max_size=12).map("".join))
 def test_decoded_is_html_unescape_wherever_that_reads_the_text(text: str) -> None:
     assert subverter.decoded(text) == html.unescape(text)
+
+
+@pytest.mark.parametrize(
+    ("text", "drawn"),
+    [
+        ("one\\Ntwo", "one\ntwo"),  # a line break
+        ("a\\hb", "a\u00a0b"),  # a no-break space
+        ("a\\nb \\t", "a\\nb \\t"),  # libass's soft break and others: as written
+        ("a\\\\Nb", "a\\\nb"),  # a backslash, then the escape: as libass reads them
+        ("\\N\\h\\N", "\n\u00a0\n"),
+    ],
+)
+def test_unescaped_reads_a_subrips_ass_escapes_as_libass_draws_them(text: str, drawn: str) -> None:
+    assert subverter.unescaped(text) == drawn

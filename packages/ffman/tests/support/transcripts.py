@@ -135,4 +135,9 @@ HOSTILE: Final = {
     # timing line, the index, as ffmpeg reads it -- noted; `2.` text. Before, as bash, the first
     # cue's text: `first 2`
     "index.srt": "1\n00:00:00,000 --> 00:00:00,200\nfirst\n2\n00:00:00,200 --> 00:00:00,400\n2.\n3\n00:00:00,400 --> 00:00:00,600\nthird\n",
+    # ASS's escapes typed in a SubRip (6.8.2): `\N` a line break -- a space, ffman wrapping
+    # -- and `\h` a no-break space, as ffmpeg's subrip decoder passes them to libass; an
+    # override opening with `\t` dropped as any. Before: burned `one/Ntwo a/hb`, the override
+    # `( (0,100,/fs20))` -- its `\t` a space before overrides were removed (bash's order)
+    "escapes.srt": "1\n00:00:00,000 --> 00:00:00,400\n{\\t(0,100,\\fs20)}one\\Ntwo a\\hb\n",
 }

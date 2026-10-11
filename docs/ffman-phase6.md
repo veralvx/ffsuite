@@ -3107,10 +3107,34 @@ tests with 6.8.3's converters.*
       skill's rows (measured again: `first`). Reviewed to convergence: the skill measures
       the case its number-line row now claims (`the year`, `2024`, the timing line right
       after it: `the year`), its table telling it from the blank line's (`the year 2024`).*
-- [ ] Found by the `subrip` box: ffman burns a typed `\N` and `\h` as `/N` and `/h` (a
+- [x] Found by the `subrip` box: ffman burns a typed `\N` and `\h` as `/N` and `/h` (a
       backslash drawn as `/`, so no text makes an override), where ffmpeg, mpv and VLC
       show a break and a hard space (VLC breaks at `\n` too; ffman makes it a space). To
-      decide: as the players, or as now.
+      decide: as the players, or as now. *Done: the owner's -- as the players, in
+      ffman's wrap; SubRip alone; silent; the layout researched and chosen as WebVTT's
+      references are: the reader states what its text holds (`Reading.has_ass_escapes`, a
+      field with a default, subverter's API unbroken), `subverter.markup.unescaped` reads it
+      (`\N` a line break, `\h` U+00A0, a backslash before either a character, as libass's
+      `ass_get_next_char`, 0.17.1), and ffman's `clean` applies it, through `normalize`. `\N`
+      is then a space, ffman wrapping (every break in a cue is, bash's rule); `\h` a no-break
+      space: ffman's wrap never breaks there (UAX #14's GL), Plex's advance is a space's (236
+      units), and libass draws it as one (a frame rendered identical). WebVTT's, LRC's and
+      the rest's stay as written: ffmpeg's webvtt and text decoders escape a backslash. Found
+      and fixed here (the owner's): `clean` removed overrides after turning `\t` and `\n`
+      into spaces (bash's order), so `{\t(0,100,\fs20)}hi` was shown, burned `(
+      (0,100,/fs20))hi`; now overrides go first, in every format (`hi`, as ffmpeg's subrip
+      decoder and VLC). Tests first: subverter's 11 (`unescaped`, the flag by format) and
+      ffman's 3 ingest tests (a highlighted SubRip's words too), each failing on the old
+      code; `escapes.srt` (HOSTILE). 10 planted mutations, each caught. Suite 1973, coverage 100%; matrix 770; `compare HEAD` on 3.13 and 3.14: 450 identical, 1
+      changed, `escapes.srt` new -- the reordering changed no other case (the override commit
+      alone too, reported and diffed). `decisions.md`
+      "ASS escapes", "Override order", and "WebVTT references" pointed at `subrip.py`, where
+      the 6.8.2 short-fraction box moved its flag; from-bash; subverter's README; the `subrip`
+      skill's rows (measured again: `one two a b hard\u00a0space`); the next box found.*
+- [ ] Found by the `\N` and `\h` box: libass also reads `\{` and `\}` as braces, which ffman
+      burns as `/(` and `/)`; and ffman draws every `{`, `}` and backslash as `(`, `)` and
+      `/` (`_esc`), where libass can draw each as written (`\{`, `\}`, a backslash before
+      no escape letter). To decide: drawn as written, or as now.
 - [ ] Found by the short-fraction box: WebVTT's timestamps wholly the W3C's ("collect a
       WebVTT timestamp"), where subverter still takes bash's lenient forms -- a bare
       number as minutes (`5 --> 7`), a sign, minutes or seconds not of two digits or past

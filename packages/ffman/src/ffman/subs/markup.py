@@ -3,7 +3,7 @@
 import re
 from typing import Final
 
-from subverter.markup import decoded, untagged
+from subverter.markup import decoded, unescaped, untagged
 
 _OVERRIDE: Final = re.compile(r"\{\\[^}]*\}")  # {\an8}: ASS override blocks, as some SRTs carry
 _BREAK: Final = re.compile(r"\\[tn]|[\t\n\r]")  # a tab or a line break, escaped (\t, \n) or not
@@ -13,19 +13,20 @@ _TAG_MARK: Final = "\uffff"  # where a tag was: a noncharacter (a transcript's o
 _MARKED_OVERRIDE: Final = re.compile(r"\{\uffff*\\[^}]*\}")  # _OVERRIDE, _TAG_MARKs in it
 
 
-def clean(text: str, *, references: bool) -> str:
+def clean(text: str, *, references: bool, escapes: bool) -> str:
     r"""Bash's CLEAN_AWK: tags and overrides off, breaks to spaces, blanks squeezed, trimmed.
 
     Overrides first: one opening with an escape (``{\t(...)}``) is dropped whole, as ffmpeg's
     subrip decoder and VLC drop it -- bash broke it first, showing it. ``references``
     (WebVTT's): each run between tags decoded, once the overrides are off -- a decoded ``<``
-    or ``{`` text, a decoded break a space.
+    or ``{`` text, a decoded break a space. ``escapes`` (SubRip's): ``\N`` a line break, so
+    a space, ffman wrapping; ``\h`` a no-break space (``unescaped``).
     """
     if references:
         text = _MARKED_OVERRIDE.sub("", untagged(text, into=_TAG_MARK))
     else:
         text = _OVERRIDE.sub("", untagged(text))
-    text = _BREAK.sub(" ", text)
+    text = _BREAK.sub(" ", unescaped(text) if escapes else text)
     if references:
         runs = text.split(_TAG_MARK)
         text = _DECODED_BREAK.sub(" ", "".join(decoded(run) for run in runs))

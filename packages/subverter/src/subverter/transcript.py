@@ -59,12 +59,16 @@ class Timing:
 
 @dataclass(frozen=True, slots=True)
 class Reading:
-    """A reader's answer: its source's name, word timings or not, its cues, words and notes.
+    r"""A reader's answer: its source's name, word timings or not, its cues, words and notes.
 
     ``has_references``: its texts are WebVTT's, where ``&`` begins an HTML character
     reference (W3C WebVTT, the cue text tokenizer: "HTML character reference in data
     state") -- each run between tags decoded (``decoded``), so a decoded ``<`` stays text. A
     highlighted reading's sentences come untagged: WhisperX's tags wrap whole words.
+
+    ``has_ass_escapes``: its texts are SubRip's, which ffmpeg's subrip decoder passes to ASS as
+    written -- ``\N`` a line break, ``\h`` a no-break space -- for their consumer to read
+    (``unescaped``).
     """
 
     source: str
@@ -73,3 +77,4 @@ class Reading:
     words: tuple[Timing, ...] = ()
     notes: tuple[str, ...] = ()
     has_references: bool = False
+    has_ass_escapes: bool = False

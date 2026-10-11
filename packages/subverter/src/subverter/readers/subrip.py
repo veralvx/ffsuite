@@ -24,10 +24,17 @@ def read(lines: list[str], name: str, *, webvtt: bool) -> Reading:
     """The cues, or WhisperX's sentences and words (``_is_highlighted``); notes (``_rows``)."""
     cues, notes = _rows(lines, name, webvtt=webvtt)
     source = ".vtt" if webvtt else ".srt"
-    references = webvtt  # SubRip has none: ffmpeg's subrip decodes none
+    # a WebVTT's references (ffmpeg's subrip decodes none); a SubRip's ASS escapes (ffmpeg's
+    # webvtt decoder escapes a backslash, and the W3C's WebVTT has none)
+    references, escapes = webvtt, not webvtt
     if not _is_highlighted(cues):
         return Reading(
-            source, has_words=False, cues=tuple(cues), notes=notes, has_references=references
+            source,
+            has_words=False,
+            cues=tuple(cues),
+            notes=notes,
+            has_references=references,
+            has_ass_escapes=escapes,
         )
     sentences, words = _highlighted(cues)
     return Reading(
@@ -37,6 +44,7 @@ def read(lines: list[str], name: str, *, webvtt: bool) -> Reading:
         words=tuple(words),
         notes=notes,
         has_references=references,
+        has_ass_escapes=escapes,
     )
 
 

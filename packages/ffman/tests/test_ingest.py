@@ -183,6 +183,21 @@ def test_a_number_alone_before_a_timing_line_is_the_next_cues_index(tmp_path: Pa
     )
 
 
+def test_a_subrips_ass_escapes_read_as_libass_draws_them(tmp_path: Path) -> None:
+    t = ingested(put(tmp_path, "escapes.srt", HOSTILE["escapes.srt"]))
+    assert [c.text for c in t.chunks] == ["one two a\u00a0b"]  # the break ffman's to place
+    assert t.notes == ()
+
+
+def test_a_highlighted_subrips_words_read_its_escapes_too(tmp_path: Path) -> None:
+    cues = "".join(
+        f"{i}\n00:00:0{i},000 --> 00:00:0{i + 1},000\n{text}\n\n"
+        for i, text in enumerate(["<u>New\\hYork</u> City", "New\\hYork <u>City</u>"], 1)
+    )
+    t = ingested(put(tmp_path, "h.srt", cues))
+    assert [w.text for w in t.words] == ["New\u00a0York", "City"]
+
+
 def test_an_override_opening_with_an_escape_is_dropped_whatever_the_format(tmp_path: Path) -> None:
     # {\t(...)}: ASS's animation -- dropped, as ffmpeg's subrip decoder and VLC drop it
     srt = ingested(put(tmp_path, "a.srt", "1\n00:00:00,000 --> 00:00:00,400\n{\\t(0,1)}a {\\n}b\n"))

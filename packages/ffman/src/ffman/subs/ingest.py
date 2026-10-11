@@ -19,14 +19,15 @@ def ingest(name: str, data: bytes) -> Transcript:
     if fmt in ("ass", "ssa"):  # burned as they are
         return Transcript(fmt, f".{fmt}", has_words=False, chunks=(), words=(), notes=())
     found = readers.read(fmt, data, name)
-    chunks = normalize.cues(found.cues, references=found.has_references)
+    references, escapes = found.has_references, found.has_ass_escapes
+    chunks = normalize.cues(found.cues, references=references, escapes=escapes)
     if not chunks:
         refuse(f"no timed text found in: {name}")
     notes = list(found.notes)
     if not found.has_words:
         return Transcript(fmt, found.source, found.has_words, chunks, (), tuple(notes))
     placed_words, placed, untimed = normalize.words(
-        chunks, found.words, references=found.has_references
+        chunks, found.words, references=references, escapes=escapes
     )
     if placed:
         why = "(untimed, tied, out of order or outside their sentence)"
