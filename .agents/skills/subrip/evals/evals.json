@@ -1,0 +1,23 @@
+{
+  "skill_name": "subrip",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "I merged two .srt files by hand and now the lyric line '1999' at the end of one cue disappears in mpv, though VLC shows it. Here's that part:\n\n1\n00:00:10,000 --> 00:00:12,000\nparty like it is\n1999\n\n00:00:13,000 --> 00:00:15,000\nnext\n\nWhy, and how do I fix the file?",
+      "expected_output": "mpv reads SubRip through ffmpeg's srt demuxer, which holds back a text line starting with a number as the next cue's index; the next cue has no index line, so '1999' is taken for it and dropped. VLC reads a cue's text to the blank line, so it shows it. Fix: give every cue its index line, numbered from 1 (renumber the merged file). Run (ffmpeg 8.1.2): as given, the cue is 'party like it is' alone; with '2' before the second timing line, 'party like it is\\N1999'.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "A converter wrote my subtitle times like 00:03:17,25 --> 00:03:19,4 and in mpv the line shows up early and leaves early. What's wrong with the times?",
+      "expected_output": "ffmpeg (so mpv) and VLC read the digits after the comma as a count of milliseconds, not a decimal fraction: ,25 is 25 ms and ,4 is 4 ms, so the cue runs 197.025-199.004 s instead of 197.25-199.4 s -- 225 ms early, ending 396 ms early. Write exactly three digits: 00:03:17,250 --> 00:03:19,400. (ffman's subverter reads them as a decimal, 197.25 s, unlike the players.) Run (ffmpeg 8.1.2): a start of 197025 ms for 1979 ms as given; 197250 ms for 2150 ms with three digits.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "My subtitle line 'if n<10 and m>5' comes out as 'if n5' when ffmpeg burns it. How do I write it so it shows correctly?",
+      "expected_output": "SubRip has no escape: ffmpeg's subrip decoder reads '<10 and m>' as a tag ('Unrecognized tag 10') and drops it with its text; '&lt;' is no help, shown as written ('if n&lt;10 and m&gt;5'). Write a look-alike for the '<', U+FF1C ('if n＜10 and m>5'; U+FF1E for the '>' too, to match), or reword ('n under 10'). VLC would show the original (a '<' before a digit is text there). Run: the forms through ffmpeg 8.1.2 -- 'if n5', 'if n&lt;10 and m&gt;5', 'if n＜10 and m>5', 'if n＜10 and m＞5'.",
+      "files": []
+    }
+  ]
+}

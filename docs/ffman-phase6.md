@@ -3014,11 +3014,59 @@ Decided too (the owner's, 2026-10-09; each tool's writer its source: whisper.cpp
 
 *6.8.2 Skills* (validated, packaged, presented -- before any code)
 
-- [ ] Skills for the formats the research finds no skill covers (ASS and SSA; WebVTT;
-      whisper JSON; the tables -- CSV, TSV -- LRC and plain text, one skill or apart, as
-      the research finds), as 6.6.2's. *Found by 6.8.1: `subrip`, `webvtt`, `ass`,
-      `lrc`, `whisper-transcripts` (JSON, CSV, TSV, plain text, WhisperX's labels) --
-      their records in `.agents/skills/`.*
+Skills for the formats the research finds no skill covers (ASS and SSA; WebVTT; whisper
+JSON; the tables -- CSV, TSV -- LRC and plain text, one skill or apart, as the research
+finds), as 6.6.2's. *Found by 6.8.1: `subrip`, `webvtt`, `ass`, `lrc`,
+`whisper-transcripts` (JSON, CSV, TSV, plain text, WhisperX's labels) -- their records in
+`.agents/skills/`. The owner's (2026-10-11): a box a skill; `subtitle-mappings` a skill too,
+as `metadata-mappings`; each reviewed by efficient-skill-review to convergence; the oracle
+tests with 6.8.3's converters.*
+
+- [x] `subrip`: the format by its readers and writers, rules to write a file every reader
+      reads, examples, sources; three evals run; validated, packaged.
+      *Done: `.agents/skills/subrip/` -- `SKILL.md` (163 lines: the format; its readers --
+      ffmpeg's demuxer and decoder, which mpv goes through but for the character set, VLC
+      3's own parser, ffman's subverter and burn -- side by side, 17 rows; what ffmpeg makes
+      of it in ASS and back; the writers in use; the rules for a file every reader shows
+      alike, the time rule as code; reading one; converting and muxing; an example;
+      sources); `references/format.md` gains ffman's measured reading and ffmpeg's decoder
+      dropping a cue not UTF-8 or after a line of spaces; `scripts/measure.py` gains ffman's
+      cases and checks the skill from its own text -- the example's readings by ffmpeg,
+      its ASS and subverter, the prose stating them, the time rule against ffmpeg's muxer
+      over 7231 times to 100 h, the four commands' streams -- exiting 1 on a difference
+      (each dosed mutation caught alone). VLC 3.0.24 and mpv 0.41.0 by source.
+      `quick_validate.py`: valid (description 944 of 1024); packaged, three files
+      byte-identical. Three evals (`evals/evals.json`, new instances, measured) answered
+      cold from the skill alone: a merged file's `1999` lost to ffmpeg's index rule, a
+      two-digit fraction read as milliseconds, `n<10 ... m>5` taken for a tag. Reviewed by
+      efficient-skill-review to convergence, three independent passes: an MP4 command
+      dropping the audio, the encoding row wrong for ffmpeg (it drops the cue) and mpv
+      (it guesses the set), VLC's `X1..Y2` (it reads none), a line of spaces, `\n` in
+      libass, the writers' UTF-8 (whisper.cpp's `-ml` splits a character), a script
+      asserting nothing, an eval echoing the example -- each fixed and re-measured. Its
+      review: ffmpeg drops `<v Bob>` but keeps `<c.yellow>` as text; ffman's tag cells hold
+      for `--add-subs` too (its chunks are cleaned); the installed copy byte-identical.
+      Reviewed again by efficient-skill-review: "every reader" narrowed to the four here
+      (description, heading); hours needed by ffmpeg and VLC (`00:01,000`: no cue,
+      measured; ffman reads it); a burn command, its streams checked. Found: the next
+      three boxes.*
+- [ ] Found by the `subrip` box: subverter reads a short fraction (`00:00:01,5`) as a
+      decimal, 1.5 s -- bash's reading -- where ffmpeg (so mpv) and VLC read its digits as
+      milliseconds, 1.005 s. To decide: as the players, or as now.
+- [ ] Found by the `subrip` box: with no blank line before the next cue's index, subverter
+      reads the index as the cue's text (`first 2`), where ffmpeg reads it as the index
+      (VLC takes the whole next cue for text). To decide: an index line before a timing
+      line dropped, as ffmpeg, or as now.
+- [ ] Found by the `subrip` box: ffman burns a typed `\N` and `\h` as `/N` and `/h` (a
+      backslash drawn as `/`, so no text makes an override), where ffmpeg, mpv and VLC
+      show a break and a hard space (VLC breaks at `\n` too; ffman makes it a space). To
+      decide: as the players, or as now.
+- [ ] `webvtt`: the same.
+- [ ] `ass`: the same, SSA (v4) through it.
+- [ ] `lrc`: the same.
+- [ ] `whisper-transcripts`: the same -- whisper-cli's and WhisperX's JSON, CSV, TSV and
+      plain text.
+- [ ] `subtitle-mappings`: the mappings, a skill -- its three references and scripts.
 
 *6.8.3 The converters* (pure, from the skills)
 
