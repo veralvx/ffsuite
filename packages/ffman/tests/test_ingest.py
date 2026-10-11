@@ -134,6 +134,11 @@ def test_a_transcript_not_utf8_is_refused_by_its_line(tmp_path: Path) -> None:
         _ = ingested(path)
 
 
+def test_a_csv_header_after_a_blank_line_is_its_header(tmp_path: Path) -> None:
+    t = ingested(put(tmp_path, "late-header.csv", HOSTILE["late-header.csv"]))
+    assert t.chunks == (Chunk(0, 300, "hello", ""),)
+
+
 def test_whisperx_ties_and_gaps(tmp_path: Path) -> None:
     doc = {"segments": [{"start": 1, "end": 2, "text": "a b c", "words": [{"word": "a", "start": 1.0}, {"word": "b", "start": 1.0}, {"word": "c"}]}, {"start": 3, "end": 4, "text": "bare", "words": [{"word": "bare"}]}]}  # fmt: skip
     t = ingested(put(tmp_path, "x.json", json.dumps(doc)))

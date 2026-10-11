@@ -167,10 +167,22 @@ def test_an_lrc_time_past_a_double_in_ms_drops_its_line() -> None:
         ("text,start,end\nhello\n", (Cue(None, None, "hello"),)),
         ("text,end,start\nhi,2000\n", (Cue(None, 2000, "hi"),)),
         ("start,end,text\n\n0,1,x\n", (Cue(0, 1, "x"),)),
+        # the header the first record, a blank line none (pandas' skip_blank_lines): a line of
+        # spaces is one
+        ("\n\r\ntext,start,end\nhello,0,1000\n", (Cue(0, 1000, "hello"),)),
+        (
+            " \nstart,end,text\n0,1,x\n",
+            (Cue(None, None, ""), Cue(None, None, "text"), Cue(0, 1, "x")),
+        ),
     ],
 )
 def test_a_csv_read_by_its_columns(data: str, cues: tuple[Cue, ...]) -> None:
     assert subverter.read("csv", data.encode(), "a.csv").cues == cues
+
+
+def test_a_tsv_header_after_a_blank_line_is_its_header() -> None:
+    data = "\ntext\tstart\tend\nhello\t0\t1000\n"
+    assert subverter.read("tsv", data.encode(), "a.tsv").cues == (Cue(0, 1000, "hello"),)
 
 
 def test_a_tsv_record_short_of_a_column_reads_it_empty() -> None:

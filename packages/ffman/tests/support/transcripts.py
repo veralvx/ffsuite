@@ -105,4 +105,7 @@ HOSTILE: Final = {
     # a header naming text first, then a record short of its times (6.8.1): its times none, as
     # awk's $n past the last field, so no cue -- the port stopped on an IndexError
     "columns.csv": "text,start,end\nhello\nok,0,300\n",
+    # a header after a blank line (6.8.1): the first record its header, a blank line none, as
+    # pandas reads one -- before, read as data, every cue untimed: "no timed text found"
+    "late-header.csv": "\ntext,start,end\nhello,0,300\n",
 }

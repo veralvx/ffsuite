@@ -2842,13 +2842,24 @@ Decided too (the owner's, 2026-10-09; each tool's writer its source: whisper.cpp
       `hostile/columns.csv`. The outcome report, 3.13 and 3.14 alike: 441
       identical; `burn/hostile/columns.csv` changed -- burned, a traceback
       before.*
-- [ ] Found by the box before's review: a CSV or TSV whose header follows a
+- [x] Found by the box before's review: a CSV or TSV whose header follows a
       blank line is not read as a header -- `table.rows` takes only its first
       record, and a blank line is one to `csv` -- so its records are read as
       start, end, text: `\ntext,start,end\nhello,0,1000` reads `hello` as a
       start, and its cue is dropped (measured with the box before's change; a
       BOM before it alike). To decide: the header the first record that is not blank, or the
       first line, as now.
+      *Done, the owner's choice of two (2026-10-11): the header is the first
+      record, a blank line none -- as pandas' `read_csv` reads one
+      (`skip_blank_lines`, its default: "the first line of data rather than
+      the first line of the file"); RFC 4180's header is the file's first
+      line, but the reader already counts a blank line as no record. A line
+      of spaces is still one. Proved failing first: 2 subverter tests,
+      ffman's ingest of `hostile/late-header.csv`; on valid UTF-8, of 30,000
+      random transcripts, the 263 read otherwise than before each a header
+      after blank lines. The outcome report, 3.13 and 3.14 alike: 442
+      identical; `burn/hostile/late-header.csv` changed -- burned, "no timed
+      text found" before.*
 - [ ] What ffmpeg converts between them (its `subrip`, `webvtt`, `ass`, `lrc`
       demuxers, muxers, decoders, encoders), measured both ways -- text,
       markup, positions, overlaps, empty cues, word timing -- against what
