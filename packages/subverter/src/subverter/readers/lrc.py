@@ -1,4 +1,4 @@
-"""LRC: a line's time, its text; the ``[offset:]`` tag moving every time."""
+"""LRC: a line's times, its text; the ``[offset:]`` tag moving every time."""
 
 import re
 from typing import Final
@@ -9,7 +9,10 @@ from subverter.transcript import Cue, Reading
 
 __all__ = ["read"]
 
-_STAMP: Final = re.compile(r"\[([0-9]+):([0-9]+(?:[.][0-9]+)?)\](.*)")  # [mm:ss.xx]text
+_TIME: Final = r"\[([0-9]+):([0-9]+(?:[.][0-9]+)?)\]"  # [mm:ss.xx]
+_STAMP: Final = re.compile(_TIME)
+# a line's stamps, blanks between them (as Navidrome reads them), then its text
+_STAMPS: Final = re.compile(rf"{_TIME}(?:[ \t]*{_TIME})*")
 # ffmpeg's lrcdec (measured): first on its line, lower case, its value up to the first "]"
 _OFFSET: Final = re.compile(r"\[offset:([^\]]*)\]")
 _WHOLE: Final = re.compile(r"[ \t]*[-+]?[0-9]+[ \t]*")
@@ -48,22 +51,29 @@ def _offset(lines: list[str]) -> tuple[int, tuple[str, ...]]:
 def _rows(lines: list[str], name: str, offset: int) -> list[Cue]:
     """Starts only, ``offset`` ms sooner: each line ends where the next starts (the last 3 s on).
 
-    Each character joined across the lines it spans, in the file's order, then sorted
+    A line of several stamps is a line each (Wikipedia's repeated line; ffmpeg's lrcdec). Each
+    character joined across the lines it spans, in the file's order, then sorted
     (``utf8.by_line``: what is still not UTF-8, refused by its line).
     """
-    stamped: list[tuple[int, int, str]] = []  # each timed line: its start, its index, its text
-    for i, line in enumerate(lines):
-        m = _STAMP.fullmatch(line)
-        if m is None:
+    # each timed line: its starts, its line (from 1), its text
+    stamped: list[tuple[list[int], int, str]] = []
+    for i, line in enumerate(lines, 1):
+        run = _STAMPS.match(line)
+        if run is None:
             continue
-        minutes, seconds = exact(m[1]), exact(m[2])
-        if minutes is None or seconds is None:  # past a double's range: no time, no line
-            continue
-        start = ms((minutes * 60 + seconds) * 1000 - offset, 1)
-        if start is not None:
-            stamped.append((start, i, m[3]))
-    whole = by_line([(i + 1, text) for _, i, text in stamped], name)
-    timed = list(zip((s for s, _, _ in stamped), whole, strict=True))
+        starts = [s for m in _STAMP.finditer(run[0]) if (s := _start(m, offset)) is not None]
+        if starts:
+            stamped.append((starts, i, line[run.end() :]))
+    whole = by_line([(i, text) for _, i, text in stamped], name)
+    timed = [(s, text) for (starts, _, _), text in zip(stamped, whole, strict=True) for s in starts]
     timed.sort(key=lambda t: t[0])  # stable, as sort -s
     ends = [t[0] for t in timed[1:]] + ([timed[-1][0] + 3000] if timed else [])
     return [Cue(s, e, t) for (s, t), e in zip(timed, ends, strict=True)]
+
+
+def _start(stamp: re.Match[str], offset: int) -> int | None:
+    """A stamp's time in ms, ``offset`` ms sooner; None past a double's range (no line)."""
+    minutes, seconds = exact(stamp[1]), exact(stamp[2])
+    if minutes is None or seconds is None:
+        return None
+    return ms((minutes * 60 + seconds) * 1000 - offset, 1)

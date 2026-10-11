@@ -2,7 +2,8 @@
 
 Conversions: ffmpeg's (each source into the targets it writes) and ffman's reading (subverter's
 cues and words, then ffman's chunks) of what crosses formats -- times into centiseconds, a text
-line holding `-->`, LRC's header tags, speakers, comments, identifiers, breaks and quoted fields.
+line holding `-->`, LRC's header tags and repeated lines, speakers, comments, identifiers, breaks
+and quoted fields.
 Renderers: libass through ffmpeg's `ass` filter and Chromium through a `<track>` (`frames.py`),
 on 1280x720 black: where each places a cue (its ink's box, as fractions of the frame), what
 colour, decoration and size each draws, and what spaces cost (the ink's size, in pixels).
@@ -64,6 +65,11 @@ CASES: dict[str, tuple[str, str, tuple[str, ...]]] = {
     "LRC's header tags and offset": (
         "lrc",
         "[ti:Title]\n[ar:Artist]\n[offset:+500]\n[00:01.00]one\n[00:02.00]two\n[00:03.00]\n",
+        ("srt", "vtt", "ass"),
+    ),
+    "an LRC line of several stamps, a blank between two": (
+        "lrc",
+        "[00:01.00][00:04.00]chorus\n[00:02.00] [00:05.00]spaced\n[00:03.00]bridge\n",
         ("srt", "vtt", "ass"),
     ),
     "ASS's Title, a speaker (Name) and a Comment": (

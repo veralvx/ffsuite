@@ -158,6 +158,16 @@ def test_an_lrc_offset_moves_every_time_noted(tmp_path: Path) -> None:
     )
 
 
+def test_an_lrc_line_of_several_stamps_is_a_line_each(tmp_path: Path) -> None:
+    t = ingested(put(tmp_path, "chorus.lrc", HOSTILE["chorus.lrc"]))
+    assert [(c.start, c.end, c.text) for c in t.chunks] == [
+        (0, 150, "chorus"),
+        (150, 300, "spaced"),
+        (300, 350, "chorus"),
+        (350, 3350, "spaced"),
+    ]
+
+
 def test_whisperx_ties_and_gaps(tmp_path: Path) -> None:
     doc = {"segments": [{"start": 1, "end": 2, "text": "a b c", "words": [{"word": "a", "start": 1.0}, {"word": "b", "start": 1.0}, {"word": "c"}]}, {"start": 3, "end": 4, "text": "bare", "words": [{"word": "bare"}]}]}  # fmt: skip
     t = ingested(put(tmp_path, "x.json", json.dumps(doc)))

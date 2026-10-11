@@ -32,26 +32,28 @@ output is the tables marked *measured*).
 
 *Measured* -- the demuxer (start and duration in microseconds, the text):
 
-| File                                                   | ffmpeg's reading                                                              |
-| ------------------------------------------------------ | ----------------------------------------------------------------------------- |
-| `[00:01.00]one` `[00:02.50]two`                        | 1000000 for 1500000, `one\n`; 2500000, no duration: each text keeps its `\n`  |
-| `[00:01.234]`; `[00:01.5]`; `[00:01]`                  | 1.234 s; 1.5 s; 1 s: the seconds a decimal                                    |
-| `[61:00.00]`                                           | 3660 s                                                                        |
-| `[1:02:03.00]` (hours)                                 | 62 s: read as 1 minute 2 seconds, the hours lost                              |
-| `[00:60.50]`                                           | the line dropped                                                              |
-| `[-00:01.00]`                                          | -1 s                                                                          |
-| `[00:01.00][00:05.00]chorus`                           | two events of `chorus`, sorted among the others                               |
-| lines out of order                                     | sorted                                                                        |
-| `[00:03.00]` with no text                              | an event of `\n`: the end of the line before it                               |
-| `<00:01.00>one <00:01.50>two`                          | the text as written                                                           |
-| `[ti:Title] [ar:Artist] [al:] [au:] [by:] [re:] [ve:]` | `title`, `artist`, `album`, `author`, `creator`, `encoder`, `encoder_version` |
-| `[length: 03:20]`, `[xx:unknown]`                      | `length` = ` 03:20` (the space kept), `xx` = `unknown`                        |
-| `[offset:+500]`; `[offset:-500]`                       | every time 0.5 ms earlier; 0.5 ms later                                       |
-| `[TI:Upper]`                                           | dropped: neither a tag nor a timed line                                       |
-| a first line without a tag; `  [00:01.00]` first       | not LRC: "Invalid data found"                                                 |
-| a UTF-8 BOM                                            | detected, but the first line lost: the BOM stays in it                        |
-| CRLF                                                   | CR removed                                                                    |
-| whisper-cli's `[by:whisper.cpp]`, `[60:19.99]`         | `creator` = `whisper.cpp`; 3619.99 s                                          |
+| File                                                   | ffmpeg's reading                                                                                          |
+| ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------- |
+| `[00:01.00]one` `[00:02.50]two`                        | 1000000 for 1500000, `one\n`; 2500000, no duration: each text keeps its `\n`                              |
+| `[00:01.234]`; `[00:01.5]`; `[00:01]`                  | 1.234 s; 1.5 s; 1 s: the seconds a decimal                                                                |
+| `[61:00.00]`                                           | 3660 s                                                                                                    |
+| `[1:02:03.00]` (hours)                                 | 62 s: read as 1 minute 2 seconds, the hours lost                                                          |
+| `[00:60.50]`                                           | the line dropped                                                                                          |
+| `[-00:01.00]`                                          | -1 s                                                                                                      |
+| `[00:01.00][00:05.00]chorus`                           | two events of `chorus`, sorted among the others                                                           |
+| `[00:01.00] [00:05.00]chorus`                          | one event, at 1 s: a stamp after a blank dropped (`read_ts` passes `sscanf` the blank), the text `chorus` |
+| lines out of order                                     | sorted                                                                                                    |
+| `[00:03.00]` with no text                              | an event of `\n`: the end of the line before it                                                           |
+| `<00:01.00>one <00:01.50>two`                          | the text as written                                                                                       |
+| `[ti:Title] [ar:Artist] [al:] [au:] [by:] [re:] [ve:]` | `title`, `artist`, `album`, `author`, `creator`, `encoder`, `encoder_version`                             |
+| `[length: 03:20]`, `[xx:unknown]`                      | `length` = ` 03:20` (the space kept), `xx` = `unknown`                                                    |
+| `[offset:+500]`; `[offset:-500]`                       | every time 0.5 ms earlier; 0.5 ms later                                                                   |
+| `[00:01.00]before`, `[offset:+500]`, `[00:02.00]after` | `before` at 1 s, `after` 0.5 ms earlier: the lines after the tag alone                                    |
+| `[TI:Upper]`                                           | dropped: neither a tag nor a timed line                                                                   |
+| a first line without a tag; `  [00:01.00]` first       | not LRC: "Invalid data found"                                                                             |
+| a UTF-8 BOM                                            | detected, but the first line lost: the BOM stays in it                                                    |
+| CRLF                                                   | CR removed                                                                                                |
+| whisper-cli's `[by:whisper.cpp]`, `[60:19.99]`         | `creator` = `whisper.cpp`; 3619.99 s                                                                      |
 
 *Measured* -- the muxer, from SubRip:
 

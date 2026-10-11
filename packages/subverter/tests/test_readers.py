@@ -248,6 +248,44 @@ def test_an_lrc_offset_moves_every_time(
     assert (reading.cues, reading.notes) == (cues, notes)
 
 
+@pytest.mark.parametrize(
+    ("data", "cues"),
+    [
+        pytest.param(  # Wikipedia's repeated line: a line a stamp, sorted among the others
+            "[00:05.00][00:09.00]chorus\n[00:07.00]two\n",
+            (Cue(5000, 7000, "chorus"), Cue(7000, 9000, "two"), Cue(9000, 12000, "chorus")),
+            id="repeated",
+        ),
+        pytest.param(  # blanks between stamps, as Navidrome reads them (ffmpeg drops the second)
+            "[00:01.00] \t[00:03.00]  x\n",
+            (Cue(1000, 3000, "  x"), Cue(3000, 6000, "  x")),
+            id="blanks between",
+        ),
+        pytest.param(  # a stamp past a double's range in ms: no line of its own, the rest kept
+            f"[00:01.00][{'9' * 306}:00.00][00:02.00]a\n",
+            (Cue(1000, 2000, "a"), Cue(2000, 5000, "a")),
+            id="one past a double",
+        ),
+        pytest.param(  # a stamp after the text: text
+            "[00:01.00]text [00:08.00]later\n",
+            (Cue(1000, 4000, "text [00:08.00]later"),),
+            id="after the text",
+        ),
+    ],
+)
+def test_an_lrc_line_of_several_stamps_is_a_line_each(data: str, cues: tuple[Cue, ...]) -> None:
+    assert subverter.read("lrc", data.encode(), "a.lrc").cues == cues
+
+
+def test_an_lrc_line_of_several_stamps_is_joined_once() -> None:
+    data = b"[00:01.00][00:03.00]caf\xc3\n[00:02.00]\xa9 ok\n"  # \xc3\xa9, an e acute, across the two lines
+    assert subverter.read("lrc", data, "a.lrc").cues == (
+        Cue(1000, 2000, "caf\u00e9"),
+        Cue(2000, 3000, " ok"),
+        Cue(3000, 6000, "caf\u00e9"),
+    )
+
+
 def test_an_lrc_time_past_a_double_in_ms_drops_its_line() -> None:
     minutes = "9" * 306  # a number (under 10**308), but in ms (times 60 000) past a double's range
     data = f"[00:01.00]kept\n[{minutes}:00.00]dropped\n".encode()

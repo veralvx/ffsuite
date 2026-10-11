@@ -2994,11 +2994,23 @@ Decided too (the owner's, 2026-10-09; each tool's writer its source: whisper.cpp
       refused; the offset an int. Without a tag the reading is the box's before,
       and with one every time that minus it (40000 random files). Suite 1916,
       coverage 100%; the matrix, 770. Found: the next box.*
-- [ ] Found by the offset box: an LRC line of several stamps
+- [x] Found by the offset box: an LRC line of several stamps
       (`[00:05.00][00:09.00]chorus`, the convention's repeated line) is read at
       its first time alone, the rest its text (`[00:09.00]chorus`, *measured*);
       ffmpeg reads an event a stamp, as the convention. To decide: each stamp a
       line, as ffmpeg, or as now.
+      *Done, the owner's choices (2026-10-11): a line each, blanks between
+      stamps read (Navidrome's; ffmpeg 8.1.2 drops a stamp after a blank,
+      measured: a new row of the `lrc` record, the offset's scope another).
+      The line's text read once (`utf8.by_line`), then given to each stamp.
+      Proved failing first: 4
+      subverter tests (repeated, blanks between, one past a double, joined once)
+      and ffman's ingest of `hostile/chorus.lrc`. Without a second stamp the
+      reading is the box's before, and with them the file's split a stamp a
+      line (60000 random files). The outcome report, 3.13 and 3.14 alike: 446
+      identical; the new case changed -- its four lines, each stamp's, where
+      two showed a stamp as text. mappings.py's new case: ffman reads all five,
+      ffmpeg four. Suite 1923, coverage 100%; the matrix, 770.*
 
 *6.8.2 Skills* (validated, packaged, presented -- before any code)
 

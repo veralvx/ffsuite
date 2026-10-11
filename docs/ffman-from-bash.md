@@ -152,6 +152,9 @@ which git-cliff writes at each release from the commits (`packages/ffman/CHANGEL
 - **An LRC's `[offset:]` is applied.** bash read no ID tag; now every time moves by it,
   in ms, `+` sooner -- the convention -- and a note says so. One not a whole number is
   ignored, noted.
+- **An LRC line of several stamps is a line each.** bash read its first stamp alone, the
+  rest shown as text (`[00:09.00]chorus`); now each stamp is a line of the text, as the
+  convention's repeated line and ffmpeg read it.
 - **Times are exact, to the millisecond.** A time is read from its decimal
   text -- JSON's numbers included -- never through a float, and rounded half up
   to the whole millisecond, one rule in every format (bash had three: SubRip and

@@ -123,4 +123,7 @@ HOSTILE: Final = {
     # LRC's [offset] (6.8.1): every time sooner by it, in ms, the last whole one; one not whole
     # noted, ignored. Before, as bash, none read: `one` at 0.6 s, `two` at 0.7 s
     "offset.lrc": "[offset:abc]\n[offset:+500]\n[00:00.60]one\n[00:00.70]two\n",
+    # an LRC line of several stamps (6.8.1): a line each, blanks between them too. Before, as
+    # bash, its first alone, the rest its text: `[00:00.30]chorus` from 0, `[00:00.35] spaced`
+    "chorus.lrc": "[00:00.00][00:00.30]chorus\n[00:00.15] [00:00.35]\tspaced\n",
 }
