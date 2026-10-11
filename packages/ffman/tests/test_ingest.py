@@ -183,6 +183,13 @@ def test_a_number_alone_before_a_timing_line_is_the_next_cues_index(tmp_path: Pa
     )
 
 
+def test_an_override_opening_with_an_escape_is_dropped_whatever_the_format(tmp_path: Path) -> None:
+    # {\t(...)}: ASS's animation -- dropped, as ffmpeg's subrip decoder and VLC drop it
+    srt = ingested(put(tmp_path, "a.srt", "1\n00:00:00,000 --> 00:00:00,400\n{\\t(0,1)}a {\\n}b\n"))
+    vtt = ingested(put(tmp_path, "a.vtt", "WEBVTT\n\n00:00.000 --> 00:00.400\n{\\t(0,1)}a \\N\n"))
+    assert (srt.chunks[0].text, vtt.chunks[0].text) == ("a b", "a \\N")  # WebVTT's \N as written
+
+
 def test_an_lrc_line_of_several_stamps_is_a_line_each(tmp_path: Path) -> None:
     t = ingested(put(tmp_path, "chorus.lrc", HOSTILE["chorus.lrc"]))
     assert [(c.start, c.end, c.text) for c in t.chunks] == [

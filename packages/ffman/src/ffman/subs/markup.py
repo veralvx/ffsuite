@@ -14,15 +14,19 @@ _MARKED_OVERRIDE: Final = re.compile(r"\{\uffff*\\[^}]*\}")  # _OVERRIDE, _TAG_M
 
 
 def clean(text: str, *, references: bool) -> str:
-    """Bash's CLEAN_AWK: breaks to spaces, tags and overrides off, blanks squeezed, trimmed.
+    r"""Bash's CLEAN_AWK: tags and overrides off, breaks to spaces, blanks squeezed, trimmed.
 
-    ``references`` (WebVTT's): each run between tags decoded, once the overrides are off --
-    a decoded ``<`` or ``{`` text, a decoded break a space.
+    Overrides first: one opening with an escape (``{\t(...)}``) is dropped whole, as ffmpeg's
+    subrip decoder and VLC drop it -- bash broke it first, showing it. ``references``
+    (WebVTT's): each run between tags decoded, once the overrides are off -- a decoded ``<``
+    or ``{`` text, a decoded break a space.
     """
-    text = _BREAK.sub(" ", text)
     if references:
-        runs = _MARKED_OVERRIDE.sub("", untagged(text, into=_TAG_MARK)).split(_TAG_MARK)
-        text = _DECODED_BREAK.sub(" ", "".join(decoded(run) for run in runs))
+        text = _MARKED_OVERRIDE.sub("", untagged(text, into=_TAG_MARK))
     else:
         text = _OVERRIDE.sub("", untagged(text))
+    text = _BREAK.sub(" ", text)
+    if references:
+        runs = text.split(_TAG_MARK)
+        text = _DECODED_BREAK.sub(" ", "".join(decoded(run) for run in runs))
     return _BLANKS.sub(" ", text).removeprefix(" ").removesuffix(" ")

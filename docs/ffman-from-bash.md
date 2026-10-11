@@ -156,6 +156,8 @@ which git-cliff writes at each release from the commits (`packages/ffman/CHANGEL
 - **A SubRip index with no blank line before it is an index.** bash read `first`, `2`, a
   timing line as `first 2`; now a number alone right before a timing line is the next cue's
   index, as ffmpeg (so mpv) reads it, noted. Any other line stays text, and WebVTT's too.
+- **An override block is removed before breaks become spaces.** bash broke `{\t(...)}`, ASS's
+  animation, by its `\t` first and showed it; now it is dropped whole, as the players drop it.
 - **An LRC's `[offset:]` is applied.** bash read no ID tag; now every time moves by it,
   in ms, `+` sooner -- the convention -- and a note says so. One not a whole number is
   ignored, noted.
