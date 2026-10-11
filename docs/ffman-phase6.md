@@ -2826,12 +2826,29 @@ Decided too (the owner's, 2026-10-09; each tool's writer its source: whisper.cpp
       text UTF-8, no traceback but the next box's. The outcome report, 3.13 and 3.14 alike:
       438 identical; `burn/hostile/split.srt`, `attach/split` (joined) and
       `burn/hostile/latin-1.srt` (refused) changed, each a traceback before.*
-- [ ] Found by the box before's fuzzing: a CSV or TSV whose header puts `text`
+- [x] Found by the box before's fuzzing: a CSV or TSV whose header puts `text`
       before `start` or `end` (`text,start,end`), then a record short of those
       (`hello`), stops ffman on a traceback -- `IndexError` in `table.rows`,
       which checks a record holds its text, not its times (measured at
       `81c63a2`, `--burn-subs`). To decide: the record dropped, as one short of
       its text, or its missing times none.
+      *Done, the owner's choice of three (2026-10-11): a field past a record's
+      last reads empty, as awk's `$n` -- its text "", its time none -- whatever
+      the header's order; a blank line is no record. So the reader drops no
+      cue, as its contract says and JSON's missing values do: `1,2` under
+      `start,end,text` is now a cue of no text, dropped by ffman as before
+      (its output the same whichever the choice: untimed and empty cues
+      dropped). Proved failing first: 4 subverter tests, ffman's ingest of
+      `hostile/columns.csv`. The outcome report, 3.13 and 3.14 alike: 441
+      identical; `burn/hostile/columns.csv` changed -- burned, a traceback
+      before.*
+- [ ] Found by the box before's review: a CSV or TSV whose header follows a
+      blank line is not read as a header -- `table.rows` takes only its first
+      record, and a blank line is one to `csv` -- so its records are read as
+      start, end, text: `\ntext,start,end\nhello,0,1000` reads `hello` as a
+      start, and its cue is dropped (measured with the box before's change; a
+      BOM before it alike). To decide: the header the first record that is not blank, or the
+      first line, as now.
 - [ ] What ffmpeg converts between them (its `subrip`, `webvtt`, `ass`, `lrc`
       demuxers, muxers, decoders, encoders), measured both ways -- text,
       markup, positions, overlaps, empty cues, word timing -- against what

@@ -102,4 +102,7 @@ HOSTILE: Final = {
     # UTF-8, its Latin-1 character, and ffmpeg dropped its cue from --add-subs' track; the
     # port stopped on a traceback
     "latin-1.srt": b"1\n00:00:00,000 --> 00:00:00,300\ncaf\xe9\n",
+    # a header naming text first, then a record short of its times (6.8.1): its times none, as
+    # awk's $n past the last field, so no cue -- the port stopped on an IndexError
+    "columns.csv": "text,start,end\nhello\nok,0,300\n",
 }

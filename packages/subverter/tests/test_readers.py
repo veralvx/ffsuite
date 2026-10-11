@@ -161,11 +161,24 @@ def test_an_lrc_time_past_a_double_in_ms_drops_its_line() -> None:
         ("speaker,end,start,text\nS1,2000,1000,hi\n", (Cue(1000, 2000, "hi"),)),  # by header
         ("500,900,x\n", (Cue(500, 900, "x"),)),  # no header: start, end, text
         ("start,end,text\nabc,900,y\n", (Cue(None, 900, "y"),)),  # no number: no time
-        ("start,end,text\n1,2\n", ()),  # a record short of its text
+        # a record short of a column: that field empty, as awk's $n past the last -- a text "", a
+        # time none -- wherever the header puts it; a blank line no record
+        ("start,end,text\n1,2\n", (Cue(1, 2, ""),)),
+        ("text,start,end\nhello\n", (Cue(None, None, "hello"),)),
+        ("text,end,start\nhi,2000\n", (Cue(None, 2000, "hi"),)),
+        ("start,end,text\n\n0,1,x\n", (Cue(0, 1, "x"),)),
     ],
 )
 def test_a_csv_read_by_its_columns(data: str, cues: tuple[Cue, ...]) -> None:
     assert subverter.read("csv", data.encode(), "a.csv").cues == cues
+
+
+def test_a_tsv_record_short_of_a_column_reads_it_empty() -> None:
+    data = "text\tstart\tend\nhello\n0\n"  # its start and end, then its end, past the record
+    assert subverter.read("tsv", data.encode(), "a.tsv").cues == (
+        Cue(None, None, "hello"),
+        Cue(None, None, "0"),
+    )
 
 
 def test_a_tsv_quotes_nothing() -> None:

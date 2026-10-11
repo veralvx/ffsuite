@@ -1,7 +1,8 @@
 """CSV and TSV, as whisper-cli and WhisperX write them: start, end, text (ms), columns by header.
 
 A header is a first record naming start and end, in any order (bash: one starting with
-start); without one, the columns are start, end, text.
+start); without one, the columns are start, end, text. A record short of a column reads it
+empty, as awk's ``$n`` past the last field: its text "", its time none.
 """
 
 import csv
@@ -38,9 +39,14 @@ def rows(kind: str, text: str, name: str) -> list[Cue]:
                 ei = i if column == "end" else ei
                 ti = i if column == "text" else ti
             continue
-        if fields and len(fields) >= ti:
-            found.append((line, fields[si - 1], fields[ei - 1], fields[ti - 1]))
+        if fields:  # a blank line is no record
+            found.append((line, _field(fields, si), _field(fields, ei), _field(fields, ti)))
     whole = by_line([(first, cell) for first, *_, cell in found], name)
     return [
         Cue(time_ms(a, 1), time_ms(z, 1), t) for (_, a, z, _), t in zip(found, whole, strict=True)
     ]
+
+
+def _field(fields: list[str], column: int) -> str:
+    """The record's ``column`` (from 1); one past its last field empty."""
+    return fields[column - 1] if column <= len(fields) else ""
