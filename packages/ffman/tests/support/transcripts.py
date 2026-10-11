@@ -108,4 +108,16 @@ HOSTILE: Final = {
     # a header after a blank line (6.8.1): the first record its header, a blank line none, as
     # pandas reads one -- before, read as data, every cue untimed: "no timed text found"
     "late-header.csv": "\ntext,start,end\nhello,0,300\n",
+    # a text line holding --> (6.8.1): no time either side, so no timing line -- SubRip's text,
+    # as ffmpeg reads it; in WebVTT the cue's end, the lines after it up to a blank one no cue's
+    # (W3C WebVTT). Before, as bash's awk, `Note: 1` read 1 s and `2` 2 minutes: a cue of `y`
+    # from 1 s to 2:00 in each; the SubRip's second cue lost, its `c` a cue at 0 of no length
+    "arrows.srt": (
+        "1\n00:00:00,000 --> 00:00:00,200\nThe sign said:\nNote: 1 --> 2\ny\n\n"
+        + "2\n00:00:00,200 --> 00:00:00,400\na --> b\nc\n"
+    ),
+    "arrows.vtt": (
+        "WEBVTT\n\n00:00.000 --> 00:00.200\nx\nNote: 1 --> 2\ny\n\n"
+        + "00:00.200 --> 00:00.400\nnext\n"
+    ),
 }

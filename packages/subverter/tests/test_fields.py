@@ -6,7 +6,7 @@ from fractions import Fraction
 import pytest
 from hypothesis import example, given
 from hypothesis import strategies as st
-from subverter.readers.fields import exact, ms, number, prefix
+from subverter.readers.fields import exact, is_decimal, ms, number
 
 
 @pytest.mark.parametrize(
@@ -22,6 +22,9 @@ from subverter.readers.fields import exact, ms, number, prefix
         ("0e999999999", Fraction(0)),
         ("1e400", None),
         ("x", None),
+        # refused in one pass, no split of the digits tried (17 s, a side of a line with -->)
+        pytest.param("1" * 20000 + "x", None, id="20000 digits, then no digit"),
+        pytest.param("1e" + "1" * 20000 + "x", None, id="20000 exponent digits, then no digit"),
     ],
 )
 def test_a_decimal_in_bounded_work(text: str, value: Fraction | None) -> None:
@@ -82,17 +85,22 @@ def test_a_number_is_a_json_number_or_a_decimal_string() -> None:
 
 
 @pytest.mark.parametrize(
-    ("text", "value"),
+    ("text", "whole"),
     [
-        ("12abc", 12),
-        ("", 0),
-        (" 5", 5),
-        ("-3.5x", Fraction(-7, 2)),
-        ("1e3", 1000),
-        ("+7", 7),
-        (".5", Fraction(1, 2)),
+        (" 5", True),
+        ("1e3", True),
+        ("+7", True),
+        (".5", True),
+        ("1.", True),
+        ("9" * 5000, True),  # its size aside: ``exact`` reads it as none
+        ("12abc", False),
+        ("", False),
+        ("-3.5x", False),
+        ("1.2.3", False),
+        ("1_000", False),
+        ("\u0663", False),  # another script's digit (Python's float() takes it)
     ],
 )
-def test_a_prefix_is_read_as_awk_reads_a_number(text: str, value: Fraction) -> None:
-    """A SubRip time's parts: the leading number (``$1 + 0``), exactly; 0 if none."""
-    assert prefix(text) == value
+def test_a_decimal_is_wholly_one(text: str, whole: bool) -> None:
+    """A SubRip or WebVTT time's parts: each wholly a decimal, or the line no timing line."""
+    assert is_decimal(text) is whole

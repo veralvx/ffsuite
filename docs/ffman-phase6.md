@@ -2951,13 +2951,31 @@ Decided too (the owner's, 2026-10-09; each tool's writer its source: whisper.cpp
       (`pre-wrap`; the specification's `pre-line` collapses them) -- libass
       keeps inner runs and lays out without a line's leading and trailing
       spaces. Found: the next two boxes.*
-- [ ] Found by the mappings box: a SubRip or WebVTT text line holding `-->` is
+- [x] Found by the mappings box: a SubRip or WebVTT text line holding `-->` is
       taken for a timing line -- subverter's `rows`, as bash's `subs_srt_vtt`,
       opens a cue at any line holding it -- so the cue's text is lost (measured:
       `a --> b` over `c`, the cue gone). ffmpeg reads it as text, SubRip's
       definition here; WebVTT's specification ends the cue there. whisper-cli
       and OpenAI's word cues write `-->` as it is. To decide: a SubRip timing
       line as ffmpeg reads one, WebVTT's as the specification.
+      *Done, the owner's choice of three (2026-10-11): each format's own. A
+      timing line has a time either side of its arrow -- one to three decimals
+      joined by `:`, bash's lenient forms kept (`5 --> 7`, `00:01 --> 00:02`,
+      either fraction mark); any other line holding `-->` is SubRip's text, and
+      in WebVTT ends the cue, the lines after it up to a blank line or a timing
+      line no cue's (`subrip._timing`, `rows(webvtt=)`; `fields.is_decimal` for
+      awk's `prefix`, gone). Shown first: `Note: 1 --> 2` in a cue's text was a
+      cue from 1 s to 2 minutes, `a --> b` first a file refused. Proved failing
+      first: 6 subverter tests (5 SubRip lines, a WebVTT block), ffman's ingest
+      of `hostile/arrows.srt` and `.vtt`; bash's lenient forms read as before (a
+      test). The outcome report, 3.13 and 3.14 alike: 443 identical; the two new
+      cases changed -- the SubRip's text kept, each a cue from 1 s to 2:00 gone.
+      Its review: a decimal's pattern has one way to match (`fields.NUMBER`) --
+      `[0-9]+\.?[0-9]*` tried each split of a run of digits, 17 s for a side of
+      20000, as for a CSV, TSV or JSON time; an end glued to what follows
+      (`00:00:02,000X1:5`, `00:02.000align:left`) is its time, as ffmpeg 8.1
+      reads it and the W3C's "remainder" -- bash read 0 and 2 minutes. Suite
+      1908, coverage 100%; the matrix, 770; the outcome report, 445 identical.*
 - [ ] Found by the mappings box: LRC's `[offset:+500]` is ignored -- subverter
       reads no ID tag, as bash did not -- where the convention moves every time
       by it, in ms (`+` sooner), and ffmpeg applies it in microseconds. To

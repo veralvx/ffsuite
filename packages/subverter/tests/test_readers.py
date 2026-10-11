@@ -48,10 +48,65 @@ def test_vtt_minutes_alone_settings_ignored_tags_kept_the_next_cue_closing_one()
     )
 
 
-def test_a_subrip_part_as_awk_reads_it_and_one_past_a_double_no_time() -> None:
+def test_a_subrip_part_past_a_double_is_no_time() -> None:
     huge = "9" * 400  # its first digit past 10**308: no number, so no time
-    data = f"1\nxx:00:01,000 --> {huge}:00:02,000\nx\n"  # "xx" has no leading number: 0
+    data = f"1\n00:00:01,000 --> {huge}:00:02,000\nx\n"
     assert subverter.read("srt", data.encode(), "a.srt").cues == (Cue(1000, None, "x"),)
+
+
+@pytest.mark.parametrize(
+    ("text", "read"),
+    [
+        # a side that is no time: the line is text -- awk read "Note: 1" as 1 s, "xx" as 0
+        ("The sign said:\nNote: 1 --> 2\nand then", "The sign said: Note: 1 --> 2 and then"),
+        ("a --> b\nc", "a --> b c"),
+        ("xx:00:01,000 --> 00:00:02,000", "xx:00:01,000 --> 00:00:02,000"),
+        ("00:00:01,000 -->", "00:00:01,000 -->"),
+        ("1:2:3:4 --> 5", "1:2:3:4 --> 5"),
+    ],
+)
+def test_a_subrip_line_whose_arrow_has_no_time_each_side_is_text(text: str, read: str) -> None:
+    data = f"1\n00:00:01,000 --> 00:00:04,000\n{text}\n\n2\n00:00:05,000 --> 00:00:06,000\nnext\n"
+    assert subverter.read("srt", data.encode(), "a.srt").cues == (
+        Cue(1000, 4000, read),
+        Cue(5000, 6000, "next"),
+    )
+
+
+def test_bash_lenient_timing_lines_are_still_timing_lines() -> None:
+    # minutes and seconds alone; a bare number, minutes; seconds a decimal; either fraction
+    # mark; a sign on zero hours (lost, as ffmpeg loses it); spaces; SubRip's coordinates after
+    data = "1\n00:01 --> 00:02\na\n\n2\n5 --> 7\nb\n\n3\n 00:00:08.5 --> -00:00:09,000 X1:1\nc\n"
+    assert subverter.read("srt", data.encode(), "a.srt").cues == (
+        Cue(1000, 2000, "a"),
+        Cue(300_000, 420_000, "b"),
+        Cue(8500, 9000, "c"),
+    )
+
+
+@pytest.mark.parametrize(
+    ("fmt", "data"),
+    [
+        ("srt", "1\n00:00:01,000 --> 00:00:02,000X1:5\nglued\n"),  # ffmpeg 8.1 reads it a cue
+        ("vtt", "WEBVTT\n\n00:01.000 --> 00:02.000align:left\nglued\n"),  # W3C's "remainder"
+    ],
+)
+def test_an_end_glued_to_what_follows_it_ends_where_its_time_does(fmt: str, data: str) -> None:
+    assert subverter.read(fmt, data.encode(), f"a.{fmt}").cues == (Cue(1000, 2000, "glued"),)
+
+
+def test_a_webvtt_line_whose_arrow_has_no_time_each_side_ends_the_cue_its_block_dropped() -> None:
+    # W3C WebVTT, "collect a WebVTT block": a line holding "-->" ends the cue's text; its block
+    # is a cue only if its timings parse -- else dropped, up to the blank line (Chromium alike)
+    data = (
+        "WEBVTT\n\n00:01.000 --> 00:04.000\nx\nleft --> right\ny\n\n"
+        "00:05.000 --> 00:06.000\nnext\n\n00:07.000 --> 00:08.000\nNOTE a --> b\n"
+    )
+    assert subverter.read("vtt", data.encode(), "a.vtt").cues == (
+        Cue(1000, 4000, "x"),
+        Cue(5000, 6000, "next"),
+        Cue(7000, 8000, ""),
+    )
 
 
 def test_a_file_without_a_final_newline_loses_no_line() -> None:

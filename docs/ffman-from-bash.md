@@ -143,6 +143,12 @@ which git-cliff writes at each release from the commits (`packages/ffman/CHANGEL
   whisper-cli's of special tokens alone, a highlighted run without `<u>` -- shown
   unhighlighted, as one whose words have no time. Both are counted in "N sentences
   had no word timings"; bash counted the second alone.
+- **A line holding `-->` is a timing line only with a time either side.** bash's reader
+  opened a cue at any such line, reading each side as awk reads a number: `Note: 1 --> 2` in a
+  cue's text became a cue from 1 s to 2 minutes, `a --> b` one at 0 of no length -- its text
+  lost, and a file of such cues refused. Now that line is SubRip's text, as ffmpeg reads it; in
+  WebVTT it ends the cue and its block is dropped, as the specification and browsers do. An end
+  glued to what follows it (`00:00:02,000X1:5`) read 0; now its time, as ffmpeg reads it.
 - **Times are exact, to the millisecond.** A time is read from its decimal
   text -- JSON's numbers included -- never through a float, and rounded half up
   to the whole millisecond, one rule in every format (bash had three: SubRip and

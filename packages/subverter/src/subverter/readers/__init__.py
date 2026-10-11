@@ -21,7 +21,7 @@ def read(fmt: str, data: bytes, name: str) -> Reading:
         refuse(f"unsupported subtitle format '.{fmt}' ({', '.join(FORMATS)})")
     match fmt:
         case "srt" | "vtt":
-            cues = subrip.rows(_lines(data), name)
+            cues = subrip.rows(_lines(data), name, webvtt=fmt == "vtt")
             references = fmt == "vtt"  # SubRip has none: ffmpeg's subrip decodes none
             if not subrip.is_highlighted(cues):
                 return Reading(

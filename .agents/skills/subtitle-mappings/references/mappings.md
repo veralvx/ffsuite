@@ -62,14 +62,14 @@ besides (the sections below).
 
 *Measured* and recorded, what crosses:
 
-| Case                                      | ffmpeg                                                                            | ffman reads                                                                                                          | Candidate                                                      |
-| ----------------------------------------- | --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| SubRip or ASS `A & B < C > D` into WebVTT | written as is: invalid, read back `A & B  D` (`ffmpeg.md`)                        | --                                                                                                                   | `&` `<` `>` written as references: what the specification asks |
-| WebVTT `&amp; &lt;` into the others       | six references decoded (`ffmpeg.md`)                                              | every reference decoded (`subverter.decoded`)                                                                        | decoded, then escaped as the target needs                      |
-| a SubRip text line `a --> b`              | text: kept into SubRip, WebVTT (where it ends the cue for a browser) and ASS      | **taken for a timing line**: the cue's text empty, `c` a cue timed 0 -> 0, both dropped -- the cue lost (*measured*) | text, as ffmpeg -- a defect today: the next box                |
-| a WebVTT text line `a --> b`              | kept, as SubRip's                                                                 | the same as SubRip's: the cue lost; Chromium ends the cue there too (the `webvtt` record)                            | as the specification: the cue ends there                       |
-| a CSV field over two lines; `a, b`        | --                                                                                | `one\ntwo` (a break, joined by ffman: `one two`); `a, b`                                                             | the break kept                                                 |
-| into plain text                           | **none**: no muxer for `.txt` -- "Unable to choose an output format" (*measured*) | --                                                                                                                   | ffman's: a line a cue, the text alone (whisper's `-otxt`)      |
+| Case                                      | ffmpeg                                                                            | ffman reads                                                                                                      | Candidate                                                      |
+| ----------------------------------------- | --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| SubRip or ASS `A & B < C > D` into WebVTT | written as is: invalid, read back `A & B  D` (`ffmpeg.md`)                        | --                                                                                                               | `&` `<` `>` written as references: what the specification asks |
+| WebVTT `&amp; &lt;` into the others       | six references decoded (`ffmpeg.md`)                                              | every reference decoded (`subverter.decoded`)                                                                    | decoded, then escaped as the target needs                      |
+| a SubRip text line `a --> b`              | text: kept into SubRip, WebVTT (where it ends the cue for a browser) and ASS      | text: `a --> b c` (*measured*; before 6.8.1's fix, a timing line: the cue lost)                                  | text, as ffmpeg                                                |
+| a WebVTT text line `a --> b`              | kept, as SubRip's                                                                 | the cue's end, `c` no cue's: the cue empty (*measured*), as the specification and Chromium (the `webvtt` record) | as ffman reads it                                              |
+| a CSV field over two lines; `a, b`        | --                                                                                | `one\ntwo` (a break, joined by ffman: `one two`); `a, b`                                                         | the break kept                                                 |
+| into plain text                           | **none**: no muxer for `.txt` -- "Unable to choose an output format" (*measured*) | --                                                                                                               | ffman's: a line a cue, the text alone (whisper's `-otxt`)      |
 
 ## Line breaks and spaces
 
@@ -159,15 +159,15 @@ high; libass `\fs96` from 48: 40 to 81) and `font-family: serif` (230 to 212 px 
 
 ## Identifiers, comments and titles
 
-| Source -> target                           | ffmpeg (*measured*)                                                  | ffman reads                                | Candidate                                                   |
-| ------------------------------------------ | -------------------------------------------------------------------- | ------------------------------------------ | ----------------------------------------------------------- |
-| WebVTT identifier (`intro`)                | dropped by every conversion (a stream copy keeps it)                 | dropped                                    | kept into WebVTT; elsewhere none holds it                   |
-| WebVTT `NOTE`; ASS `Comment:`              | dropped                                                              | dropped                                    | each other's: a `NOTE` an ASS `Comment:`, and back          |
-| WebVTT's title (`WEBVTT - The title`)      | dropped                                                              | dropped                                    | ASS `Title`, LRC `[ti:]`                                    |
-| ASS `Title`                                | dropped                                                              | --                                         | WebVTT's title line, LRC `[ti:]`                            |
-| LRC `[ti:]`, `[ar:]` and the other ID tags | read as metadata (`title`, `artist`), written into none (*measured*) | dropped                                    | `[ti:]` the title as above; the rest kept into LRC alone    |
-| LRC `[offset:+500]`                        | applied, in microseconds (the `lrc` record)                          | **ignored** (*measured*: `one` at 1000 ms) | applied in ms, as the convention says -- the box after next |
-| SubRip's index                             | renumbered                                                           | --                                         | renumbered                                                  |
+| Source -> target                           | ffmpeg (*measured*)                                                  | ffman reads                                | Candidate                                                  |
+| ------------------------------------------ | -------------------------------------------------------------------- | ------------------------------------------ | ---------------------------------------------------------- |
+| WebVTT identifier (`intro`)                | dropped by every conversion (a stream copy keeps it)                 | dropped                                    | kept into WebVTT; elsewhere none holds it                  |
+| WebVTT `NOTE`; ASS `Comment:`              | dropped                                                              | dropped                                    | each other's: a `NOTE` an ASS `Comment:`, and back         |
+| WebVTT's title (`WEBVTT - The title`)      | dropped                                                              | dropped                                    | ASS `Title`, LRC `[ti:]`                                   |
+| ASS `Title`                                | dropped                                                              | --                                         | WebVTT's title line, LRC `[ti:]`                           |
+| LRC `[ti:]`, `[ar:]` and the other ID tags | read as metadata (`title`, `artist`), written into none (*measured*) | dropped                                    | `[ti:]` the title as above; the rest kept into LRC alone   |
+| LRC `[offset:+500]`                        | applied, in microseconds (the `lrc` record)                          | **ignored** (*measured*: `one` at 1000 ms) | applied in ms, as the convention says -- to decide (6.8.1) |
+| SubRip's index                             | renumbered                                                           | --                                         | renumbered                                                 |
 
 ## Word times
 

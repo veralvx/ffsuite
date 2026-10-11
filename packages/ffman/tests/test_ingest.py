@@ -139,6 +139,16 @@ def test_a_csv_header_after_a_blank_line_is_its_header(tmp_path: Path) -> None:
     assert t.chunks == (Chunk(0, 300, "hello", ""),)
 
 
+def test_a_line_holding_an_arrow_is_subrips_text_and_ends_a_webvtt_cue(tmp_path: Path) -> None:
+    srt = ingested(put(tmp_path, "arrows.srt", HOSTILE["arrows.srt"]))
+    assert [(c.start, c.end, c.text) for c in srt.chunks] == [
+        (0, 200, "The sign said: Note: 1 --> 2 y"),
+        (200, 400, "a --> b c"),
+    ]
+    vtt = ingested(put(tmp_path, "arrows.vtt", HOSTILE["arrows.vtt"]))
+    assert [(c.start, c.end, c.text) for c in vtt.chunks] == [(0, 200, "x"), (200, 400, "next")]
+
+
 def test_whisperx_ties_and_gaps(tmp_path: Path) -> None:
     doc = {"segments": [{"start": 1, "end": 2, "text": "a b c", "words": [{"word": "a", "start": 1.0}, {"word": "b", "start": 1.0}, {"word": "c"}]}, {"start": 3, "end": 4, "text": "bare", "words": [{"word": "bare"}]}]}  # fmt: skip
     t = ingested(put(tmp_path, "x.json", json.dumps(doc)))

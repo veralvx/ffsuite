@@ -12,21 +12,24 @@ from typing import Final
 
 from subverter._values import round_half_up
 
-__all__ = ["exact", "json_number", "ms", "number", "prefix", "time_ms"]
+__all__ = ["NUMBER", "exact", "is_decimal", "json_number", "ms", "number", "time_ms"]
 
-# a decimal, as jq's tonumber and awk read one: ASCII digits, a sign, a fraction, an exponent,
-# blanks around (Python's float() also takes "1_000", other scripts' digits, "nan" and "inf")
-_DECIMAL: Final = re.compile(
-    r"\s*([-+]?)(?:([0-9]+)\.?([0-9]*)|\.([0-9]+))(?:[eE]([-+]?[0-9]+))?\s*", re.ASCII
-)
-_PREFIX: Final = re.compile(
-    r"[ \t\n]*[-+]?(?:[0-9]+\.?[0-9]*|\.[0-9]+)(?:[eE][-+]?[0-9]+)?", re.ASCII
-)
+# a decimal, as jq's tonumber and awk read one: ASCII digits, a sign, a fraction, an exponent
+# (Python's float() also takes "1_000", other scripts' digits, "nan" and "inf"); its groups:
+# sign, whole, fraction, a fraction alone, exponent. One way to match a text, so a refusal is
+# linear (``[0-9]+\.?[0-9]*`` tried each split of a run of digits: quadratic)
+NUMBER: Final = r"([-+]?)(?:([0-9]+)(?:\.([0-9]*))?|\.([0-9]+))(?:[eE]([-+]?[0-9]+))?"
+_DECIMAL: Final = re.compile(rf"\s*{NUMBER}\s*", re.ASCII)  # blanks around, as jq and awk read
 _HIGHEST: Final = 308  # a double's largest power of ten: a first digit above it, no number
 _LOWEST: Final = -400  # under a double's least (5e-324): zero, as a double underflows
 _DIGITS: Final = 400  # significant digits read: more than any rounding of a time here looks at
 _EXPONENT_DIGITS: Final = 6  # an exponent of 10**6 or more is far past either bound
 _LONGEST: Final = Fraction(sys.float_info.max)  # a time past a double's range is none
+
+
+def is_decimal(text: str) -> bool:
+    """Whether ``text`` is wholly a decimal, as ``exact`` reads one -- its size aside."""
+    return _DECIMAL.fullmatch(text) is not None
 
 
 def exact(text: str) -> Fraction | None:
@@ -42,7 +45,7 @@ def exact(text: str) -> Fraction | None:
         return None
     sign, whole, fraction, only, exponent = match.groups()
     integral = whole or ""
-    digits = integral + (fraction if whole is not None else only)
+    digits = integral + (fraction or only or "")
     significant = digits.lstrip("0")
     if not significant:
         return Fraction(0)
@@ -75,12 +78,6 @@ def json_number(text: str) -> Fraction | float:
     """``json.loads``'s ``parse_float``: the number exactly; past a double, the float JSON gave."""
     found = exact(text)
     return found if found is not None else float(text)
-
-
-def prefix(text: str) -> Fraction | None:
-    """A field's leading number, as awk reads it (``$1 + 0``), exactly; 0 if none, None if huge."""
-    match = _PREFIX.match(text)
-    return exact(match[0]) if match else Fraction(0)
 
 
 def ms(value: Fraction | None, per_unit: int) -> int | None:

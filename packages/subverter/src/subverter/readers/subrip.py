@@ -5,47 +5,71 @@ from fractions import Fraction
 from typing import Final
 
 from subverter.markup import untagged
-from subverter.readers.fields import ms, prefix
+from subverter.readers.fields import NUMBER, exact, is_decimal, ms
 from subverter.readers.utf8 import by_line
 from subverter.transcript import Cue, Timing
 
 __all__ = ["highlighted", "is_highlighted", "rows"]
 
+_PARTS: Final = 3  # a time's most: hours, minutes, seconds
 _ARROW: Final = re.compile(r"[ \t]*-->[ \t]*")  # a cue's times, either side
-_BLANKS: Final = re.compile(r"[ \t]")  # after the end time: its settings (WebVTT)
+_END: Final = re.compile(rf"{NUMBER}(?::{NUMBER}){{0,{_PARTS - 1}}}")  # what follows, ignored
 _BLANK_LINE: Final = re.compile(r"[ \t]*")  # a cue's end
 _UNDERLINE: Final = re.compile(r"<u>([^<]*)</u>")  # WhisperX --highlight_words: the word
 
 
-def _time(text: str) -> int | None:
-    """subs_srt_vtt's ms(): HH:MM:SS,mmm or MM:SS.mmm, each part as awk read it, exactly."""
-    parts = text.replace(",", ".").split(":")
-    if len(parts) == 3:  # noqa: PLR2004 -- hours, minutes, seconds
-        h, m, s = (prefix(p) for p in parts)
-    else:
-        h, m, s = Fraction(0), prefix(parts[0]), prefix(parts[1] if len(parts) > 1 else "")
-    if h is None or m is None or s is None:  # a part past a double's range: no time
+def _timing(line: str) -> tuple[int | None, int | None] | None:
+    """A timing line's start and end (each None past a double's range), or None: no timing line.
+
+    A timing line: an arrow, wholly a time before it (``_ms``), and a time first after it --
+    what follows, WebVTT's settings or SubRip's coordinates, ignored, a blank between or not
+    (as ffmpeg reads them, and the W3C's "remainder").
+    """
+    if "-->" not in line:
         return None
+    left, right = _ARROW.split(line, maxsplit=1)
+    start = left.replace(",", ".").split(":")
+    end = _END.match(right.replace(",", "."))
+    if end is None or len(start) > _PARTS or not all(map(is_decimal, start)):
+        return None
+    return _ms(start), _ms(end[0].split(":"))
+
+
+def _ms(parts: list[str]) -> int | None:
+    """subs_srt_vtt's ms(), each part a decimal read exactly; None if one is past a double's range.
+
+    h:m:s, m:s, or m alone -- awk read a bare number as minutes.
+    """
+    values = [v for v in map(exact, parts) if v is not None]
+    if len(values) < len(parts):
+        return None
+    if len(values) == 1:  # minutes alone
+        values.append(Fraction(0))
+    h, m, s = [Fraction(0)] * (_PARTS - len(values)) + values
     return ms(h * 3600 + m * 60 + s, 1000)
 
 
-def rows(lines: list[str], name: str) -> list[Cue]:
+def rows(lines: list[str], name: str, *, webvtt: bool) -> list[Cue]:
     """Cues, their text kept with its tags (a WhisperX <u> marks a word).
 
-    A cue opens at its "-->" line and closes at a blank line, or at the next cue
+    A cue opens at its timing line (``_timing``) and closes at a blank line, or at the next cue
     (bash's intext and its set st, which always changed together). Its text lines joined by a
     space, each character joined across the lines it spans (``utf8.by_line``: what is still not
     UTF-8, refused by its line).
+
+    Any other line holding ``-->`` is the cue's text in SubRip, as ffmpeg reads it; in WebVTT it
+    ends the cue, and the lines after it up to a blank line or a timing line are no cue's (W3C
+    WebVTT, "collect a WebVTT block": its timings do not parse, the block is dropped).
     """
     times: list[tuple[int | None, int | None]] = []
     texts: list[tuple[int, int]] = []  # each text line: its cue, its index among the lines
     is_open = False
     for i, line in enumerate(lines):
-        if "-->" in line:
-            left, right = _ARROW.split(line, maxsplit=1)
-            times.append((_time(left), _time(_BLANKS.split(right)[0])))
+        timing = _timing(line)
+        if timing is not None:
+            times.append(timing)
             is_open = True
-        elif is_open and _BLANK_LINE.fullmatch(line):
+        elif _BLANK_LINE.fullmatch(line) or (webvtt and "-->" in line):
             is_open = False
         elif is_open:
             texts.append((len(times) - 1, i))
