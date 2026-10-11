@@ -1,13 +1,14 @@
 # Word timings: how each format holds them, what ffman reads back, how they are drawn
 
-The same words in every form -- `one` 1.0-1.5 s, `two` 1.5-1.8, `three` 1.8-2.0, a sentence;
-`four` 3.0-3.4, a 200 ms gap, `five` 3.6-4.0, another -- read back by ffman (subverter's readers,
-at `5bb791d`, then `ffman.subs.ingest`), ASS's karaoke drawn by libass 0.17.1 (FFmpeg n8.1.2's
-`ass` filter, a frame at each millisecond asked) and WebVTT's timestamps by Chromium 141.0.7390.37
-(a `<track>`, its frames read by colour). Measured by `../scripts/words.py` (its output is the
-tables marked *measured*), which checks its SubRip and WebVTT cues equal to OpenAI whisper's own
-(`WriteSRT`, `WriteVTT`, v20250625). Each format alone: the `subrip`, `webvtt`, `ass`, `lrc` and
-`whisper-transcripts` records; ffmpeg's conversions of these forms: `ffmpeg.md`.
+The same words in every form -- `one` 1.0-1.5 s, `two` 1.5-1.8, `three` 1.8-2.0, a sentence; `four`
+3.0-3.4, a 200 ms gap, `five` 3.6-4.0, another -- read back by ffman (subverter's readers, then
+`ffman.subs.ingest`; measured again once a sentence of no words was counted), ASS's karaoke drawn by
+libass 0.17.1 (FFmpeg n8.1.2's `ass` filter, a frame at each millisecond asked) and WebVTT's
+timestamps by Chromium 141.0.7390.37 (a `<track>`, its frames read by colour). Measured by
+`../scripts/words.py` (its output is the tables marked *measured*), which checks its SubRip and
+WebVTT cues equal to OpenAI whisper's own (`WriteSRT`, `WriteVTT`, v20250625). Each format alone:
+the `subrip`, `webvtt`, `ass`, `lrc` and `whisper-transcripts` records; ffmpeg's conversions of
+these forms: `ffmpeg.md`.
 
 ## How each holds a word's time
 
@@ -27,19 +28,19 @@ ASS's `\k` and its kin time syllables, not words: karaoke splits a word where it
 
 *Measured* -- subverter's reading (its cues and words), then ffman's (its chunks and words):
 
-| Form                                                       | subverter                                                            | ffman                                                                                         |
-| ---------------------------------------------------------- | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| a cue a sentence                                           | the cues; no words                                                   | the chunks; no words                                                                          |
-| a cue (CSV, TSV row) a word                                | a cue a word; no words, no sentence                                  | a chunk a word -- whisper-cli's leading space trimmed                                         |
-| LRC, a line a word                                         | each to the next start: `three` to 3.0, `four` to 3.6, `five` 3 s on | the same: the ends and the gap lost                                                           |
-| SubRip or WebVTT `--highlight_words`                       | the sentences (1-2 s, 3-4 s) and every word, the gap kept            | the same                                                                                      |
-| WebVTT timestamps, words bare or in `<c>`                  | the cue, its tags in its text; no words                              | the text, its tags dropped: the times lost                                                    |
-| ASS `\k`                                                   | refused: no ASS reader                                               | nothing read: burned as it is                                                                 |
-| Enhanced LRC, a space after each tag or none               | each line to the next, its tags in its text; no words                | the text, its tags dropped: the times lost; the empty last line (the end) dropped             |
-| whisper-cli `-ojf`, token offsets                          | every word, the gap kept                                             | the same, the leading spaces trimmed                                                          |
-| whisper-cli `-ojf -dtw`                                    | every word; `four` to 3.6: DTW times read as starts                  | the same                                                                                      |
-| WhisperX JSON                                              | every word, the gap kept                                             | the same                                                                                      |
-| WhisperX, `two` unaligned, the second segment's words `[]` | `two` untimed; the second sentence no words                          | `two` placed between its neighbours (1.5-1.8 s), noted; the second sentence no words, no note |
+| Form                                                       | subverter                                                            | ffman                                                                                                                       |
+| ---------------------------------------------------------- | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| a cue a sentence                                           | the cues; no words                                                   | the chunks; no words                                                                                                        |
+| a cue (CSV, TSV row) a word                                | a cue a word; no words, no sentence                                  | a chunk a word -- whisper-cli's leading space trimmed                                                                       |
+| LRC, a line a word                                         | each to the next start: `three` to 3.0, `four` to 3.6, `five` 3 s on | the same: the ends and the gap lost                                                                                         |
+| SubRip or WebVTT `--highlight_words`                       | the sentences (1-2 s, 3-4 s) and every word, the gap kept            | the same                                                                                                                    |
+| WebVTT timestamps, words bare or in `<c>`                  | the cue, its tags in its text; no words                              | the text, its tags dropped: the times lost                                                                                  |
+| ASS `\k`                                                   | refused: no ASS reader                                               | nothing read: burned as it is                                                                                               |
+| Enhanced LRC, a space after each tag or none               | each line to the next, its tags in its text; no words                | the text, its tags dropped: the times lost; the empty last line (the end) dropped                                           |
+| whisper-cli `-ojf`, token offsets                          | every word, the gap kept                                             | the same, the leading spaces trimmed                                                                                        |
+| whisper-cli `-ojf -dtw`                                    | every word; `four` to 3.6: DTW times read as starts                  | the same                                                                                                                    |
+| WhisperX JSON                                              | every word, the gap kept                                             | the same                                                                                                                    |
+| WhisperX, `two` unaligned, the second segment's words `[]` | `two` untimed; the second sentence no words                          | `two` placed between its neighbours (1.5-1.8 s), noted; the second sentence no words, counted in the "no word timings" note |
 
 ## A chunk's words, and chunks from words
 

@@ -43,6 +43,10 @@ def words(
 ) -> tuple[tuple[Word, ...], int, int]:
     """The words placed in their sentences (_place); how many placed, how many sentences bare.
 
+    A sentence is bare when no word is placed in it: none of its words timed, or no word at all
+    -- WhisperX's segment its aligner could not align, whisper-cli's of special tokens alone, a
+    highlighted run without ``<u>``.
+
     ``references``: the texts' HTML character references, decoded (``clean``).
     """
     window = {c.segment: (c.start, c.end) for c in chunks if c.segment != ""}
@@ -52,17 +56,17 @@ def words(
         if (text := clean(t.text, references=references)) and t.segment in window
     ]
     out: list[Word] = []
-    placed = bare = 0
+    placed = 0
     for segment, run in groupby(kept, key=lambda t: t.segment):
         sentence = list(run)
         spans = _place(sentence, *window[segment])
         if spans is None:
-            bare += 1
             continue
         placed += spans.placed
         out += [
             Word(segment, a, z, t.text) for t, (a, z) in zip(sentence, spans.times, strict=True)
         ]
+    bare = len(window.keys() - {w.segment for w in out})
     return tuple(out), placed, bare
 
 

@@ -2912,12 +2912,22 @@ Decided too (the owner's, 2026-10-09; each tool's writer its source: whisper.cpp
       file's `STYLE`, and with no CSS greys the words to come (its own
       `video::cue(:future)`); a WhisperX segment its aligner skipped is shown
       unhighlighted, unnoted -- the next box.*
-- [ ] Found by the words box: a sentence with no words at all -- WhisperX's
+- [x] Found by the words box: a sentence with no words at all -- WhisperX's
       segment its aligner could not align (`"words": []`, `alignment.py`) --
       is shown without highlighting and unnoted: "N sentences had no word
       timings" counts only sentences that have words, none timed
       (`normalize.words`; bash's `place()` alike). To decide: counted in the
       note, or left.
+      *Done, the owner's choice of three (2026-10-11): counted, one note for
+      both -- every sentence no word is placed in is bare, as the decisions
+      row already said ("Counts are reported"). Shown first: a whisper-cli
+      `-ojf` segment of special tokens alone and a highlighted run without
+      `<u>` alike. `normalize.words` counts the sentences shown without a
+      word, not the word runs without an anchor. Proved failing first: 3
+      ingest tests, one a source. The outcome report, 3.13 and 3.14 alike:
+      440 identical; `burn/hostile/texts.json`, `windows.json` and
+      `anchors.json` changed -- each a segment without words, now noted, its
+      ASS the same.*
 - [ ] The mappings, every direction (a record as `metadata-mappings`'): what
       crosses, what is lost, ffmpeg's or ffman's -- measured, each row sourced.
 

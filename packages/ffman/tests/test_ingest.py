@@ -153,6 +153,35 @@ def test_whisperx_ties_and_gaps(tmp_path: Path) -> None:
     )
 
 
+# a sentence of no words, each source's: WhisperX's segment its aligner could not align
+# (`alignment.py`: `"words": []`), whisper-cli's of special tokens alone, a highlighted run
+# without `<u>`
+_WORDLESS: Final = {
+    "unaligned.json": json.dumps({"segments": [
+        {"start": 1, "end": 2, "text": "one two", "words": [{"word": "one", "start": 1.0, "end": 1.5}, {"word": "two", "start": 1.5, "end": 2.0}]},
+        {"start": 3, "end": 4, "text": "2024", "words": []},
+    ]}),
+    "specials.json": json.dumps({"result": {"language": "en"}, "transcription": [
+        {"offsets": {"from": 1000, "to": 2000}, "text": " one two", "tokens": [{"text": " one", "offsets": {"from": 1000, "to": 1500}, "t_dtw": -1}, {"text": " two", "offsets": {"from": 1500, "to": 2000}, "t_dtw": -1}]},
+        {"offsets": {"from": 3000, "to": 4000}, "text": "", "tokens": [{"text": "[_BEG_]", "offsets": {"from": 3000, "to": 3000}, "t_dtw": -1}]},
+        {"offsets": {"from": 4000, "to": 5000}, "text": " music", "tokens": [{"text": "[_TT_250]", "offsets": {"from": 5000, "to": 5000}, "t_dtw": -1}]},
+    ]}),
+    "plain-run.srt": "1\n00:00:01,000 --> 00:00:01,500\n<u>one</u> two\n\n2\n00:00:01,500 --> 00:00:02,000\none <u>two</u>\n\n3\n00:00:03,000 --> 00:00:04,000\nmusic\n\n4\n00:00:04,000 --> 00:00:05,000\nmusic\n",
+}  # fmt: skip
+
+
+@pytest.mark.parametrize("name", list(_WORDLESS))
+def test_a_sentence_of_no_words_is_counted_as_one_without_timings(
+    tmp_path: Path, name: str
+) -> None:
+    t = ingested(put(tmp_path, name, _WORDLESS[name]))
+    assert [(w.text, w.start, w.end) for w in t.words] == [
+        ("one", 1000, 1500),
+        ("two", 1500, 2000),
+    ]
+    assert t.notes == ("1 sentences had no word timings: shown without word highlighting",)
+
+
 @pytest.mark.parametrize(
     ("name", "text", "message"),
     [

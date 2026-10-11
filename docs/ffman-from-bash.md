@@ -138,6 +138,11 @@ which git-cliff writes at each release from the commits (`packages/ffman/CHANGEL
   dropped such a cue from `--add-subs`' track. What else is not UTF-8 is
   refused by its line (a JSON's by its path); the port had stopped on a
   traceback (a JSON: refused whole).
+- **A sentence of no words is reported.** A transcript that times words can give a
+  sentence none -- WhisperX's segment its aligner could not align (`"words": []`),
+  whisper-cli's of special tokens alone, a highlighted run without `<u>` -- shown
+  unhighlighted, as one whose words have no time. Both are counted in "N sentences
+  had no word timings"; bash counted the second alone.
 - **Times are exact, to the millisecond.** A time is read from its decimal
   text -- JSON's numbers included -- never through a float, and rounded half up
   to the whole millisecond, one rule in every format (bash had three: SubRip and
