@@ -171,6 +171,18 @@ def test_a_fraction_not_of_three_digits_is_ms_in_subrip_no_time_in_webvtt(tmp_pa
     )
 
 
+def test_a_number_alone_before_a_timing_line_is_the_next_cues_index(tmp_path: Path) -> None:
+    t = ingested(put(tmp_path, "index.srt", HOSTILE["index.srt"]))
+    assert [(c.start, c.end, c.text) for c in t.chunks] == [
+        (0, 200, "first"),
+        (200, 400, "2."),
+        (400, 600, "third"),
+    ]
+    assert t.notes == (
+        "2 lines of a number alone before a timing line read as the next cue's index, as ffmpeg reads them: the first, 2 on line 4",
+    )
+
+
 def test_an_lrc_line_of_several_stamps_is_a_line_each(tmp_path: Path) -> None:
     t = ingested(put(tmp_path, "chorus.lrc", HOSTILE["chorus.lrc"]))
     assert [(c.start, c.end, c.text) for c in t.chunks] == [

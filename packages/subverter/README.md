@@ -7,13 +7,13 @@ A file read becomes what it holds: its cues, the word timings where the format
 keeps them, notes on what it held that the model does not, and a refusal --
 with its reason -- for what cannot be read.
 
-| Format  | Read as                                                                                                                                                                                    |
-| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| SubRip  | cues -- a seconds fraction not of three digits a count of ms, as ffmpeg and VLC read it, noted; WhisperX's highlighted cues read back into words                                           |
-| WebVTT  | cues, as SubRip's -- but a fraction not of three digits no time, its cue dropped (W3C), noted; `has_references`: its texts hold HTML character references, each run between tags `decoded` |
-| LRC     | a line's times, its text -- a line a stamp; every time moved by `[offset:]` (ms, `+` sooner), noted                                                                                        |
-| CSV/TSV | start, end, text (milliseconds), columns by header, as whisper-cli and WhisperX write them                                                                                                 |
-| JSON    | whisper-cli's and WhisperX's: chunks and word timings                                                                                                                                      |
+| Format  | Read as                                                                                                                                                                                                                                       |
+| ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| SubRip  | cues -- a seconds fraction not of three digits a count of ms, as ffmpeg and VLC read it, and a number alone right before a timing line the next cue's index, as ffmpeg reads it, each noted; WhisperX's highlighted cues read back into words |
+| WebVTT  | cues, as SubRip's -- but a fraction not of three digits no time, its cue dropped (W3C), noted; `has_references`: its texts hold HTML character references, each run between tags `decoded`                                                    |
+| LRC     | a line's times, its text -- a line a stamp; every time moved by `[offset:]` (ms, `+` sooner), noted                                                                                                                                           |
+| CSV/TSV | start, end, text (milliseconds), columns by header, as whisper-cli and WhisperX write them                                                                                                                                                    |
+| JSON    | whisper-cli's and WhisperX's: chunks and word timings                                                                                                                                                                                         |
 
 ## Installing
 

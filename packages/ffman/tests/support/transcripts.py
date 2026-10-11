@@ -131,4 +131,8 @@ HOSTILE: Final = {
     # decimal: `,5` 500 ms, `,25` 250, so `five` ended before it began, dropped; `00:00.2` 200
     "fraction.srt": "1\n00:00:00,5 --> 00:00:00,25\nfive\n\n2\n00:00:00,250 --> 00:00:00,400\nnext\n",
     "fraction.vtt": "WEBVTT\n\n00:00.000 --> 00:00.200\nok\n\n00:00.2 --> 00:00.400\ndropped\n",
+    # the next cue's index with no blank line before it (6.8.2): a number alone right before a
+    # timing line, the index, as ffmpeg reads it -- noted; `2.` text. Before, as bash, the first
+    # cue's text: `first 2`
+    "index.srt": "1\n00:00:00,000 --> 00:00:00,200\nfirst\n2\n00:00:00,200 --> 00:00:00,400\n2.\n3\n00:00:00,400 --> 00:00:00,600\nthird\n",
 }

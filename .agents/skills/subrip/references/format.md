@@ -120,25 +120,26 @@ overlapping cues. The `text` encoder (`-c:s text`) writes the text without marku
 subverter's cues, and the chunks ffman's burn draws (its `ingest`: sorted, cleaned, each cut at
 the next start; a backslash drawn as `/`). *Measured*:
 
-| File                                               | subverter                            | ffman burns                    |
-| -------------------------------------------------- | ------------------------------------ | ------------------------------ |
-| `00:00:01,5 --> 00:00:02,25`                       | 1005, 2025: milliseconds, noted      | the same                       |
-| `first`, a blank line, `second`                    | `first`; `second` no cue's           | the same                       |
-| `first`, a line of spaces, `second`                | `first`; `second` no cue's           | the same                       |
-| last line `2024`, the next cue not indexed         | `the year 2024`                      | the same                       |
-| `first`, then `2` and a timing line, no blank line | `first 2`                            | the same                       |
-| `a --> b`, `c`                                     | `a --> b c`                          | the same                       |
-| end before start; zero duration                    | read as written                      | dropped                        |
-| out of order; two identical                        | as written; both                     | sorted; one                    |
-| `<b>b</b> <font color="red">r</font> <v Bob>v</v>` | as written                           | `b r v`                        |
-| `x<3 and y>2`; `a < b and c > d`; `heart <3`       | as written                           | `x2`; `a d`; `heart <3`        |
-| `{\an8}top`                                        | as written                           | `top`                          |
-| `one\Ntwo a\nb hard\hspace`                        | as written                           | `one/Ntwo a b hard/hspace`     |
-| `A &amp; B`                                        | as written                           | the same                       |
-| `  lead and trail  `                               | as written                           | `lead and trail`               |
-| `caf` and the byte E9                              | refused: "not UTF-8: x.srt (line 3)" | the same                       |
-| CRLF; a UTF-8 BOM                                  | read                                 | the same                       |
-| CR only; UTF-16LE with a BOM                       | no cue                               | refused: "no timed text found" |
+| File                                                        | subverter                            | ffman burns                    |
+| ----------------------------------------------------------- | ------------------------------------ | ------------------------------ |
+| `00:00:01,5 --> 00:00:02,25`                                | 1005, 2025: milliseconds, noted      | the same                       |
+| `first`, a blank line, `second`                             | `first`; `second` no cue's           | the same                       |
+| `first`, a line of spaces, `second`                         | `first`; `second` no cue's           | the same                       |
+| last line `2024`, a blank line, the next cue not indexed    | `the year 2024`                      | the same                       |
+| last line `2024`, the next cue's timing line right after it | `the year`, noted                    | the same                       |
+| `first`, then `2` and a timing line, no blank line          | `first`, noted                       | the same                       |
+| `a --> b`, `c`                                              | `a --> b c`                          | the same                       |
+| end before start; zero duration                             | read as written                      | dropped                        |
+| out of order; two identical                                 | as written; both                     | sorted; one                    |
+| `<b>b</b> <font color="red">r</font> <v Bob>v</v>`          | as written                           | `b r v`                        |
+| `x<3 and y>2`; `a < b and c > d`; `heart <3`                | as written                           | `x2`; `a d`; `heart <3`        |
+| `{\an8}top`                                                 | as written                           | `top`                          |
+| `one\Ntwo a\nb hard\hspace`                                 | as written                           | `one/Ntwo a b hard/hspace`     |
+| `A &amp; B`                                                 | as written                           | the same                       |
+| `  lead and trail  `                                        | as written                           | `lead and trail`               |
+| `caf` and the byte E9                                       | refused: "not UTF-8: x.srt (line 3)" | the same                       |
+| CRLF; a UTF-8 BOM                                           | read                                 | the same                       |
+| CR only; UTF-16LE with a BOM                                | no cue                               | refused: "no timed text found" |
 
 ## What SubRip holds
 

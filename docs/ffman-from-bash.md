@@ -153,6 +153,9 @@ which git-cliff writes at each release from the commits (`packages/ffman/CHANGEL
   read `00:00:01,5` as a decimal, 1.5 s; ffmpeg (so mpv) and VLC read its digits as a count
   of milliseconds, 1.005 s, and now SubRip's are read so, noted. In WebVTT the standard holds:
   such a time ends the cue and its block is dropped, as browsers do, noted.
+- **A SubRip index with no blank line before it is an index.** bash read `first`, `2`, a
+  timing line as `first 2`; now a number alone right before a timing line is the next cue's
+  index, as ffmpeg (so mpv) reads it, noted. Any other line stays text, and WebVTT's too.
 - **An LRC's `[offset:]` is applied.** bash read no ID tag; now every time moves by it,
   in ms, `+` sooner -- the convention -- and a note says so. One not a whole number is
   ignored, noted.

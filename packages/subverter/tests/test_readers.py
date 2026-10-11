@@ -177,6 +177,78 @@ def test_a_webvtt_fraction_not_of_three_digits_drops_its_cue_noted() -> None:
     )
 
 
+# --- SubRip: a number alone right before a timing line, in a cue, is the next cue's index
+
+_T1: Final = "00:00:01,000 --> 00:00:02,000"
+_T2: Final = "00:00:03,000 --> 00:00:04,000"
+_INDEX_NOTE: Final = (
+    "{n} lines of a number alone before a timing line read as the next cue's index, as ffmpeg"
+    " reads them: the first, {number} on line {line}"
+)
+
+
+@pytest.mark.parametrize(
+    ("line", "first", "number"),
+    [  # ffmpeg 8.1.2's srt demuxer drops each of the first three (measured)
+        ("2", "first", "2"),
+        (" 02 ", "first", "02"),
+        ("\t7", "first", "7"),
+        # no number alone: text -- ffmpeg drops the first three too (a number first), not -2
+        ("3 apples", "first 3 apples", None),
+        ("2.", "first 2.", None),
+        ("+2", "first +2", None),
+        ("-2", "first -2", None),
+        ("\uff12", "first \uff12", None),  # a fullwidth 2: no ASCII digit
+    ],
+)
+def test_a_number_alone_before_a_subrip_timing_line_is_the_next_index_noted(
+    line: str, first: str, number: str | None
+) -> None:
+    data = f"1\n{_T1}\nfirst\n{line}\n{_T2}\nsecond\n"
+    reading = subverter.read("srt", data.encode(), "a.srt")
+    assert reading.cues == (Cue(1000, 2000, first), Cue(3000, 4000, "second"))
+    notes = () if number is None else (_INDEX_NOTE.format(n=1, number=number, line=4),)
+    assert reading.notes == notes
+
+
+def test_subrip_indexes_without_a_blank_line_counted_a_cue_of_one_index_line_empty() -> None:
+    # a cue whose only line is a number: emptied, as ffmpeg's (its packet dropped, measured)
+    t3 = "00:00:05,000 --> 00:00:06,000"
+    data = f"1\n{_T1}\n2\n{_T2}\nsecond\n3\n{t3}\nthird\n"
+    reading = subverter.read("srt", data.encode(), "a.srt")
+    assert reading.cues == (
+        Cue(1000, 2000, ""),
+        Cue(3000, 4000, "second"),
+        Cue(5000, 6000, "third"),
+    )
+    assert reading.notes == (_INDEX_NOTE.format(n=2, number="2", line=3),)
+
+
+@pytest.mark.parametrize(
+    ("text", "first"),
+    [
+        (f"first\n2\n\n{_T2}", "first 2"),  # a blank line between: the cue ended, `2` its text
+        ("first\n2", "first 2"),  # no timing line after it: the file's end
+        ("first\n2\na --> b", "first 2 a --> b"),  # a line holding --> is no timing line
+    ],
+)
+def test_a_number_not_right_before_a_subrip_timing_line_is_text(text: str, first: str) -> None:
+    data = f"1\n{_T1}\n{text}\n"
+    reading = subverter.read("srt", data.encode(), "a.srt")
+    assert (reading.cues[0], reading.notes) == (Cue(1000, 2000, first), ())
+
+
+def test_a_webvtt_line_before_a_timing_line_is_text() -> None:
+    # W3C WebVTT, "collect a WebVTT block": the lines before a later --> line stay the cue's
+    # text (Chromium 141: "first\n2", measured)
+    data = "WEBVTT\n\n00:01.000 --> 00:02.000\nfirst\n2\n00:03.000 --> 00:04.000\nsecond\n"
+    reading = subverter.read("vtt", data.encode(), "a.vtt")
+    assert (reading.cues, reading.notes) == (
+        (Cue(1000, 2000, "first 2"), Cue(3000, 4000, "second")),
+        (),
+    )
+
+
 # --- WhisperX --highlight_words: by structure, a run of one text a sentence, each <u> a word
 
 

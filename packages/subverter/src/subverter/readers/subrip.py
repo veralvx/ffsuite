@@ -16,6 +16,7 @@ _MS_DIGITS: Final = 3  # a fraction of seconds, as SubRip and WebVTT write one: 
 _ARROW: Final = re.compile(r"[ \t]*-->[ \t]*")  # a cue's times, either side
 _END: Final = re.compile(rf"{NUMBER}(?::{NUMBER}){{0,{_PARTS - 1}}}")  # what follows, ignored
 _BLANK_LINE: Final = re.compile(r"[ \t]*")  # a cue's end
+_INDEX: Final = re.compile(r"[ \t]*[0-9]+[ \t]*")  # a cue's index line, as SubRip writes one
 _UNDERLINE: Final = re.compile(r"<u>([^<]*)</u>")  # WhisperX --highlight_words: the word
 
 
@@ -105,7 +106,7 @@ def _seconds(text: str) -> tuple[Fraction | None, bool]:
 
 
 def _rows(lines: list[str], name: str, *, webvtt: bool) -> tuple[list[Cue], tuple[str, ...]]:
-    """Cues, their text kept with its tags (a WhisperX <u> marks a word); notes (``_notes``).
+    """Cues, their text kept with its tags (a WhisperX <u> marks a word); notes (``*_notes``).
 
     A cue opens at its timing line (``_timing``) and closes at a blank line, or at the next cue
     (bash's intext and its set st, which always changed together). Its text lines joined by a
@@ -116,10 +117,15 @@ def _rows(lines: list[str], name: str, *, webvtt: bool) -> tuple[list[Cue], tupl
     ends the cue, and the lines after it up to a blank line or a timing line are no cue's (W3C
     WebVTT, "collect a WebVTT block": its timings do not parse, the block is dropped) -- a
     timing line with an odd time too ("collect a WebVTT timestamp": not three digits, an error).
+
+    In SubRip, a cue's line of a number alone right before a timing line is the next cue's index,
+    its blank line missing, as ffmpeg's srt demuxer reads it (which, after a cue's text, drops
+    any line starting with a number there); in WebVTT it is text (the W3C's block, Chromium).
     """
     times: list[tuple[int | None, int | None]] = []
     texts: list[tuple[int, int]] = []  # each text line: its cue, its index among the lines
     odd: list[tuple[int, _Timing]] = []  # each timing line with an odd time: its line, its times
+    indexes: list[tuple[int, str]] = []  # each index taken from a cue's text: its line, number
     is_open = False
     for i, line in enumerate(lines):
         timing = _timing(line)
@@ -128,6 +134,9 @@ def _rows(lines: list[str], name: str, *, webvtt: bool) -> tuple[list[Cue], tupl
             if webvtt:
                 timing = None  # no timing line: its block dropped
         if timing is not None:
+            if not webvtt and texts and texts[-1][1] == i - 1 and _INDEX.fullmatch(lines[i - 1]):
+                _ = texts.pop()  # the line before (line i, from 1): the next cue's index
+                indexes.append((i, lines[i - 1].strip()))
             times.append((timing.start, timing.end))
             is_open = True
         elif _BLANK_LINE.fullmatch(line) or (webvtt and "-->" in line):
@@ -140,10 +149,10 @@ def _rows(lines: list[str], name: str, *, webvtt: bool) -> tuple[list[Cue], tupl
         if text:  # a line of a character's last bytes alone: given to the line it starts in
             parts[cue].append(text)
     cues = [Cue(*t, " ".join(p)) for t, p in zip(times, parts, strict=True)]
-    return cues, _notes(odd, webvtt=webvtt)
+    return cues, _fraction_notes(odd, webvtt=webvtt) + _index_notes(indexes)
 
 
-def _notes(odd: list[tuple[int, _Timing]], *, webvtt: bool) -> tuple[str, ...]:
+def _fraction_notes(odd: list[tuple[int, _Timing]], *, webvtt: bool) -> tuple[str, ...]:
     """Odd times: WebVTT's cues dropped, SubRip's times read as ms -- counted, the first named."""
     if not odd:
         return ()
@@ -157,6 +166,16 @@ def _notes(odd: list[tuple[int, _Timing]], *, webvtt: bool) -> tuple[str, ...]:
     taken = "no time (past a double's range)" if value is None else f"{_in_seconds(value)} s"
     first = f"the first, {written} on line {line}, as {taken}"
     return (f"{count} times had a fraction not of three digits, {how}: {first}",)
+
+
+def _index_notes(indexes: list[tuple[int, str]]) -> tuple[str, ...]:
+    """The indexes taken from cues' texts: counted, the first named."""
+    if not indexes:
+        return ()
+    line, number = indexes[0]
+    how = "read as the next cue's index, as ffmpeg reads them"
+    first = f"the first, {number} on line {line}"
+    return (f"{len(indexes)} lines of a number alone before a timing line {how}: {first}",)
 
 
 def _in_seconds(value: int) -> str:

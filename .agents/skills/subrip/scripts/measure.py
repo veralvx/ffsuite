@@ -122,6 +122,8 @@ FFMAN: dict[str, bytes] = {
     "blank line in text": READS["blank line in text"],
     "line of spaces": b"1\n00:00:01,000 --> 00:00:02,000\nfirst\n   \nsecond\n" + CUE2,
     "number last, next cue unnumbered": READS["a number last line, next cue unnumbered"],
+    "number last, no blank line, next cue unnumbered": b"1\n00:00:01,000 --> 00:00:02,000\n"
+    b"the year\n2024\n00:00:05,000 --> 00:00:06,000\nnext\n",
     "no blank line before the next index": b"1\n00:00:01,000 --> 00:00:02,000\nfirst\n2\n"
     b"00:00:03,000 --> 00:00:04,000\nsecond\n",
     "a --> line": b"1\n00:00:01,000 --> 00:00:02,000\na --> b\nc\n",

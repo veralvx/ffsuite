@@ -3081,10 +3081,32 @@ tests with 6.8.3's converters.*
       ffmpeg's for 400 random fractions of 1-6 digits; the skill's description no longer
       lists the short fraction among the readers' disagreements (all three agree now),
       revalidated (963 of 1024), eval 2 answered cold from it.*
-- [ ] Found by the `subrip` box: with no blank line before the next cue's index, subverter
+- [x] Found by the `subrip` box: with no blank line before the next cue's index, subverter
       reads the index as the cue's text (`first 2`), where ffmpeg reads it as the index
       (VLC takes the whole next cue for text). To decide: an index line before a timing
-      line dropped, as ffmpeg, or as now.
+      line dropped, as ffmpeg, or as now. *Done: the owner's -- a number
+      alone dropped, noted, in `subrip._rows`. In SubRip, a cue's line of ASCII digits
+      alone (blanks around) right before a timing line is the next cue's index: taken back
+      from the cue's text, counted, the first named ("2 lines of a number alone before a
+      timing line read as the next cue's index, as ffmpeg reads them: the first, 2 on line
+      4"); a cue of that line alone is empty, dropped, as ffmpeg's. Other lines stay text
+      (`3 apples`, `2.`, `+2`, which ffmpeg drops after a cue's text; `-2`, which it keeps),
+      and a number with a blank line or no timing line after it. WebVTT unchanged: the
+      W3C's "collect a WebVTT block" keeps the lines before a later `-->` line as the cue's
+      text, Chromium 141 alike (`first\n2`, measured). Measured: ffmpeg 8.1.2 drops `2`,
+      `02`, `\t7`, `2\t`, `+2`, `2.`, `3 apples`, keeps `-2` and a fullwidth digit; VLC 3
+      by source (text to an empty line). Tests first: `test_readers.py`'s 13 new cases, the
+      4 of a dropped index failing on the old code, and ffman's `index.srt` (HOSTILE; an
+      ingest test, failing on the old code). Shown against ffmpeg: 30 random files of 40
+      cues (an index with a blank line, without one, or none; texts of words and numbers
+      alone), subverter's texts equal to ffmpeg's -- the old reader's differ in the first.
+      10 planted mutations, each caught. Suite 1958, coverage 100%; matrix 770; `compare
+      HEAD` on 3.13 and 3.14: 448 identical, 2 changed -- `index.srt` new, and
+      `no-newline.srt`, whose `2` before `5 --> 7` is now that cue's index (`short times`,
+      noted). `decisions.md` "Index lines"; from-bash; subverter's README; the `subrip`
+      skill's rows (measured again: `first`). Reviewed to convergence: the skill measures
+      the case its number-line row now claims (`the year`, `2024`, the timing line right
+      after it: `the year`), its table telling it from the blank line's (`the year 2024`).*
 - [ ] Found by the `subrip` box: ffman burns a typed `\N` and `\h` as `/N` and `/h` (a
       backslash drawn as `/`, so no text makes an override), where ffmpeg, mpv and VLC
       show a break and a hard space (VLC breaks at `\n` too; ffman makes it a space). To
