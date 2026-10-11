@@ -200,6 +200,54 @@ def test_lrc_lines_sorted_each_ending_at_the_next_the_last_3_s_later() -> None:
     )
 
 
+@pytest.mark.parametrize(
+    ("data", "cues", "notes"),
+    [
+        pytest.param(  # the convention's: global, in ms, + sooner -- a tag after a line too
+            "[00:01.00]one\n[offset:+500]\n[00:02.00]two\n",
+            (Cue(500, 1500, "one"), Cue(1500, 4500, "two")),
+            ("LRC offset on line 2 applied: every line 500 ms sooner",),
+            id="sooner",
+        ),
+        pytest.param(
+            "[offset:-250]\n[00:01.00]a\n",
+            (Cue(1250, 4250, "a"),),
+            ("LRC offset on line 1 applied: every line 250 ms later",),
+            id="later",
+        ),
+        pytest.param(  # the last whole one; each other one noted ("9"*400: no number, exact's)
+            f"[offset:+100]\n[offset:abc]\n[offset: -200 ]\n[offset:1.5]\n[offset:{'9' * 400}]\n[00:01.00]a\n",
+            (Cue(1200, 4200, "a"),),
+            (
+                "LRC offset on line 2 ignored: not a whole number of milliseconds",
+                "LRC offset on line 4 ignored: not a whole number of milliseconds",
+                "LRC offset on line 5 ignored: not a whole number of milliseconds",
+                "LRC offset on line 3 applied: every line 200 ms later",
+            ),
+            id="the last whole one",
+        ),
+        pytest.param(  # ffmpeg's tag (measured): first on its line, the rest of it ignored
+            "[offset:+500] by ear\n[00:01.00]a\n",
+            (Cue(500, 3500, "a"),),
+            ("LRC offset on line 1 applied: every line 500 ms sooner",),
+            id="the rest of its line",
+        ),
+        pytest.param(  # no offset tag: lower case, first on its line (ffmpeg's)
+            "[OFFSET:+500]\n [offset:+500]\n[offset+500]\n[00:01.00]a\n",
+            (Cue(1000, 4000, "a"),),
+            (),
+            id="no offset tag",
+        ),
+        pytest.param("[offset:+0]\n[00:01.00]a\n", (Cue(1000, 4000, "a"),), (), id="zero"),
+    ],
+)
+def test_an_lrc_offset_moves_every_time(
+    data: str, cues: tuple[Cue, ...], notes: tuple[str, ...]
+) -> None:
+    reading = subverter.read("lrc", data.encode(), "a.lrc")
+    assert (reading.cues, reading.notes) == (cues, notes)
+
+
 def test_an_lrc_time_past_a_double_in_ms_drops_its_line() -> None:
     minutes = "9" * 306  # a number (under 10**308), but in ms (times 60 000) past a double's range
     data = f"[00:01.00]kept\n[{minutes}:00.00]dropped\n".encode()

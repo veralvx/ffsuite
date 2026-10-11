@@ -37,7 +37,7 @@ def read(fmt: str, data: bytes, name: str) -> Reading:
                 has_references=references,
             )
         case "lrc":
-            return Reading(".lrc", has_words=False, cues=tuple(lrc.rows(_lines(data), name)))
+            return lrc.read(_lines(data), name)
         case "csv" | "tsv":
             try:
                 cues = table.rows(fmt, _text(data), name)

@@ -2976,10 +2976,29 @@ Decided too (the owner's, 2026-10-09; each tool's writer its source: whisper.cpp
       (`00:00:02,000X1:5`, `00:02.000align:left`) is its time, as ffmpeg 8.1
       reads it and the W3C's "remainder" -- bash read 0 and 2 minutes. Suite
       1908, coverage 100%; the matrix, 770; the outcome report, 445 identical.*
-- [ ] Found by the mappings box: LRC's `[offset:+500]` is ignored -- subverter
+- [x] Found by the mappings box: LRC's `[offset:+500]` is ignored -- subverter
       reads no ID tag, as bash did not -- where the convention moves every time
       by it, in ms (`+` sooner), and ffmpeg applies it in microseconds. To
       decide: applied, or ignored and noted.
+      *Done, the owner's choices (2026-10-11): applied, noted; one not whole
+      ignored, noted; `lrc.read` gives the Reading. Every time moves by the last
+      offset of whole ms, `+` sooner, wherever it stands (Wikipedia; OpenSubsonic,
+      as Navidrome serves it); ffmpeg 8.1.2 moves only the lines after it, by µs,
+      pylrc the other way, Jellyfin and Quod Libet none. Proved failing first: 3
+      subverter tests (sooner, later, the last whole one) and ffman's ingest of
+      `hostile/offset.lrc`. The outcome report, 3.13 and 3.14 alike: 445
+      identical; the new case changed -- `one` at 0.10 s, not 0.60, two notes.
+      mappings.py rerun: only the offset's reading changed; subverter's README
+      says so. Its review: the tag is ffmpeg's (measured) -- first on its line,
+      the rest of it ignored, where a blank before it was taken and text after it
+      refused; the offset an int. Without a tag the reading is the box's before,
+      and with one every time that minus it (40000 random files). Suite 1916,
+      coverage 100%; the matrix, 770. Found: the next box.*
+- [ ] Found by the offset box: an LRC line of several stamps
+      (`[00:05.00][00:09.00]chorus`, the convention's repeated line) is read at
+      its first time alone, the rest its text (`[00:09.00]chorus`, *measured*);
+      ffmpeg reads an event a stamp, as the convention. To decide: each stamp a
+      line, as ffmpeg, or as now.
 
 *6.8.2 Skills* (validated, packaged, presented -- before any code)
 

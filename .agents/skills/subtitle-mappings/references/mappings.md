@@ -159,15 +159,15 @@ high; libass `\fs96` from 48: 40 to 81) and `font-family: serif` (230 to 212 px 
 
 ## Identifiers, comments and titles
 
-| Source -> target                           | ffmpeg (*measured*)                                                  | ffman reads                                | Candidate                                                  |
-| ------------------------------------------ | -------------------------------------------------------------------- | ------------------------------------------ | ---------------------------------------------------------- |
-| WebVTT identifier (`intro`)                | dropped by every conversion (a stream copy keeps it)                 | dropped                                    | kept into WebVTT; elsewhere none holds it                  |
-| WebVTT `NOTE`; ASS `Comment:`              | dropped                                                              | dropped                                    | each other's: a `NOTE` an ASS `Comment:`, and back         |
-| WebVTT's title (`WEBVTT - The title`)      | dropped                                                              | dropped                                    | ASS `Title`, LRC `[ti:]`                                   |
-| ASS `Title`                                | dropped                                                              | --                                         | WebVTT's title line, LRC `[ti:]`                           |
-| LRC `[ti:]`, `[ar:]` and the other ID tags | read as metadata (`title`, `artist`), written into none (*measured*) | dropped                                    | `[ti:]` the title as above; the rest kept into LRC alone   |
-| LRC `[offset:+500]`                        | applied, in microseconds (the `lrc` record)                          | **ignored** (*measured*: `one` at 1000 ms) | applied in ms, as the convention says -- to decide (6.8.1) |
-| SubRip's index                             | renumbered                                                           | --                                         | renumbered                                                 |
+| Source -> target                           | ffmpeg (*measured*)                                                  | ffman reads                                                                                               | Candidate                                                |
+| ------------------------------------------ | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| WebVTT identifier (`intro`)                | dropped by every conversion (a stream copy keeps it)                 | dropped                                                                                                   | kept into WebVTT; elsewhere none holds it                |
+| WebVTT `NOTE`; ASS `Comment:`              | dropped                                                              | dropped                                                                                                   | each other's: a `NOTE` an ASS `Comment:`, and back       |
+| WebVTT's title (`WEBVTT - The title`)      | dropped                                                              | dropped                                                                                                   | ASS `Title`, LRC `[ti:]`                                 |
+| ASS `Title`                                | dropped                                                              | --                                                                                                        | WebVTT's title line, LRC `[ti:]`                         |
+| LRC `[ti:]`, `[ar:]` and the other ID tags | read as metadata (`title`, `artist`), written into none (*measured*) | dropped                                                                                                   | `[ti:]` the title as above; the rest kept into LRC alone |
+| LRC `[offset:+500]`                        | applied, in microseconds (the `lrc` record)                          | applied in ms, `+` sooner, wherever it stands, noted (*measured*: `one` at 500 ms; before 6.8.1, ignored) | applied in ms, as the convention says                    |
+| SubRip's index                             | renumbered                                                           | --                                                                                                        | renumbered                                               |
 
 ## Word times
 

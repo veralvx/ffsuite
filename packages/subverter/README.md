@@ -11,7 +11,7 @@ with its reason -- for what cannot be read.
 | ------- | -------------------------------------------------------------------------------------------------------------- |
 | SubRip  | cues; WhisperX's highlighted cues read back into words                                                         |
 | WebVTT  | cues, as SubRip's; `has_references`: its texts hold HTML character references, each run between tags `decoded` |
-| LRC     | a line's time, its text                                                                                        |
+| LRC     | a line's time, its text; every time moved by `[offset:]` (ms, `+` sooner), noted                               |
 | CSV/TSV | start, end, text (milliseconds), columns by header, as whisper-cli and WhisperX write them                     |
 | JSON    | whisper-cli's and WhisperX's: chunks and word timings                                                          |
 

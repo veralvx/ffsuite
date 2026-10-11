@@ -120,4 +120,7 @@ HOSTILE: Final = {
         "WEBVTT\n\n00:00.000 --> 00:00.200\nx\nNote: 1 --> 2\ny\n\n"
         + "00:00.200 --> 00:00.400\nnext\n"
     ),
+    # LRC's [offset] (6.8.1): every time sooner by it, in ms, the last whole one; one not whole
+    # noted, ignored. Before, as bash, none read: `one` at 0.6 s, `two` at 0.7 s
+    "offset.lrc": "[offset:abc]\n[offset:+500]\n[00:00.60]one\n[00:00.70]two\n",
 }

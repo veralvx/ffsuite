@@ -149,6 +149,15 @@ def test_a_line_holding_an_arrow_is_subrips_text_and_ends_a_webvtt_cue(tmp_path:
     assert [(c.start, c.end, c.text) for c in vtt.chunks] == [(0, 200, "x"), (200, 400, "next")]
 
 
+def test_an_lrc_offset_moves_every_time_noted(tmp_path: Path) -> None:
+    t = ingested(put(tmp_path, "offset.lrc", HOSTILE["offset.lrc"]))
+    assert [(c.start, c.end, c.text) for c in t.chunks] == [(100, 200, "one"), (200, 3200, "two")]
+    assert t.notes == (
+        "LRC offset on line 1 ignored: not a whole number of milliseconds",
+        "LRC offset on line 2 applied: every line 500 ms sooner",
+    )
+
+
 def test_whisperx_ties_and_gaps(tmp_path: Path) -> None:
     doc = {"segments": [{"start": 1, "end": 2, "text": "a b c", "words": [{"word": "a", "start": 1.0}, {"word": "b", "start": 1.0}, {"word": "c"}]}, {"start": 3, "end": 4, "text": "bare", "words": [{"word": "bare"}]}]}  # fmt: skip
     t = ingested(put(tmp_path, "x.json", json.dumps(doc)))

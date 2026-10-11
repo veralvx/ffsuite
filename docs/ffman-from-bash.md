@@ -149,6 +149,9 @@ which git-cliff writes at each release from the commits (`packages/ffman/CHANGEL
   lost, and a file of such cues refused. Now that line is SubRip's text, as ffmpeg reads it; in
   WebVTT it ends the cue and its block is dropped, as the specification and browsers do. An end
   glued to what follows it (`00:00:02,000X1:5`) read 0; now its time, as ffmpeg reads it.
+- **An LRC's `[offset:]` is applied.** bash read no ID tag; now every time moves by it,
+  in ms, `+` sooner -- the convention -- and a note says so. One not a whole number is
+  ignored, noted.
 - **Times are exact, to the millisecond.** A time is read from its decimal
   text -- JSON's numbers included -- never through a float, and rounded half up
   to the whole millisecond, one rule in every format (bash had three: SubRip and
