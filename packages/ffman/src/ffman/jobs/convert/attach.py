@@ -31,7 +31,8 @@ def run(o: ConvertOptions, runner: Runner) -> None:
         track = subs
     else:
         track = str(runner.workdir / "subs.srt")
-        _ = Path(track).write_text(srt(transcript.chunks, media.duration))
+        written = srt(transcript.chunks, media.duration)  # ffmpeg drops a cue not UTF-8 (decode.c)
+        _ = Path(track).write_text(written, encoding="utf-8")
     n = len(media.subtitles)  # the new track's index among the subtitles
     tagged = [f"-metadata:s:s:{n}", f"language={language}"] if language else []
     maps, copied = attach_streams(ext_of(o.input), out_ext, codec, n)

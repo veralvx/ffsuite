@@ -196,7 +196,7 @@ def _subtitles(  # noqa: PLR0913 -- the subtitles, where, what, how big, how, wi
         # the source's frames: a burn keeps them, so its words' animations end a frame early
         text, notes = ass_script(t, *shown, style, frame=frame, metrics=font_metrics(fonts, style))
         path = runner.workdir / "subs.ass"
-        _ = path.write_text(text)
+        _ = path.write_text(text, encoding="utf-8")  # libass reads UTF-8, whatever the locale
         for said in notes:
             note(said)
     return Filter("ass", (("filename", str(path)), *((("fontsdir", fonts),) if fonts else ())))

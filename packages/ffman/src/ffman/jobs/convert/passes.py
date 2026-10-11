@@ -38,7 +38,8 @@ def camcorder(o: ConvertOptions, runner: Runner, media: Media, frame: Frame) -> 
     now = datetime.now()  # noqa: DTZ005 -- bash's date: local wall-clock time, read as UTC
     start = clock(media.creation_time, stamp.values.get("date"), stamp.values.get("time"), now)
     path = runner.workdir / "camcorder.ass"
-    _ = path.write_text(script(start, media.duration, width(frame.width, frame.height)))
+    text = script(start, media.duration, width(frame.width, frame.height))
+    _ = path.write_text(text, encoding="utf-8")
     return replace(frame, camcorder=Stamp(str(path), fonts_dir(runner, STAMP_FONT)))
 
 

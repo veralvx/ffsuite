@@ -4,6 +4,7 @@ import re
 import shlex
 import shutil
 import subprocess
+import sys
 import tempfile
 from collections.abc import Sequence
 from fractions import Fraction
@@ -395,6 +396,27 @@ def test_a_burn_refuses(
 
 
 GAPS = str(Path(__file__).parent / "fixtures" / "transcripts" / "wx-gaps.json")
+
+# ffman's own entry, in a fresh Python: its argv the command line
+_FFMAN: Final = "import sys; from ffman.cli import main; sys.exit(main(sys.argv[1:]))"
+
+
+@pytest.mark.parametrize("flag", ["--burn-subs", "--add-subs"])
+def test_the_ass_and_srt_ffman_writes_are_utf8_whatever_the_locale(clip: Path, flag: str) -> None:
+    # libass and ffmpeg read UTF-8: in the C locale, without UTF-8 mode, the locale's is ASCII
+    srt = clip.with_name("s.srt")
+    _ = srt.write_bytes("1\n00:00:00,000 --> 00:00:00,500\ncafé\n".encode())
+    env = {k: v for k, v in os.environ.items() if k != "PYTHONUTF8"}
+    env |= {"LC_ALL": "C", "PYTHONCOERCECLOCALE": "0"}
+    argv = ["convert", "-i", str(clip), flag, str(srt), "-o", str(clip.with_name("o.mkv"))]
+    done = subprocess.run(  # noqa: S603 -- the test's own interpreter
+        [sys.executable, "-X", "utf8=0", "-c", _FFMAN, *argv, "--dry-run"],
+        capture_output=True,
+        text=True,
+        env=env,
+        check=False,
+    )
+    assert (done.returncode, "Traceback" in done.stderr) == (0, False), done.stderr
 
 
 @pytest.mark.parametrize(
