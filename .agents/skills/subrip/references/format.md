@@ -112,11 +112,11 @@ overlapping cues. The `text` encoder (`-c:s text`) writes the text without marku
 
 ## What SubRip holds
 
-| Property    | SubRip (through ffmpeg)                                                                                               |
-| ----------- | --------------------------------------------------------------------------------------------------------------------- |
-| Times       | start and end, whole milliseconds                                                                                     |
-| Text        | lines, UTF-8; no escape for any character -- a literal `<` can read as a tag; a blank line cannot be held             |
-| Styling     | `<b> <i> <u> <s>`, `<font color size face>` per span                                                                  |
-| Position    | `{\an1}`..`{\an9}` for the whole cue (ASS's numpad); `X1..Y2` pixel coordinates, assumed 720x480                      |
-| Word timing | none. WhisperX's `--highlight_words` writes one cue per word span with that word in `<u>` (see `whisper-transcripts`) |
-| Other       | the index (renumbered on writing); no speakers, no comments, no header                                                |
+| Property    | SubRip (through ffmpeg)                                                                                                                                           |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Times       | start and end, whole milliseconds                                                                                                                                 |
+| Text        | lines, UTF-8; no escape for any character -- a literal `<` can read as a tag; a blank line cannot be held                                                         |
+| Styling     | `<b> <i> <u> <s>`, `<font color size face>` per span                                                                                                              |
+| Position    | `{\an1}`..`{\an9}` for the whole cue (ASS's numpad); `X1..Y2` pixel coordinates, assumed 720x480                                                                  |
+| Word timing | none. WhisperX's `--highlight_words` writes one cue per word span with that word in `<u>` (see `whisper-transcripts`; read back: `subtitle-mappings`' `words.md`) |
+| Other       | the index (renumbered on writing); no speakers, no comments, no header                                                                                            |

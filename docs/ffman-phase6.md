@@ -2890,10 +2890,34 @@ Decided too (the owner's, 2026-10-09; each tool's writer its source: whisper.cpp
       measured too -- a cue whose identifier starts `NOTE` is skipped whole, a
       CRLF decoded as one break, the WebVTT writer's `a <b> c & d < e` read
       back `a {\b1} c & d `; an ASS event at 10 h has no length, never shown.*
-- [ ] Words and chunks: how each holds word times (`-ojf`'s tokens, WhisperX's
+- [x] Words and chunks: how each holds word times (`-ojf`'s tokens, WhisperX's
       `words`, WebVTT's inline `<hh:mm:ss.ttt>`, ASS's `\k`); a chunk's words
       from none (impossible: noted), chunks from words (by segment); what a
       by-word output is in each (a cue a word, or timed within the chunk).
+      *Done, one record (the owner's layout, 2026-10-11): `subtitle-mappings`'
+      `references/words.md`, measured by `scripts/words.py` -- ffman's reading
+      of each by-word form, libass 0.17.1's karaoke a frame a millisecond,
+      Chromium 141's timestamps by colour; its SubRip and WebVTT cues equal to
+      OpenAI whisper's writers'. whisper-cli's token offsets and WhisperX's
+      words hold a start and an end; highlighted cues a cue a word, a gap a cue;
+      WebVTT timestamps, Enhanced LRC and `-dtw` starts alone (a gap lost); `\k`
+      durations from the event's start (a gap its own syllable). A chunk's words
+      from none: no form holds them, none invented. Chunks from words: each
+      form's sentence (an entry, a segment, a run, a cue, an event, a line); a
+      cue a word names none. ffman reads words back from the JSON forms and
+      highlighted cues alone: WebVTT's timestamps, `\k` and Enhanced LRC's tags
+      dropped. Found: libass truncates `\k` to the ms (`\k12.59`, 125 ms);
+      Chromium styles a timestamp's words only in an element, takes the word
+      being spoken as `:past` (its FIXME; the specification: neither), reads a
+      file's `STYLE`, and with no CSS greys the words to come (its own
+      `video::cue(:future)`); a WhisperX segment its aligner skipped is shown
+      unhighlighted, unnoted -- the next box.*
+- [ ] Found by the words box: a sentence with no words at all -- WhisperX's
+      segment its aligner could not align (`"words": []`, `alignment.py`) --
+      is shown without highlighting and unnoted: "N sentences had no word
+      timings" counts only sentences that have words, none timed
+      (`normalize.words`; bash's `place()` alike). To decide: counted in the
+      note, or left.
 - [ ] The mappings, every direction (a record as `metadata-mappings`'): what
       crosses, what is lost, ffmpeg's or ffman's -- measured, each row sourced.
 

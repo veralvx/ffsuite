@@ -68,11 +68,11 @@ output is the tables marked *measured*).
 
 ## What LRC holds
 
-| Property    | LRC                                                                                                   |
-| ----------- | ----------------------------------------------------------------------------------------------------- |
-| Times       | starts only, hundredths by convention (any decimal read by ffmpeg); a line ends where the next starts |
-| Text        | one line per tag; a cue of several lines becomes several timed lines                                  |
-| Styling     | none                                                                                                  |
-| Position    | none                                                                                                  |
-| Word timing | Enhanced LRC's `<mm:ss.xx>` word starts -- no reader here interprets them                             |
-| Other       | ID tags (title, artist, album, author, lyricist, length, the file's author and tool); `offset`        |
+| Property    | LRC                                                                                                         |
+| ----------- | ----------------------------------------------------------------------------------------------------------- |
+| Times       | starts only, hundredths by convention (any decimal read by ffmpeg); a line ends where the next starts       |
+| Text        | one line per tag; a cue of several lines becomes several timed lines                                        |
+| Styling     | none                                                                                                        |
+| Position    | none                                                                                                        |
+| Word timing | Enhanced LRC's `<mm:ss.xx>` word starts -- no reader here interprets them (`subtitle-mappings`' `words.md`) |
+| Other       | ID tags (title, artist, album, author, lyricist, length, the file's author and tool); `offset`              |

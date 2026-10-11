@@ -115,3 +115,6 @@ unaligned word's span lost; a `ja` segment `日本語です` whose words cover `
 | OpenAI / WhisperX `txt` | none                                     | segments                  | none                                               | WhisperX: prefix   |
 | WhisperX `json`         | seconds, 0.001 s where aligned           | segments                  | word, start, end, score (or the word alone)        | `speaker` fields   |
 | WhisperX `aud`          | seconds, floats                          | segments                  | none                                               | `[[...]]` prefix   |
+
+How ffman reads their words back, and the other formats' word timings: `subtitle-mappings`'
+`words.md`.

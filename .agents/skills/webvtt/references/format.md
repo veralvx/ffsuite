@@ -195,6 +195,6 @@ style (Arial 16, white, bottom centre, margins 10), as SubRip's.
 | Text        | lines (no blank line, no `-->`), character references for `<` `&` and anything else                                                                                                              |
 | Styling     | `b i u`; classes, styled by `STYLE` blocks of CSS (`::cue`, `::cue-region`) or by the default colour classes -- `white lime cyan red yellow magenta blue black` and their `bg_` background forms |
 | Position    | per cue: `line`, `position`, `size`, `align`, `vertical`; regions (`REGION`)                                                                                                                     |
-| Word timing | timestamp tags inside the text, each a word's (or syllable's) start; no word end but the next's start                                                                                            |
+| Word timing | timestamp tags inside the text, each a word's (or syllable's) start; no word end but the next's start (drawn by Chromium: `subtitle-mappings`' `words.md`)                                       |
 | Speakers    | `<v name>` spans                                                                                                                                                                                 |
 | Other       | an identifier per cue; `NOTE` comments; the header line's free text; `lang` spans and ruby                                                                                                       |
