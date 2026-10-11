@@ -2738,7 +2738,7 @@ Decided too (the owner's, 2026-10-09; each tool's writer its source: whisper.cpp
       as under 3.13; under 3.13, 437 identical. Breaking and estimating
       145,000 characters (English, Japanese, Malayalam): 0.23-0.27 s, as
       before, run for run; the module imports in 3-5 ms (2.5-3.3 before).*
-- [ ] Each format from its source: SubRip (no standard: as ffmpeg's
+- [x] Each format from its source: SubRip (no standard: as ffmpeg's
       `subrip` reads and writes it -- libass renders ASS alone, SubRip once
       converted), WebVTT (W3C), ASS (v4.00+, Aegisub and libass) and SSA (v4,
       as the ASS reader takes it), whisper.cpp's writers (`output_json` for
@@ -2746,6 +2746,50 @@ Decided too (the owner's, 2026-10-09; each tool's writer its source: whisper.cpp
       OpenAI whisper's (`WriteJSON`, `WriteTSV`, `WriteTXT`), LRC (no standard:
       as ffmpeg's `lrc` and whisper-cli write it) -- every field, its times'
       precision, what styling, position and word timing each holds.
+      *Done: five records, each `references/format.md` and its
+      `scripts/measure.py` (run), in the directories 6.8.2's skills will fill:
+      `subrip` (ffmpeg n8.1.2's demuxer, decoder, encoder, muxer), `webvtt` (the
+      W3C draft at `0648025`; Chromium 141's parser -- without regions and the
+      line and position alignments), `ass` (ASS and SSA: libass 0.17.4 through
+      `scripts/assdump.c`; Aegisub 3.4.2's reader and writer), `lrc` (ffmpeg's
+      demuxer and muxer; the conventions), `whisper-transcripts` (whisper.cpp
+      v1.8.4's writers cut from `cli.cpp` and run against stubs; OpenAI whisper
+      v20250625's and WhisperX v3.8.5's run) -- nixpkgs' pins. Precision: SubRip
+      and WebVTT ms; ASS cs; LRC cs, starts only; whisper-cli 10 ms (its unit
+      the cs), DTW in cs; OpenAI seconds as floats, words 0.01 s; WhisperX 0.001
+      s where aligned. Styling: ASS's styles and overrides; WebVTT's `b i u`,
+      classes and CSS; SubRip's `b i u s` and `font`; none in LRC and the
+      tables. Position: ASS's alignment, margins, `\pos`, `\move`; WebVTT's cue
+      settings and regions; SubRip's `{\an}` and `X1..Y2`. Word timing: ASS's
+      `\k` (cs durations), WebVTT's timestamp tags, Enhanced LRC's `<mm:ss.xx>`
+      (unread by ffmpeg), `-ojf`'s tokens, OpenAI's and WhisperX's words. Found,
+      each measured: ffmpeg reads a SubRip fraction as an integer of ms (`,5` is
+      5 ms), skips blank lines, drops a number-led last line before an unindexed
+      cue, stops at a NUL, and decodes `a < b and c > d` as `a {\b1} d`; libass
+      reads an ASS fraction as centiseconds whatever its digits (`.500` is 5 s,
+      Aegisub's 0.5 s) and refuses v4.00++; the WebVTT parser drops a cue timed
+      with a comma or two-digit ms and loses `a < b`'s `< b`; ffmpeg applies
+      LRC's `offset` in microseconds, writes 1.995 s as `[00:01.100]`, and loses
+      the first line after a BOM; whisper-cli escapes only `"` and `\` in JSON,
+      writes `t_dtw` as a 6-digit float (rounded past 2 h 46 min) and tokens as
+      raw bytes (the next box); WhisperX's SubRip and WebVTT cues are the
+      aligned words joined -- a Japanese segment lost its unaligned part -- and
+      its JSON may hold `NaN`. The skills: these five, `subrip` among them,
+      which no skill covers and 6.8.2 did not list. Reviewed: the WebVTT
+      source corrected (the TR is the Candidate Recommendation Draft of
+      2026-05-20, not 2019's); the SubRip and LRC scripts now check each
+      conversion (a failed run had read the case before's file) and print no
+      temporary path; invisible BOMs in four scripts written as `\ufeff`;
+      measured too -- a style name's trailing space is its own, a Latin-1 byte
+      passes ffmpeg unchanged, the muxer warns on the cue it drops.*
+- [ ] Found by the formats' box: whisper-cli's `-ojf` writes each token's bytes
+      raw (`whisper_token_to_str`), and whisper's vocabulary splits what it
+      lacks into byte tokens (`multilingual.tiktoken`: 1,476 of 50,257 not UTF-8
+      alone; `鬱` and `😀` no token), so a transcript holding such a character is
+      not UTF-8 -- and ffman refuses it whole, "not valid JSON" (measured on the
+      writer's output). Its JSON escapes `"` and `\` alone: a control character
+      in a text is refused too. To read: tokens as bytes, a character joined
+      across them; a control character as text or refused, decided.
 - [ ] What ffmpeg converts between them (its `subrip`, `webvtt`, `ass`, `lrc`
       demuxers, muxers, decoders, encoders), measured both ways -- text,
       markup, positions, overlaps, empty cues, word timing -- against what
@@ -2762,7 +2806,9 @@ Decided too (the owner's, 2026-10-09; each tool's writer its source: whisper.cpp
 
 - [ ] Skills for the formats the research finds no skill covers (ASS and SSA; WebVTT;
       whisper JSON; the tables -- CSV, TSV -- LRC and plain text, one skill or apart, as
-      the research finds), as 6.6.2's.
+      the research finds), as 6.6.2's. *Found by 6.8.1: `subrip`, `webvtt`, `ass`,
+      `lrc`, `whisper-transcripts` (JSON, CSV, TSV, plain text, WhisperX's labels) --
+      their records in `.agents/skills/`.*
 
 *6.8.3 The converters* (pure, from the skills)
 

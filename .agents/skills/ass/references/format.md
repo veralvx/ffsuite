@@ -1,0 +1,172 @@
+# ASS and SSA: the formats as libass reads them and Aegisub writes them
+
+Advanced SubStation Alpha (ASS, `ScriptType: v4.00+`) and its predecessor SubStation Alpha v4
+(SSA, `v4.00`) have no maintained specification: the 1990s "Sub Station Alpha v4.00+ Script
+Format" document is the origin, and practice is what libass (the renderer of mpv, ffmpeg's
+`subtitles` and `ass` filters, and ffman's burn) reads and what Aegisub (the editor) writes.
+Researched at libass 0.17.4 (`libass/ass.c`, `ass_parse.c`, `ass_utils.c`, `ass_types.h`;
+nixpkgs' pin), Aegisub 3.4.2 (`src/subtitle_format_ass.cpp`, `ass_style.cpp`, `ass_dialogue.cpp`,
+`ass_parser.cpp`, `libaegisub/ass/time.cpp`; nixpkgs' pin), libass's "ASS File Format Guide"
+(wiki) and Aegisub's "ASS Override Tags" page. Measured by `../scripts/measure.py` with
+`../scripts/assdump.c` built against libass 0.17.4 (its output is the tables marked
+*measured*). ffmpeg's `ass` reader and writer are the next research box's.
+
+## The file
+
+```
+[Script Info]
+ScriptType: v4.00+
+PlayResX: 1920
+PlayResY: 1080
+WrapStyle: 0
+ScaledBorderAndShadow: yes
+YCbCr Matrix: None
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,Arial,60,&H00FFFFFF,&H000000FF,&H00000000,&H80000000,0,0,0,0,100,100,0,0,1,3,1,2,40,40,40,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:01.00,0:00:02.50,Default,Bob,0,0,0,,{\an8}Hello,\Nworld
+```
+
+| Rule (libass)                                                                                                                                                                                                                                      | Source                                       |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| Lines end at CR or LF; a UTF-8 BOM is skipped; leading spaces of a line ignored                                                                                                                                                                    | `process_text`, `process_line`               |
+| Sections, by a case-insensitive prefix: `[Script Info]`, `[V4+ Styles]` (ASS), `[V4 Styles]` (SSA), `[Events]`, `[Fonts]`. Any other header -- `[V4++ Styles]`, `[Aegisub Project Garbage]`, `[Graphics]` -- leaves the previous section in force  | `process_line`                               |
+| The type: the styles section's, else `ScriptType` (`4.00` with a trailing `+` is ASS, without SSA; `v4.00++` neither). No type, no track: the file is refused                                                                                      | `parse_script_type`, `parse_memory`          |
+| `[Script Info]` keys are case-sensitive, `Key:` exactly; a repeated key warns, the last wins                                                                                                                                                       | `process_info_line`                          |
+| `Format:` lines name the fields of the lines after them, in any order and number, names matched without case (`Actor` is `Name`); without one, the standard order of the file's type. A custom Format makes `ScaledBorderAndShadow` default to yes | `process_styles_line`, `process_events_line` |
+| Fields split at commas, leading spaces skipped; the event's last field, `Text`, takes the rest of the line, trailing spaces, tabs and CRs removed                                                                                                  | `next_token`, `process_event_tail`           |
+| `Dialogue:` lines are events; `Comment:` lines and anything else in `[Events]` are ignored                                                                                                                                                         | `process_events_line`                        |
+
+## `[Script Info]` (what libass reads)
+
+| Key                        | Value, default                                                                                                                           |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `ScriptType`               | `v4.00+` ASS, `v4.00` SSA                                                                                                                |
+| `PlayResX`, `PlayResY`     | the script's coordinate space. Neither: 384x288; one: the other at 4:3 (X 1280 gives Y 1024, Y 1024 gives X 1280)                        |
+| `LayoutResX`, `LayoutResY` | the storage size the script was laid out for (libass 0.17+); default the video's                                                         |
+| `WrapStyle`                | 0 smart (lines evened), 1 end of line, 2 none (`\N` and `\n` only); 3 VSFilter's smart with the lower line wider, 0 in libass. Default 0 |
+| `ScaledBorderAndShadow`    | `yes`: borders and shadows scale with PlayRes; default no (yes for a custom Format line or a legacy ffmpeg file)                         |
+| `Kerning`                  | `yes`/`no`, default no                                                                                                                   |
+| `YCbCr Matrix`             | `None`, `TV.601`, `PC.601`, `TV.709`, `PC.709`, `TV.240M`, `PC.240M`, `TV.FCC`, `PC.FCC`                                                 |
+| `Language`                 | its first two characters (`pt-BR` -> `pt`)                                                                                               |
+| `Timer`                    | read, a speed in percent; no effect in libass                                                                                            |
+| `Title` and the others     | ignored (Aegisub writes `Title`, `; Script generated by` comments)                                                                       |
+
+## Styles
+
+ASS fields, in the standard order: `Name, Fontname, Fontsize, PrimaryColour, SecondaryColour,
+OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle,
+BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding`. SSA's: `Name,
+Fontname, Fontsize, PrimaryColour, SecondaryColour, TertiaryColour, BackColour, Bold, Italic,
+BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, AlphaLevel, Encoding`.
+
+| Field                                                           | Value (libass)                                                                                                                                                |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| colours                                                         | `&HAABBGGRR` (alpha 00 opaque, FF clear), hex after `&H` or `0x`, else decimal; a trailing `&` ignored; fewer digits are the low bytes (`&HFF8040` is opaque) |
+| `Bold`...`StrikeOut`                                            | integers, non-zero true (`-1` is Aegisub's true; a weight such as 700 is bold)                                                                                |
+| `Fontsize`, `ScaleX/Y`, `Spacing`, `Angle`, `Outline`, `Shadow` | decimals; negative scales, spacing, outline and shadow become 0; scales are percent                                                                           |
+| `BorderStyle`                                                   | 1 outline and shadow, 3 an opaque box in place of the outline, 4 (libass's) one box behind the whole event in `BackColour`, no shadow                         |
+| `Alignment`                                                     | ASS: the numpad, 1-9 (7 top left, 5 middle, 2 bottom centre); SSA: legacy, 1-3 bottom, +4 top, +8 middle                                                      |
+| `MarginL/R/V`                                                   | integers, pixels of PlayRes; negative kept                                                                                                                    |
+| `Encoding`                                                      | a Windows charset number, 1 default; selects nothing in libass                                                                                                |
+| SSA's `TertiaryColour`                                          | ignored: the outline takes `BackColour`'s colour; `AlphaLevel` the alpha of the fill, karaoke and outline colours, the shadow's always 0x80 (VSFilter's)      |
+
+A style's name: leading `*` removed, trailing spaces kept. An event's style is found by exact,
+case-sensitive name (`Default` without case), the last of equal names winning; an unknown name
+warns and takes the file's last `Default` (else libass's own: Arial 18, white, outline 2, shadow
+3, bold, margins 20). Fields a custom Format omits are 0 -- black, size 0 -- not those defaults.
+
+## Events
+
+| Field                     | Value                                                                                                                                                   |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Layer` (SSA: `Marked=0`) | an integer; higher layers are drawn over lower; collisions are resolved within a layer                                                                  |
+| `Start`, `End`            | `h:mm:ss.cc` -- hundredths of a second. libass: `%d:%d:%d.%d`, the fraction read as an integer of centiseconds whatever its digits; Aegisub: positional |
+| `Style`                   | a style's name (above)                                                                                                                                  |
+| `Name` (`Actor`)          | free text, the speaker by convention; no effect                                                                                                         |
+| `MarginL/R/V`             | 0 means the style's                                                                                                                                     |
+| `Effect`                  | `Banner;delay[;lefttoright]`, `Scroll up;y1;y2;delay`, `Scroll down;y1;y2;delay`; anything else ignored                                                 |
+| `Text`                    | the text, with override blocks `{...}`; `\N` a forced break, `\n` a break only under WrapStyle 2 (a space otherwise), `\h` a non-breaking space         |
+
+*Measured* (libass 0.17.4; times in ms):
+
+| Line or file                                                                                                               | libass's reading                                                         |
+| -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `0:00:01.23 --> 0:00:04.56`                                                                                                | 1230, duration 3330                                                      |
+| `0:00:01.5`                                                                                                                | 1050: `.5` is 5 centiseconds (Aegisub, by its source: 1500)              |
+| `0:00:01.500`                                                                                                              | 6000: 500 centiseconds (Aegisub, by its source: 1500)                    |
+| `10:00:00.00`, `100:00:00.00`, `0:75:00.00`                                                                                | 36000000, 360000000, 4500000                                             |
+| `0:00:01` (no fraction); `0:00:01,50` (comma)                                                                              | "Bad timestamp": 0; a comma also shifts every later field                |
+| `-0:00:01.00`                                                                                                              | 1000: the sign lost                                                      |
+| end before start                                                                                                           | a negative duration, kept                                                |
+| `Text`: `  lead, mid,  trail   `                                                                                           | `  lead, mid,  trail`: commas and leading spaces kept, trailing removed  |
+| override tags                                                                                                              | kept in `Text` as written (parsed when rendering)                        |
+| margins `0012,-5,7`                                                                                                        | 12, -5, 7                                                                |
+| `Effect` `Banner;20;1`                                                                                                     | kept                                                                     |
+| a `Dialogue:` line with too few fields                                                                                     | dropped                                                                  |
+| `Dialogue:0,...` (no space)                                                                                                | read                                                                     |
+| style `Nope`; `default`; `*Default`                                                                                        | `Default` (a warning); `Default`; `Default`                              |
+| two styles named `Default`                                                                                                 | the second                                                               |
+| a style `My Style ` asked as `My Style`; as `My Style `                                                                    | not found (a warning): the space is the name's; found                    |
+| no styles section                                                                                                          | read: every event in libass's own style                                  |
+| no Format lines                                                                                                            | read in the standard order                                               |
+| `Format: Name, Fontsize, Fontname`                                                                                         | read in that order; the omitted fields 0                                 |
+| `Format: Start, End, Text`                                                                                                 | read: no `Style` field, so libass's own style (not the file's `Default`) |
+| `[script info]`, `[events]` (lower case)                                                                                   | read                                                                     |
+| `playresx: 1920` (lower-case key)                                                                                          | ignored: 384x288                                                         |
+| `PlayResX: 1920` alone; `1280` alone; `PlayResY: 1080` alone                                                               | 1920x1440; 1280x1024; 1440x1080 (warnings)                               |
+| `WrapStyle: 2`, `ScaledBorderAndShadow: yes`, `Kerning: yes`, `YCbCr Matrix: TV.709`, `Language: pt-BR`, `Timer: 100.0000` | 2, 1, 1, TV.709, `pt`, 100                                               |
+| `PlayResX: 640` under `[Aegisub Project Garbage]`                                                                          | applied: an unknown section is read as the one before                    |
+| `ScriptType: v4.00++`, `[V4++ Styles]`                                                                                     | refused: no track                                                        |
+| BOM and CRLF; CR only                                                                                                      | read                                                                     |
+| SSA: decimal colours, `-1` bold, alignment `6`, `Marked=0`                                                                 | read: top centre; outline `&H808080` from `BackColour`                   |
+| colours `&H80FF8040`; `&HFF8040`; `16777215`; `&h00ff8040&`                                                                | RGBA `4080FF80`; `4080FF00`; `FFFFFF00`; `4080FF00`                      |
+| booleans `-1`, `1`, `700`                                                                                                  | true, true, true                                                         |
+| `ScaleX -50`, `Outline -1`, `Shadow -1`, `Spacing -2`, `MarginL -10`                                                       | 0, 0, 0, 0, -10                                                          |
+
+## Override tags
+
+In `{...}` blocks within `Text`, each a backslash and a name; libass 0.17.4 knows `xbord ybord
+xshad yshad fax fay iclip blur fscx fscy fsc fsp fs bord move frx fry frz fr fn alpha an a pos
+fade fad org t clip c 1c 2c 3c 4c 1a 2a 3a 4a r be b i kt kf K ko k shad s u pbo p q fe`
+(`ass_parse.c`); an unknown name is ignored.
+
+| Group                 | Tags (Aegisub's page; units as libass reads them)                                                                                                                                                                                                                                                  |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Text style            | `\b1`/`\b0` or `\b<weight>`, `\i`, `\u`, `\s`; `\fn<name>`, `\fs<size>`, `\fscx`/`\fscy` (%), `\fsp` (pixels), `\fe`                                                                                                                                                                               |
+| Colour and alpha      | `\c` = `\1c&HBBGGRR&` fill, `\2c` karaoke's before-colour, `\3c` border, `\4c` shadow; `\alpha&HAA&`, `\1a`..`\4a`                                                                                                                                                                                 |
+| Border, shadow, blur  | `\bord`, `\xbord`, `\ybord`; `\shad`, `\xshad`, `\yshad`; `\be`, `\blur`                                                                                                                                                                                                                           |
+| Geometry              | `\frx`, `\fry`, `\frz` (`\fr`) degrees; `\fax`, `\fay` shear; `\org(x,y)` the rotation's origin                                                                                                                                                                                                    |
+| Position              | `\an1`..`\an9` (numpad), `\a` (legacy); `\pos(x,y)`; `\move(x1,y1,x2,y2[,t1,t2])` (t in ms from the event's start); `\q0`..`\q3` wrap style                                                                                                                                                        |
+| Clip, drawing         | `\clip(x1,y1,x2,y2)`, `\iclip`, or a drawing; `\p<n>` drawing mode, `\pbo`                                                                                                                                                                                                                         |
+| Time                  | `\fad(in,out)` ms; `\fade(a1,a2,a3,t1,t2,t3,t4)`; `\t([t1,t2,][accel,]tags)` animates tags (ms)                                                                                                                                                                                                    |
+| Karaoke (word timing) | `\k<d>` (fill at once), `\kf<d>` = `\K<d>` (sweep), `\ko<d>` (border too): each the duration of the syllable after it, centiseconds -- libass reads decimals, so to the millisecond; no argument 100. `\kt<t>` (v4++, libass 0.17+) the next syllable's start, centiseconds from the event's start |
+| Reset                 | `\r` to the event's style, `\r<style>` to another                                                                                                                                                                                                                                                  |
+
+## Aegisub's writing (3.4.2)
+
+| What         | How                                                                                                                                                                                                                                                           |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Order        | `[Script Info]` (its comment `; Script generated by Aegisub <version>`, `; http://www.aegisub.org/`, then the keys), `[Aegisub Project Garbage]` (audio and video files, UI state), `[V4+ Styles]`, `[Fonts]`/`[Graphics]`, `[Events]`, `[Aegisub Extradata]` |
+| A new file   | `Title: Default Aegisub file`, `ScriptType: v4.00+`, `WrapStyle: 0`, `ScaledBorderAndShadow: yes`, `YCbCr Matrix: None`, PlayRes when set                                                                                                                     |
+| Format lines | the standard ones, always; Aegisub reads fields by position, ignoring any Format line                                                                                                                                                                         |
+| Styles       | `Style: %s,%s,%g,&HAABBGGRR x4,-1/0 x4,%g x4,%d,%g,%g,%i,%i,%i,%i,%i`; a comma in a name or font becomes `;`                                                                                                                                                  |
+| Events       | `Dialogue:`/`Comment:`; times `h:mm:ss.cc`, rounded to centiseconds half up (`(ms + 5)`), within 0 and 9:59:59.99; a comma in `Style`, `Name` or `Effect` becomes `;`; CR and LF removed from the text                                                        |
+| SSA (`.ssa`) | read as v4: tertiary colour skipped, alignment converted, `Marked=` ignored                                                                                                                                                                                   |
+| Line ends    | LF (CRLF on Windows)                                                                                                                                                                                                                                          |
+
+## What ASS holds
+
+| Property    | ASS (SSA)                                                                                                                                         |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Times       | start and end, centiseconds; libass reads more digits as centiseconds too, so ms precision cannot be written                                      |
+| Text        | one line per event, `\N` for breaks; no escape for `{` `}` or `\` (a `{` starts a block wherever it is)                                           |
+| Styling     | named styles (font, size, four colours with alpha, bold, italic, underline, strike, scale, spacing, angle, border, shadow) and per-span overrides |
+| Position    | alignment, margins, `\pos`, `\move`, `\org`, `\clip`, layers; PlayRes as the coordinate space                                                     |
+| Word timing | `\k` family: syllable durations in centiseconds, from the event's start, consecutive; `\kt` for gaps                                              |
+| Speakers    | `Name` (`Actor`), free text                                                                                                                       |
+| Other       | `Comment:` events, `Effect`, embedded fonts and graphics, the script's header keys                                                                |
