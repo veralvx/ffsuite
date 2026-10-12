@@ -139,6 +139,13 @@ def test_a_transcript_not_utf8_is_refused_by_its_line(tmp_path: Path) -> None:
         _ = ingested(path)
 
 
+def test_a_webvtt_without_its_signature_is_refused(tmp_path: Path) -> None:
+    path = put(tmp_path, "unsigned.vtt", HOSTILE["unsigned.vtt"])
+    why = f"not a WebVTT file: {path} (its first line is not WEBVTT)"
+    with pytest.raises(REFUSALS, match=f"^{re.escape(why)}$"):
+        _ = ingested(path)
+
+
 def test_a_csv_header_after_a_blank_line_is_its_header(tmp_path: Path) -> None:
     t = ingested(put(tmp_path, "late-header.csv", HOSTILE["late-header.csv"]))
     assert t.chunks == (Chunk(0, 300, "hello", ""),)

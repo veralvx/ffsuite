@@ -4,7 +4,7 @@ import csv
 from typing import Final
 
 from subverter._errors import refuse
-from subverter.readers import cues, lrc, subrip, table, webvtt, whisper
+from subverter.readers import lrc, subrip, table, webvtt, whisper
 from subverter.transcript import Reading
 
 __all__ = ["FORMATS", "read"]
@@ -21,9 +21,9 @@ def read(fmt: str, data: bytes, name: str) -> Reading:
         refuse(f"unsupported subtitle format '.{fmt}' ({', '.join(FORMATS)})")
     match fmt:
         case "srt":
-            return cues.read(_lines(data), name, subrip.DIALECT)
+            return subrip.read(_lines(data), name)
         case "vtt":
-            return cues.read(_lines(data), name, webvtt.DIALECT)
+            return webvtt.read(_lines(data), name)
         case "lrc":
             return lrc.read(_lines(data), name)
         case "csv" | "tsv":

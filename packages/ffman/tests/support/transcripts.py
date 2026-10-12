@@ -170,6 +170,9 @@ HOSTILE: Final = {
     # word joiner; a SubRip's own \{ \} its braces, its {d} a block, hidden as libass hides it,
     # noted. Before: burned `a/(b/) c/x (d)`
     "braces.srt": "1\n00:00:00,000 --> 00:00:00,400\na\\{b\\} c\\x {d}\n",
+    # a WebVTT without its signature (6.8.2): refused, as the W3C's parser processes no such
+    # file (Chromium none). Before: read, as ffmpeg reads it
+    "unsigned.vtt": "00:00.000 --> 00:00.400\nno signature\n",
     # each text attached exactly into every container (6.8.2), burned as written. Before: an
     # attached `{text}` hidden, `\N` a break, `<b>` bold, a cue lost to its timing line
     "attached.vtt": _ATTACHED_VTT,

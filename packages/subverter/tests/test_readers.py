@@ -60,6 +60,76 @@ def test_a_subrip_part_past_a_double_is_no_time() -> None:
     assert subverter.read("srt", data.encode(), "a.srt").cues == (Cue(1000, None, "x"),)
 
 
+# a WebVTT file's signature (W3C WebVTT, "WebVTT parser algorithm"): "WEBVTT" first -- one BOM
+# before it, decoded away -- then a space, a tab or the line's end; else the file is not
+# processed, as Chromium 141 reads none of its cues (VLC 3 refuses each unless forced; ffmpeg
+# reads one whose first block opens WEBVTT, NOTE, STYLE or REGION, or is a cue -- any other, none)
+_UNSIGNED: Final = "not a WebVTT file: a.vtt (its first line is not WEBVTT)"
+
+
+@pytest.mark.parametrize(
+    ("head", "kept"),
+    [
+        ("WEBVTT\n\n", True),
+        ("WEBVTT\n", True),
+        ("WEBVTT - a title\n\n", True),
+        ("WEBVTT\ta title\n\n", True),
+        ("WEBVTT FILE\n\n", True),
+        ("\ufeffWEBVTT\n\n", True),
+        ("WEBVTT\r\n\r\n", True),
+        ("", False),
+        ("WEBVTTX\n\n", False),
+        ("WEBVTT-title\n\n", False),
+        ("WEBVTT:\n\n", False),
+        ("webvtt\n\n", False),
+        ("Webvtt\n\n", False),
+        (" WEBVTT\n\n", False),
+        ("\nWEBVTT\n\n", False),
+        ("WEBVTT\xa0x\n\n", False),
+        ("WEBVTT\x0cx\n\n", False),
+        ("\ufeff\ufeffWEBVTT\n\n", False),
+        ("NOTE x\n\nWEBVTT\n\n", False),
+    ],
+)
+def test_a_webvtt_file_opens_with_its_signature_else_it_is_refused(head: str, kept: bool) -> None:
+    data = f"{head}00:01.000 --> 00:02.000\nfirst\n".encode()
+    if kept:
+        assert subverter.read("vtt", data, "a.vtt").cues == (Cue(1000, 2000, "first"),)
+    else:
+        with pytest.raises(subverter.Error, match=re.escape(_UNSIGNED)):
+            _ = subverter.read("vtt", data, "a.vtt")
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        b"",  # shorter than its signature
+        b"\xef\xbb\xbf",  # a BOM alone
+    ],
+)
+def test_an_empty_webvtt_file_is_refused(data: bytes) -> None:
+    with pytest.raises(subverter.Error, match=re.escape(_UNSIGNED)):
+        _ = subverter.read("vtt", data, "a.vtt")
+
+
+@pytest.mark.parametrize("data", [b"WEBVTT", b"WEBVTT\n", b"WEBVTT\r00:01.000 --> 00:02.000\rx\r"])
+def test_a_signed_webvtt_file_of_no_cue_is_read_as_none(data: bytes) -> None:
+    # its signature alone; CR line ends -- a line end to the W3C (Chromium reads its cue), not yet
+    # to subverter (the plan's next box): signed, so not refused
+    assert subverter.read("vtt", data, "a.vtt").cues == ()
+
+
+@pytest.mark.parametrize(
+    "head",
+    ["WEBVTT a --> b\n", "WEBVTT 00:00.000 --> 00:00.500\nheader?\n"],
+)
+def test_a_webvtt_signature_line_is_skipped_whole(head: str) -> None:
+    # Chromium 141 reads the one cue: an arrow on the signature's line no timing line, no drop
+    data = f"{head}\n00:01.000 --> 00:02.000\nfirst\n"
+    reading = subverter.read("vtt", data.encode(), "a.vtt")
+    assert (reading.cues, reading.notes) == ((Cue(1000, 2000, "first"),), ())
+
+
 def test_a_webvtt_hour_past_a_double_is_no_time() -> None:
     huge = "9" * 400  # the W3C reads hours of any digits; past 10**308, no time
     data = f"WEBVTT\n\n00:01.000 --> {huge}:00:02.000\nx\n"

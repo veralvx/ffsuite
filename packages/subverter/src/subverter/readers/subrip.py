@@ -9,9 +9,11 @@ from fractions import Fraction
 from typing import Final
 
 from subverter.readers.cues import Dialect, Found, Timed
+from subverter.readers.cues import read as read_cues
 from subverter.readers.fields import DECIMAL, NUMBER, exact, is_decimal, ms
+from subverter.transcript import Reading
 
-__all__ = ["DIALECT"]
+__all__ = ["read"]
 
 _PARTS: Final = 3  # a time's most: hours, minutes, seconds
 _MS_DIGITS: Final = 3  # a fraction of seconds, as SubRip writes one: milliseconds
@@ -110,9 +112,14 @@ def _in_seconds(value: int) -> str:
     return f"{sign}{size // 1000}.{size % 1000:03d}".rstrip("0").rstrip(".")
 
 
+def read(lines: list[str], name: str) -> Reading:
+    """A SubRip file's cues (``cues.read``): no signature to it."""
+    return read_cues(lines, name, _DIALECT)
+
+
 # its texts hold ASS's escapes, as ffmpeg's subrip decoder passes them to libass, and no HTML
 # reference (it decodes none)
-DIALECT: Final = Dialect(
+_DIALECT: Final = Dialect(
     ".srt",
     _timing,
     arrow_ends=False,

@@ -187,6 +187,8 @@ camcorder:date=D,time=T`.
   or, with `-ml`, cues is joined into the text it starts in; what else is not
   UTF-8 is refused by its line, `not UTF-8: FILE (line N)`, a JSON's by the
   text's path, `not UTF-8: FILE (.transcription[0].tokens[3].text)` (New).
+- A WebVTT transcript opens with its signature, `WEBVTT` alone on its line or before a space
+  or a tab (W3C): else `not a WebVTT file: FILE (its first line is not WEBVTT)` (New).
 
 ### 3.5 Soft subtitles (A; from `attach`)
 

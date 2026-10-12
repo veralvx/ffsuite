@@ -3266,10 +3266,34 @@ tests with 6.8.3's converters.*
       against ffmpeg and VLC (20 forms); ten block structures (a header without its blank line,
       identifiers, NOTE, STYLE, an arrow in a cue's text) equal to Chromium's; `Found` a
       documented dataclass; the commit in both packages' changelogs.*
-- [ ] Found by the timestamps box: a WebVTT not opening with its `WEBVTT` line (`WEBVTTX`,
+- [x] Found by the timestamps box: a WebVTT not opening with its `WEBVTT` line (`WEBVTTX`,
       none, `webvtt`): the W3C's parser reads no cue (Chromium 141 none), ffmpeg 8.1.2's
       demuxer reads them all but for `webvtt`, ffman all. To decide: the standard (refused:
       no timed text), or as now.
+      *Done: the standard (the owner's choice) -- refused, named: `not a WebVTT file: FILE
+      (its first line is not WEBVTT)`, an empty file too; the burn and `--add-subs` alike.
+      Each format a `read` (`subrip.read`, `webvtt.read`; their `Dialect` private), the
+      signature WebVTT's alone. Measured on 20 heads: Chromium 141 reads the cues exactly when
+      the W3C's signature holds; ffmpeg 8.1.2 reads a file whose first block opens `WEBVTT`,
+      `NOTE`, `STYLE` or `REGION`, or is a cue -- any other none, every cue lost at it
+      (`webvttdec.c`'s `break`: 6 of the 12 refused heads); VLC 3's `ProbeWEBVTT` (read)
+      refuses each unless forced.
+      Tests first: 19 heads, an empty file, a signed file of no cue (14 of 24 failing on the
+      old code); ffman's `unsigned.vtt` refused. Reviewed: an arrow on the signature's line
+      was noted as a dropped cue -- the W3C skips that line whole (Chromium reads the cue
+      after it), so it is read blank, its numbering kept; a test first, 13 planted mutations
+      caught. Suite 2086, coverage 100%; matrix 770; `compare HEAD` on 3.13 and 3.14: 457
+      identical, 1 changed (`unsigned.vtt` refused). Spec 3.4; `decisions.md` "WebVTT
+      signature"; subverter's README; AGENTS.md's count; the mappings record. Reviewed again
+      (the owner's request): ffmpeg's and VLC's readings had been "most" -- each now its
+      source's rule, measured again (the docstring, the test, this note, the mappings record);
+      `ffman-from-bash.md`, closed at 6.7.9, had grown a bullet a box since (15, this one's
+      among them): restored as closed (the owner's choice), each change its commit's subject
+      and its `decisions.md` row.*
+- [ ] Found by the signature box: a WebVTT whose lines end in a CR alone -- a line end to
+      the W3C (Chromium 141 reads its cues); ffmpeg 8.1.2's demuxer and subverter read none
+      (`readers._lines` splits at LF). To decide: the standard (CR a line end), or as now;
+      SubRip's to measure alike.
 - [ ] `webvtt`: the same.
 - [ ] `ass`: the same, SSA (v4) through it.
 - [ ] `lrc`: the same.
