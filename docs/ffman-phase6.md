@@ -3157,10 +3157,43 @@ tests with 6.8.3's converters.*
       subverter's README; the `subrip` skill: a row for braces (ffmpeg hides `{b}`, VLC shows
       `\{d\}`), its description, ffman's table and probe (measured again: `a {b} c\x {d}`).
       Found: the next two boxes.*
-- [ ] Found by the drawing box: a SubRip's `{text}` with no backslash is an empty override
+- [x] Found by the drawing box: a SubRip's `{text}` with no backslash is an empty override
       block to libass -- ffmpeg and mpv hide it (`a{text}b` renders `ab`; ASS's comment
       form) -- where VLC shows it and ffman keeps it as text. To decide: hidden, as libass,
-      or text, as now.
+      or text, as now. *Done: the owner's -- hidden, as
+      libass; noted; one libass reader. `subverter.unescaped` reads a SubRip text in libass
+      0.17.1's one pass -- a `{` with a `}` after it opens a block, to the first `}` (its
+      `ass_render.c`), else a character; `\N`, `\h`, `\{`, `\}` (`ass_get_next_char`) -- and
+      returns the blocks (`Unescaped`); past the last `}` the escapes alone, so it is bounded
+      (200,000 unclosed `{`, under a second). ffman's `clean` reads a SubRip through it (other
+      formats keep bash's `{\...}` rule); `ingest` notes the blocks that hold text ("2 braced
+      runs hidden, ASS's override blocks, as ffmpeg and mpv hide them: the first, {note}"),
+      not tags alone, `{}` or MicroDVD's `{y:i}` (ffmpeg's decoder drops those). A correction
+      on the way: the layout question claimed regexes misread `\\{x}`; libass reads it as a
+      backslash and a brace, as the chain did, and a lookbehind block regex is equivalent
+      (proved) -- the one reader chosen again for cohesion. Measured: libass hides `a{text}b`
+      (`ab`); ffmpeg's ASS-to-SubRip keeps an ASS comment as `{text}`; VLC shows it (by
+      source). Tests first: `unescaped`'s 15 cases and a property test against a
+      character-by-character libass (`{}\Nhnx `), bounded work; ffman's 4 (`{note}` hidden and
+      noted, tags alone not, escaped braces text, WebVTT's text), each failing on the old
+      code; 10 planted mutations, each caught. `decisions.md` "Braced runs", "ASS escapes";
+      from-bash; subverter's README; the `subrip` skill's braces rows (measured again: `a c\x
+      {d}`). Reviewed (the owner's request): libass alone was read, but ffmpeg's subrip decoder
+      drops ASS's tags and MicroDVD's style first, to the first `}`, a backslash before the `{`
+      or not, and keeps the tags while one `{\anN}` alone has been met (`handle_open_brace`) --
+      so `a \{\i1\} b` is `a \ b`, not `a {\i1} b` (a test had asserted it), and `{a{\i1}b}c`
+      `c`. Against ffmpeg 8.1.2 itself, then libass: 300 of 3,000 hostile texts differed; now
+      `unescaped` reads ffmpeg's pass first (`_passed`, each `{` once) -- none of 9,000 differ,
+      drawn or noted; the pass, as read, equal to ffmpeg on 12,000. ffman's MicroDVD filter,
+      dead since, removed. Tests first: 9 cases and the property test against a
+      character-by-character ffmpeg, then libass (8 failing on the old code), 2 bounded cases,
+      ffman's 2 (tags inside a block, a backslash before tags; both failing); 12 planted
+      mutations, each caught -- the one survivor first, `{\an8\i1}` counted an alignment, made a
+      case. Not followed: a tag inside a block (ffmpeg makes `<i>` a block that ends the outer
+      one; hand-written only), recorded. The skill measures the pass (4 decoder cases, 1 of
+      ffman's). AGENTS.md's layout names `unescaped`. Suite 2004, coverage 100%; matrix 770;
+      `compare HEAD~1` on 3.13 and 3.14: 451 identical, 1 changed -- `braces.srt`'s `{d}`
+      hidden, noted.*
 - [ ] Found by the drawing box: `--add-subs` writes each chunk's text into the SRT as it is,
       where SubRip has no escape: a `{text}` from any source hidden by ffmpeg and mpv, a
       WebVTT's or a JSON's literal `\N` a break. To decide: a look-alike character, dropped,

@@ -19,15 +19,28 @@ def clean(text: str, *, references: bool, escapes: bool) -> str:
     Overrides first: one opening with an escape (``{\t(...)}``) is dropped whole, as ffmpeg's
     subrip decoder and VLC drop it -- bash broke it first, showing it. ``references``
     (WebVTT's): each run between tags decoded, once the overrides are off -- a decoded ``<``
-    or ``{`` text, a decoded break a space. ``escapes`` (SubRip's): ``\N`` a line break, so
-    a space, ffman wrapping; ``\h`` a no-break space (``unescaped``).
+    or ``{`` text, a decoded break a space. ``escapes`` (SubRip's, never with references):
+    the text as ffmpeg and libass read it (``unescaped``) -- every block off, ``{text}`` too, as
+    ffmpeg and mpv hide it; ``\N`` a line break, so a space, ffman wrapping; ``\h`` a no-break
+    space.
     """
     if references:
         text = _MARKED_OVERRIDE.sub("", untagged(text, into=_TAG_MARK))
+    elif escapes:
+        text = unescaped(untagged(text)).text
     else:
         text = _OVERRIDE.sub("", untagged(text))
-    text = _BREAK.sub(" ", unescaped(text) if escapes else text)
+    text = _BREAK.sub(" ", text)
     if references:
         runs = text.split(_TAG_MARK)
         text = _DECODED_BREAK.sub(" ", "".join(decoded(run) for run in runs))
     return _BLANKS.sub(" ", text).removeprefix(" ").removesuffix(" ")
+
+
+def hidden(text: str) -> list[str]:
+    r"""A SubRip text's blocks libass hides that hold text (``unescaped``), each as libass reads it.
+
+    A block's text is what comes before its first tag (``{note\i1}``: ``note``); a block of
+    tags alone (``{\an8}``) or an empty one holds none.
+    """
+    return [f"{{{b}}}" for b in unescaped(untagged(text)).blocks if b.split("\\", 1)[0].strip()]

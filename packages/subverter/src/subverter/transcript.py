@@ -66,9 +66,9 @@ class Reading:
     state") -- each run between tags decoded (``decoded``), so a decoded ``<`` stays text. A
     highlighted reading's sentences come untagged: WhisperX's tags wrap whole words.
 
-    ``has_ass_escapes``: its texts are SubRip's, which ffmpeg's subrip decoder passes to ASS as
-    written -- ``\N`` a line break, ``\h`` a no-break space, ``\{`` ``\}`` braces -- for their
-    consumer to read (``unescaped``).
+    ``has_ass_escapes``: its texts are SubRip's, which ffmpeg's subrip decoder passes to ASS,
+    ASS's tags off -- a ``{...}`` block hidden, ``\N`` a line break, ``\h`` a no-break space,
+    ``\{`` ``\}`` braces -- for their consumer to read as ffmpeg and libass do (``unescaped``).
     """
 
     source: str

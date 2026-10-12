@@ -10,7 +10,7 @@ from subverter.transcript import Transcript
 
 from ffman.errors import refuse
 from ffman.media.paths import ext_of
-from ffman.subs import normalize
+from ffman.subs import markup, normalize
 
 
 def ingest(name: str, data: bytes) -> Transcript:
@@ -24,6 +24,9 @@ def ingest(name: str, data: bytes) -> Transcript:
     if not chunks:
         refuse(f"no timed text found in: {name}")
     notes = list(found.notes)
+    if escapes and (runs := [run for cue in found.cues for run in markup.hidden(cue.text)]):
+        how = "ASS's override blocks, as ffmpeg and mpv hide them"
+        notes.append(f"{len(runs)} braced runs hidden, {how}: the first, {runs[0]}")
     if not found.has_words:
         return Transcript(fmt, found.source, found.has_words, chunks, (), tuple(notes))
     placed_words, placed, untimed = normalize.words(

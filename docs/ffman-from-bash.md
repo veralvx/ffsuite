@@ -162,6 +162,9 @@ which git-cliff writes at each release from the commits (`packages/ffman/CHANGEL
 - **Braces and backslashes are drawn as written.** bash burned `\` as `/` and braces as
   parentheses, so no text could make an override; now ffman writes libass's own escapes for them
   (a backslash before a word joiner, as ffmpeg does), and a SubRip's `\{` and `\}` are braces.
+- **A SubRip's `{text}` is hidden.** bash kept it as text; once ffmpeg's decoder drops ASS's
+  tags, libass reads any `{...}` left as an override block, ASS's comment form among them, so
+  ffmpeg and mpv hide it -- now ffman too, noted.
 - **An override block is removed before breaks become spaces.** bash broke `{\t(...)}`, ASS's
   animation, by its `\t` first and showed it; now it is dropped whole, as the players drop it.
 - **An LRC's `[offset:]` is applied.** bash read no ID tag; now every time moves by it,

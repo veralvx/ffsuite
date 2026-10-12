@@ -2,16 +2,24 @@
 
 import html
 import re
-from typing import Final
+from typing import Final, NamedTuple
 
-__all__ = ["decoded", "unescaped", "untagged"]
+__all__ = ["Unescaped", "decoded", "unescaped", "untagged"]
 
 _TAG: Final = re.compile(r"<[^>]*>")  # <u>, <i>, <font ...>: SubRip's and WebVTT's
 _DECIMAL: Final = re.compile(r"&#([0-9]+);?")  # a decimal reference
 _DIGITS_MAX: Final = 7  # a decimal reference's: 10**7 is past U+10FFFF
-# libass's escapes but \n (ass_get_next_char): no escape's output holds a backslash, so each
-# is read alone, in any order
-_ESCAPES: Final = (("\\N", "\n"), ("\\h", "\u00a0"), ("\\{", "{"), ("\\}", "}"))
+# ffmpeg 8.1's subrip decoder, at a "{" (htmlsubtitles.c, handle_open_brace): MicroDVD's style,
+# {y:i}, dropped; and ASS's tags, but while one {\anN} alone has been met (scanbraces, exactly)
+_STYLE: Final = re.compile(r"[CcFfoPSsYy]:")
+_ALIGNMENT: Final = re.compile(r"\{\\an[0-9]\}")
+# libass 0.17.1's reading of an event's text, left to right: a "{" with a "}" after it opens a
+# block, to the first "}" (ass_render.c); \N \h \{ \} its escapes (ass_get_next_char) -- not
+# \n, a space but under WrapStyle 2; else a character. Past the last "}" no block opens: there,
+# the escapes alone, so no "{" is scanned to the end
+_BLOCK_OR_ESCAPE: Final = re.compile(r"\{([^}]*)\}|\\([Nh{}])")
+_ESCAPE: Final = re.compile(r"\\([Nh{}])")
+_ESCAPES: Final = {"N": "\n", "h": "\u00a0", "{": "{", "}": "}"}
 
 
 def decoded(text: str) -> str:
@@ -30,18 +38,58 @@ def _bounded(match: re.Match[str]) -> str:
     return "\ufffd" if len(digits) > _DIGITS_MAX else f"&#{digits};"
 
 
-def unescaped(text: str) -> str:
-    r"""A SubRip text's ASS escapes as libass draws them: a break, a no-break space, braces.
+class Unescaped(NamedTuple):
+    """A SubRip text as ffmpeg and libass draw it; the override blocks libass hides, unbraced."""
 
-    ``\N`` a line break, ``\h`` U+00A0, ``\{`` and ``\}`` braces. ffmpeg's subrip decoder
-    passes the text to ASS as written, so libass reads them (``ass_get_next_char``, 0.17.1) --
-    mpv and an ffmpeg burn; VLC's subsdec reads ``\N`` and ``\h`` alike, and shows ``\{`` as
-    written. A backslash before one is a character of its own, as libass reads it; ``\n``,
-    libass's break only under ``WrapStyle: 2``, is left as written.
+    text: str
+    blocks: tuple[str, ...]
+
+
+def unescaped(text: str) -> Unescaped:
+    r"""A SubRip text as mpv and an ffmpeg burn draw it: its override blocks off, its escapes read.
+
+    ffmpeg's subrip decoder passes the text to ASS (``_passed``), and libass reads it: a
+    block, ``{...}``, hidden -- ASS's tags, or its comment form, ``{text}``; ``\N`` a line
+    break, ``\h`` U+00A0, ``\{`` and ``\}`` braces, a backslash before one a character of its
+    own (``_BLOCK_OR_ESCAPE``). VLC's subsdec reads ``\N`` and ``\h`` alike, but shows ``\{``
+    and a ``{text}``.
     """
-    for escape, character in _ESCAPES:
-        text = text.replace(escape, character)
-    return text
+    blocks: list[str] = []
+
+    def read(found: re.Match[str]) -> str:
+        block, escape = found.group(1, 2)
+        if block is not None:
+            blocks.append(block)
+            return ""
+        return _ESCAPES[escape]
+
+    text = _passed(text)
+    cut = text.rfind("}") + 1
+    tail = _ESCAPE.sub(lambda found: _ESCAPES[found[1]], text[cut:])
+    return Unescaped(_BLOCK_OR_ESCAPE.sub(read, text[:cut]) + tail, tuple(blocks))
+
+
+def _passed(text: str) -> str:
+    r"""What ffmpeg's subrip decoder passes to libass: ASS's tags and MicroDVD's style off.
+
+    At each ``{`` (``_STYLE``, ``_ALIGNMENT``), to the first ``}`` after it, a backslash before
+    the ``{`` or not: libass never reads that ``\{``. A ``{`` with no ``}`` after it drops
+    nothing, nor does any after it. Each ``{`` read once: bounded.
+    """
+    kept: list[str] = []
+    k = alignments = 0
+    last = text.rfind("}")
+    start = text.find("{")
+    while 0 <= start < last:
+        alignments += _ALIGNMENT.match(text, start) is not None
+        tags = alignments != 1 and text.startswith("\\", start + 1)
+        if tags or _STYLE.match(text, start + 1):
+            kept.append(text[k:start])
+            k = text.find("}", start + 2) + 1  # one there: neither "\\" nor ":" is a "}"
+            start = text.find("{", k)
+        else:
+            start = text.find("{", start + 1)
+    return "".join(kept) + text[k:]
 
 
 def untagged(text: str, *, into: str = "") -> str:

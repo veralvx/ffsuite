@@ -191,11 +191,49 @@ def test_a_subrips_ass_escapes_read_as_libass_draws_them(tmp_path: Path) -> None
 
 def test_braces_and_backslashes_are_drawn_as_written(tmp_path: Path) -> None:
     t = ingested(put(tmp_path, "braces.srt", HOSTILE["braces.srt"]))
-    assert [c.text for c in t.chunks] == ["a{b} c\\x {d}"]  # a SubRip's \{ \}: its braces
+    assert [c.text for c in t.chunks] == ["a{b} c\\x"]  # \{ \} its braces; {d} a block, hidden
+    assert t.notes == (
+        "1 braced runs hidden, ASS's override blocks, as ffmpeg and mpv hide them: the first, {d}",
+    )
     (event,) = [
         line for line in script(t, 1920, 1080, Style())[0].splitlines() if "Dialogue" in line
     ]
-    assert event.endswith(",a\\{b\\} c\\\u2060x \\{d\\}")
+    assert event.endswith(",a\\{b\\} c\\\u2060x")
+
+
+@pytest.mark.parametrize(
+    ("text", "shown", "notes"),
+    [
+        pytest.param(  # libass's blocks: ASS's comment form hidden, noted; tags alone, not
+            "a{note}b {\\an8}c {y:i}d {}e {note2\\i1}f {unclosed",
+            "ab c d e f {unclosed",
+            (
+                "2 braced runs hidden, ASS's override blocks, as ffmpeg and mpv hide them: the first, {note}",
+            ),
+            id="hidden",
+        ),
+        pytest.param("a{\\an8} { \\i1}b", "a b", (), id="tags alone"),
+        pytest.param(  # ffmpeg's decoder drops ASS's tags first: a block once they are off
+            "x {a{\\i1}b}c",
+            "x c",
+            (
+                "1 braced runs hidden, ASS's override blocks, as ffmpeg and mpv hide them: the first, {ab}",
+            ),
+            id="tags inside",
+        ),
+        pytest.param("a \\{\\i1\\} b", "a \\ b", (), id="a backslash before tags"),
+    ],
+)
+def test_a_subrips_braced_run_is_a_block_hidden_as_libass_hides_it(
+    tmp_path: Path, text: str, shown: str, notes: tuple[str, ...]
+) -> None:
+    t = ingested(put(tmp_path, "a.srt", f"1\n00:00:00,000 --> 00:00:00,400\n{text}\n"))
+    assert ([c.text for c in t.chunks], t.notes) == ([shown], notes)
+
+
+def test_another_formats_braced_run_is_text(tmp_path: Path) -> None:
+    t = ingested(put(tmp_path, "a.vtt", "WEBVTT\n\n00:00.000 --> 00:00.400\na{note}b\n"))
+    assert ([c.text for c in t.chunks], t.notes) == (["a{note}b"], ())
 
 
 def test_a_highlighted_subrips_words_read_its_escapes_too(tmp_path: Path) -> None:
