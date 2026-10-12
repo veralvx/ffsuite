@@ -148,6 +148,7 @@ specification's parser. Every use but a stream copy decodes a cue into ASS and e
 | `WEBVTT - a title`, `Kind: captions`                    | read; the header's text not kept (a stream copy writes `WEBVTT` alone)            |
 | no blank line after `WEBVTT`                            | no cue: the block taken for the header (Chromium reads the cue)                   |
 | a UTF-8 BOM; CRLF                                       | read; a CRLF's CR kept in the text, dropped by the decoder                        |
+| a NUL in a cue's text                                   | the text cut there, every later cue lost (Chromium: U+FFFD)                       |
 | CR only                                                 | the first cue lost, the rest read (Chromium reads every cue)                      |
 | CR CR LF                                                | no cue (Chromium: each cue of no text)                                            |
 | a first block neither a cue nor `WEBVTT`, `NOTE`...     | no cue: read as a cue, its timing fails, the reading ends                         |

@@ -1273,6 +1273,82 @@ def test_in_a_file_not_utf8_an_escaped_byte_surrogate_is_its_byte() -> None:
     assert [c.text for c in subverter.read("json", data, "a.json").cues] == ["鬱", ""]
 
 
+# --- a NUL in a text, any format: U+FFFD, as the W3C's WebVTT parser reads one, noted -- kept, it
+# would end libass's script and ffmpeg's SubRip reading there, every later cue lost (measured)
+_NUL_NOTE: Final = "{n} NULs read as U+FFFD, as the W3C reads them: the first in {where}"
+_SRT_NUL: Final = (
+    b"1\n00:00:01,000 --> 00:00:02,000\nfi\x00rst\n\n2\n00:00:03,000 --> 00:00:04,000\nsecond\n"
+)
+
+
+@pytest.mark.parametrize(
+    ("fmt", "data", "texts", "where"),
+    [
+        ("srt", _SRT_NUL, ["fi\ufffdrst", "second"], "line 3"),
+        # Chromium 141: `fi\ufffdrst\nline2` (measured), its lines joined here by a space
+        (
+            "vtt",
+            b"WEBVTT\n\n00:01.000 --> 00:02.000\nfi\x00rst\nline2\n",
+            ["fi\ufffdrst line2"],
+            "line 4",
+        ),
+        ("lrc", b"[00:01.00]fi\x00rst\n[00:03.00]second\n", ["fi\ufffdrst", "second"], "line 1"),
+        ("csv", b"start,end,text\n1000,2000,fi\x00rst\n", ["fi\ufffdrst"], "line 2"),
+        ("tsv", b"start\tend\ttext\n1000\t2000\tfi\x00rst\n", ["fi\ufffdrst"], "line 2"),
+        (
+            "json",
+            _cli([{"offsets": {"from": 0, "to": 1500}, "text": " fi\u0000rst"}]),
+            [" fi\ufffdrst"],
+            ".transcription[0].text",
+        ),
+        (
+            "json",
+            _cli([{"offsets": {"from": 0, "to": 1500}, "text": " a"}]).replace(
+                b" a", b" fi\x00rst"
+            ),
+            [" fi\ufffdrst"],
+            ".transcription[0].text",
+        ),
+    ],
+    ids=["srt", "vtt", "lrc", "csv", "tsv", "whisper-cli, escaped", "whisper-cli, raw"],
+)
+def test_a_nul_reads_as_u_fffd_noted(fmt: str, data: bytes, texts: list[str], where: str) -> None:
+    reading = subverter.read(fmt, data, f"a.{fmt}")
+    assert [c.text for c in reading.cues] == texts
+    assert reading.notes == (_NUL_NOTE.format(n=1, where=where),)
+
+
+def test_nuls_counted_the_first_named() -> None:
+    data = _SRT_NUL.replace(b"second", b"se\x00co\x00nd")
+    reading = subverter.read("srt", data, "a.srt")
+    assert [c.text for c in reading.cues] == ["fi\ufffdrst", "se\ufffdco\ufffdnd"]
+    assert reading.notes == (_NUL_NOTE.format(n=3, where="line 3"),)
+
+
+def test_a_nul_is_noted_where_it_is() -> None:
+    data = _SRT_NUL.replace(b"fi\x00rst", b"first").replace(b"second", b"sec\x00ond")
+    reading = subverter.read("srt", data, "a.srt")
+    assert reading.notes == (_NUL_NOTE.format(n=1, where="line 7"),)
+    both = {
+        "segments": [{"start": 1, "end": 2, "text": "a\u0000b", "words": [{"word": "a\u0000b"}]}]
+    }
+    reading = subverter.read("json", json.dumps(both).encode(), "a.json")
+    assert reading.notes == (_NUL_NOTE.format(n=2, where=".segments[0].text"),)
+
+
+def test_a_nul_in_a_word_reads_as_u_fffd_noted_by_its_path() -> None:
+    whisperx = {"segments": [{"start": 1, "end": 2, "text": "ab", "words": [{"word": "a\u0000b"}]}]}
+    reading = subverter.read("json", json.dumps(whisperx).encode(), "a.json")
+    assert [w.text for w in reading.words] == ["a\ufffdb"]
+    assert reading.notes == (_NUL_NOTE.format(n=1, where=".segments[0].words[0].word"),)
+    tokens = [_token(" a\u0000b", 0, 500)]
+    cli = _cli([{"offsets": {"from": 0, "to": 500}, "text": " ab", "tokens": tokens}])
+    reading = subverter.read("json", cli, "a.json")
+    assert [w.text for w in reading.words] == [" a\ufffdb"]
+    where = ".transcription[0].tokens[0].text"
+    assert reading.notes == (_NUL_NOTE.format(n=1, where=where),)
+
+
 def test_a_raw_control_character_reads_as_its_escaped_form() -> None:
     escaped = _cli([{"offsets": {"from": 0, "to": 1500}, "text": " a\tb\nc"}])
     raw = escaped.replace(b"\\t", b"\t").replace(b"\\n", b"\n")

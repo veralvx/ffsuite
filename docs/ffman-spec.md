@@ -194,6 +194,8 @@ camcorder:date=D,time=T`.
 - A SubRip cue reads on past an empty line to the next timing line, as ffmpeg reads it, the
   text after one noted; a line of spaces ends it. A WebVTT cue ends at an empty line alone, a
   line of spaces its text (W3C) (New).
+- A NUL in a transcript's text reads as U+FFFD, as the W3C reads one, noted: `1 NULs read as
+  U+FFFD, as the W3C reads them: the first in line 3` (New).
 
 ### 3.5 Soft subtitles (A; from `attach`)
 

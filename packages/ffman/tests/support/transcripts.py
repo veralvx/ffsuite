@@ -192,6 +192,9 @@ HOSTILE: Final = {
     ),
     # a WebVTT cue's line of spaces its text, as the W3C reads it (6.8.2). Before: its end
     "whitespace.vtt": "WEBVTT\n\n00:00.000 --> 00:00.400\nfirst\n   \nsecond\n",
+    # a NUL in a text (6.8.2): U+FFFD, as the W3C reads one, noted. Before: written into the
+    # ASS, where libass ended the script -- `fi` drawn, every later cue lost (measured)
+    "nul.srt": "1\n00:00:00,000 --> 00:00:00,200\nfi\x00rst\n\n2\n00:00:00,200 --> 00:00:00,400\nsecond\n",
     # each text attached exactly into every container (6.8.2), burned as written. Before: an
     # attached `{text}` hidden, `\N` a break, `<b>` bold, a cue lost to its timing line
     "attached.vtt": _ATTACHED_VTT,

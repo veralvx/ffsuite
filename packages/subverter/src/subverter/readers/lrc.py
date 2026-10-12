@@ -5,7 +5,7 @@ from typing import Final
 
 from subverter.readers.fields import exact, ms
 from subverter.readers.subrip import split_lines
-from subverter.readers.utf8 import by_line
+from subverter.readers.utf8 import Nuls, by_line, nul_notes
 from subverter.transcript import Cue, Reading
 
 # ``split_lines``, its line ends: no standard's, so SubRip's (ffmpeg's lrcdec ends a line at an
@@ -24,7 +24,8 @@ _WHOLE: Final = re.compile(r"[ \t]*[-+]?[0-9]+[ \t]*")
 def read(lines: list[str], name: str) -> Reading:
     """The cues, every time moved by the offset (``_offset``), and its notes."""
     offset, notes = _offset(lines)
-    return Reading(".lrc", has_words=False, cues=tuple(_rows(lines, name, offset)), notes=notes)
+    cues, nuls = _rows(lines, name, offset)
+    return Reading(".lrc", has_words=False, cues=tuple(cues), notes=notes + nul_notes(nuls))
 
 
 def _offset(lines: list[str]) -> tuple[int, tuple[str, ...]]:
@@ -51,12 +52,12 @@ def _offset(lines: list[str]) -> tuple[int, tuple[str, ...]]:
     return offset, tuple(notes)
 
 
-def _rows(lines: list[str], name: str, offset: int) -> list[Cue]:
+def _rows(lines: list[str], name: str, offset: int) -> tuple[list[Cue], Nuls]:
     """Starts only, ``offset`` ms sooner: each line ends where the next starts (the last 3 s on).
 
     A line of several stamps is a line each (Wikipedia's repeated line; ffmpeg's lrcdec). Each
     character joined across the lines it spans, in the file's order, then sorted
-    (``utf8.by_line``: what is still not UTF-8, refused by its line).
+    (``utf8.by_line``: what is still not UTF-8, refused by its line); their NULs.
     """
     # each timed line: its starts, its line (from 1), its text
     stamped: list[tuple[list[int], int, str]] = []
@@ -68,10 +69,10 @@ def _rows(lines: list[str], name: str, offset: int) -> list[Cue]:
         if starts:
             stamped.append((starts, i, line[run.end() :]))
     whole = by_line([(i, text) for _, i, text in stamped], name)
-    timed = [(s, text) for (starts, _, _), text in zip(stamped, whole, strict=True) for s in starts]
+    timed = [(s, t) for (starts, _, _), t in zip(stamped, whole.texts, strict=True) for s in starts]
     timed.sort(key=lambda t: t[0])  # stable, as sort -s
     ends = [t[0] for t in timed[1:]] + ([timed[-1][0] + 3000] if timed else [])
-    return [Cue(s, e, t) for (s, t), e in zip(timed, ends, strict=True)]
+    return [Cue(s, e, t) for (s, t), e in zip(timed, ends, strict=True)], whole.nuls
 
 
 def _start(stamp: re.Match[str], offset: int) -> int | None:

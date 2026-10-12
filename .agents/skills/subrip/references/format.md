@@ -174,6 +174,7 @@ the next start; braces and backslashes drawn as written). *Measured*:
 | text after the last cue, an empty line between              | `last credits`, noted                | the same                                            |
 | a timing line ffmpeg cannot read (`->`)                     | the cue before's text, noted         | the same                                            |
 | UTF-16LE with a BOM                                         | no cue                               | refused: "no timed text found"                      |
+| a NUL in a cue's text                                       | U+FFFD there, noted                  | the same                                            |
 
 ## What SubRip holds
 

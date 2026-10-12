@@ -16,7 +16,7 @@ from typing import Final, cast
 
 from subverter._errors import refuse
 from subverter.readers.fields import json_number, ms, number, time_ms
-from subverter.readers.utf8 import Errors, Source, joined
+from subverter.readers.utf8 import Errors, Nuls, Source, joined, nul_notes
 from subverter.transcript import Cue, Reading, Timing
 
 __all__ = ["read"]
@@ -45,8 +45,8 @@ def read(data: bytes, name: str) -> Reading:
     if not isinstance(doc.get("segments"), list):
         kinds = "a whisper-cli (.transcription) or WhisperX (.segments) JSON transcript"
         refuse(f"not {kinds}: {name}")
-    cues, words = _whisperx(doc, source)
-    return Reading("WhisperX JSON", has_words=bool(words), cues=cues, words=words)
+    cues, words, notes = _whisperx(doc, source)
+    return Reading("WhisperX JSON", has_words=bool(words), cues=cues, words=words, notes=notes)
 
 
 def _loads(data: bytes) -> tuple[object, Errors]:
@@ -116,16 +116,18 @@ def _whisper_cli(doc: dict[str, object], source: Source) -> Reading:
     )
     cues = tuple(
         Cue(*_window(e), text, str(key))
-        for key, (e, text) in enumerate(zip(entries, texts, strict=True))
+        for key, (e, text) in enumerate(zip(entries, texts.texts, strict=True))
     )
     if not any("tokens" in e for e in entries):
-        return Reading("whisper-cli JSON", has_words=False, cues=cues)
+        return Reading("whisper-cli JSON", has_words=False, cues=cues, notes=nul_notes(texts.nuls))
     language = _text(_obj(doc.get("result")).get("language"))
-    words, fallback, timed = _tokens(entries, no_spaces=language in _NO_SPACES, source=source)
+    sentences, nuls = _sentences(entries, source)
+    words, fallback, timed = _tokens(entries, sentences, no_spaces=language in _NO_SPACES)
     notes: tuple[str, ...] = ()
     if fallback:
         where = f"outside their sentence or not in order in {fallback} of {timed} sentences"
         notes = (f"DTW word times were {where}: used token offsets there",)
+    notes += nul_notes(texts.nuls, nuls)
     return Reading("whisper-cli -ojf JSON", has_words=True, cues=cues, words=words, notes=notes)
 
 
@@ -136,13 +138,13 @@ def _window(value: dict[str, object]) -> tuple[int | None, int | None]:
 
 
 def _tokens(
-    entries: list[dict[str, object]], *, no_spaces: bool, source: Source
+    entries: list[dict[str, object]], sentences: list[list["_Token"]], *, no_spaces: bool
 ) -> tuple[tuple[Timing, ...], int, int]:
     """Words from tokens, timed by DTW where its times sit in order inside their sentence."""
     words: list[Timing] = []
     fallback: set[int] = set()
     timed: set[int] = set()
-    for key, (e, tokens) in enumerate(zip(entries, _sentences(entries, source), strict=True)):
+    for key, (e, tokens) in enumerate(zip(entries, sentences, strict=True)):
         a, z = _window(e)
         ws = _token_words(tokens, no_spaces=no_spaces)
         # t_dtw: in 10 ms units
@@ -180,8 +182,8 @@ class _Token:
     dtw: Fraction | None
 
 
-def _sentences(entries: list[dict[str, object]], source: Source) -> list[list[_Token]]:
-    """Each sentence's tokens ([_...] tokens dropped), their texts joined over them all."""
+def _sentences(entries: list[dict[str, object]], source: Source) -> tuple[list[list[_Token]], Nuls]:
+    """Each sentence's tokens ([_...] tokens dropped), their texts joined; their NULs."""
     found: list[tuple[int, int, str, dict[str, object]]] = []
     for key, e in enumerate(entries):
         for j, token in enumerate(_list(e.get("tokens"))):
@@ -200,11 +202,11 @@ def _sentences(entries: list[dict[str, object]], source: Source) -> list[list[_T
         lambda n: f".transcription[{found[n][0]}].tokens[{found[n][1]}].text",
     )
     sentences: list[list[_Token]] = [[] for _ in entries]
-    for (key, _, raw, t), text in zip(found, texts, strict=True):
+    for (key, _, raw, t), text in zip(found, texts.texts, strict=True):
         sentences[key].append(
             _Token(text, bool(raw) and not text, *_window(t), number(t.get("t_dtw")))
         )
-    return sentences
+    return sentences, texts.nuls
 
 
 @dataclass(slots=True)
@@ -239,14 +241,16 @@ def _token_words(tokens: list[_Token], *, no_spaces: bool) -> list[_Word]:
 # WhisperX: .segments[] -- seconds; their words, each its own
 
 
-def _whisperx(doc: dict[str, object], source: Source) -> tuple[tuple[Cue, ...], tuple[Timing, ...]]:
+def _whisperx(
+    doc: dict[str, object], source: Source
+) -> tuple[tuple[Cue, ...], tuple[Timing, ...], tuple[str, ...]]:
     segments = [_obj(s) for s in _list(doc["segments"])]
     texts = joined(
         [_text(s.get("text")) for s in segments], source, lambda k: f".segments[{k}].text"
     )
     cues = tuple(
         Cue(time_ms(s.get("start"), 1000), time_ms(s.get("end"), 1000), text, str(key))
-        for key, (s, text) in enumerate(zip(segments, texts, strict=True))
+        for key, (s, text) in enumerate(zip(segments, texts.texts, strict=True))
     )
     found = [
         (key, j, cast("dict[str, object]", word))
@@ -261,6 +265,6 @@ def _whisperx(doc: dict[str, object], source: Source) -> tuple[tuple[Cue, ...], 
     )
     words = tuple(
         Timing(str(key), time_ms(w.get("start"), 1000), time_ms(w.get("end"), 1000), text)
-        for (key, _, w), text in zip(found, spoken, strict=True)
+        for (key, _, w), text in zip(found, spoken.texts, strict=True)
     )
-    return cues, words
+    return cues, words, nul_notes(texts.nuls, spoken.nuls)

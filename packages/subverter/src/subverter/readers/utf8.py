@@ -6,16 +6,20 @@ with ``-ml``, which splits a segment between tokens (``whisper_wrap_segment``), 
 JSON's texts and its SubRip, WebVTT, LRC and CSV cues. So each character is joined across the
 texts it spans and given to the one it starts in; what is still not UTF-8 is refused where it
 is: ``not UTF-8: NAME (WHERE)`` -- a text file's by its line (``by_line``).
+
+A NUL in a text is read as U+FFFD, as the W3C's WebVTT parser reads one, and noted
+(``nul_notes``): kept, it would end libass's script and ffmpeg's SubRip reading there, every
+later cue lost (measured, libass 0.17.1 and ffmpeg 8.1.2).
 """
 
 import codecs
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, NamedTuple
 
 from subverter._errors import refuse
 
-__all__ = ["Errors", "Source", "by_line", "joined"]
+__all__ = ["Errors", "Joined", "Nuls", "Source", "by_line", "joined", "nul_notes"]
 
 # how a file's strings give back their bytes: as UTF-8, or each surrogate U+DC80-DCFF its byte
 type Errors = Literal["strict", "surrogateescape"]
@@ -29,7 +33,21 @@ class Source:
     errors: Errors
 
 
-def joined(texts: Sequence[str], source: Source, where: Callable[[int], str]) -> list[str]:
+class Nuls(NamedTuple):
+    """The NULs read as U+FFFD: how many; where the first was."""
+
+    total: int
+    first: str | None
+
+
+class Joined(NamedTuple):
+    """The texts, each character whole, each NUL U+FFFD; their NULs."""
+
+    texts: list[str]
+    nuls: Nuls
+
+
+def joined(texts: Sequence[str], source: Source, where: Callable[[int], str]) -> Joined:
     """``texts`` as UTF-8, each character joined across the texts it spans, in the one it starts.
 
     Refused at ``where``: a byte no character takes, a character the texts end inside, a lone
@@ -38,6 +56,7 @@ def joined(texts: Sequence[str], source: Source, where: Callable[[int], str]) ->
     """
     decoder = codecs.getincrementaldecoder("utf-8")()
     found: list[str] = []
+    total, first = 0, None  # the NULs
     started: int | None = None  # the text an unfinished character starts in
     for k, text in enumerate(texts):
         pending = len(decoder.getstate()[0])  # the unfinished character's bytes, in ``started``
@@ -48,6 +67,9 @@ def joined(texts: Sequence[str], source: Source, where: Callable[[int], str]) ->
         except UnicodeDecodeError as e:  # a byte no character takes: in ``started``'s, or here
             at = k if started is None or e.start >= pending else started
             refuse(f"not UTF-8: {source.name} ({where(at)})")
+        if n := whole.count("\0"):  # a character alone, never a byte of a multibyte one
+            total, first = total + n, first or where(k)
+            whole = whole.replace("\0", "\ufffd")
         if started is not None and whole:  # its first character, the one started before
             found[started] += whole[0]
             whole, started = whole[1:], None
@@ -56,13 +78,22 @@ def joined(texts: Sequence[str], source: Source, where: Callable[[int], str]) ->
             started = k
     if started is not None:
         refuse(f"not UTF-8: {source.name} ({where(started)})")
-    return found
+    return Joined(found, Nuls(total, first))
 
 
-def by_line(texts: Sequence[tuple[int, str]], name: str) -> list[str]:
+def by_line(texts: Sequence[tuple[int, str]], name: str) -> Joined:
     """``joined`` on a text file's texts, each with its line (from 1): refused by ``line N``.
 
     The file read as ``readers._text`` reads it: each byte no character takes a surrogate.
     """
     source = Source(name, "surrogateescape")
     return joined([text for _, text in texts], source, lambda k: f"line {texts[k][0]}")
+
+
+def nul_notes(*nuls: Nuls) -> tuple[str, ...]:
+    """A reading's NULs (``Joined.nuls``, in order), read as U+FFFD: counted, the first named."""
+    total = sum(n.total for n in nuls)
+    first = next((n.first for n in nuls if n.first is not None), None)
+    if not total:
+        return ()
+    return (f"{total} NULs read as U+FFFD, as the W3C reads them: the first in {first}",)

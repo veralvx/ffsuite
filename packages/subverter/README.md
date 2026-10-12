@@ -41,7 +41,8 @@ subverter.Error: not a whisper-cli (.transcription) or WhisperX (.segments) JSON
 Times are milliseconds. A text that cannot be read is refused:
 `subverter.Error`, its message the reason. Texts are UTF-8: a character whisper-cli splits
 between tokens or, with `-ml`, cues is joined into the text it starts in; what else is not
-UTF-8 is refused by its line (`not UTF-8: talk.srt (line 3)`), a JSON's by its path.
+UTF-8 is refused by its line (`not UTF-8: talk.srt (line 3)`), a JSON's by its path. A NUL reads
+as U+FFFD, as the W3C reads one, noted.
 
 ## Licence
 

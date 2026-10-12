@@ -3353,9 +3353,36 @@ tests with 6.8.3's converters.*
       stale (its empty-line and index cells), corrected; its `measure.py` given the CR CR LF,
       LF-CR, last-cue and unread-timing cases and the notes' presence, its rows each its
       output again.*
-- [ ] Found by the line-ends box: a NUL in a SubRip's or WebVTT's text -- the W3C makes it
+- [x] Found by the line-ends box: a NUL in a SubRip's or WebVTT's text -- the W3C makes it
       U+FFFD (Chromium 141 shows it); subverter keeps it, into the ASS. What libass and ffmpeg
       draw, to measure; then to decide.
+      *Done: U+FFFD, as the W3C reads one, noted (the owner's), in every format ("1 NULs read
+      as U+FFFD, as the W3C reads them: the first in line 3"; a JSON's by its path). Measured:
+      kept, the NUL broke both of ffman's outputs -- libass 0.17.1 ends its script there (the
+      burn drew `fi`, and nothing of any later cue) and ffmpeg 8.1.2's SubRip demuxer stops
+      (`--add-subs`' track empty from that cue on: 0 packets); every reader kept it. ffmpeg's
+      WebVTT cuts the text and loses every later cue, its LRC cuts the line; VLC 3 cuts the line
+      (`strlen`, by source); Subtitle Edit makes it a space; ffman's three fonts draw U+FFFD.
+      The layout (the owner's): `utf8.joined`, the one place every reader's texts pass,
+      returns `Joined` -- the texts and their `Nuls`, a count and the first's place -- and
+      each reader notes them (`nul_notes`); `_tokens` given its sentences, so `_sentences`
+      returns their NULs. Tests first: each of the 7 readers, the count, the place (9 failing
+      on the old code), a later text's place and a segment's and its word's; ffman's `nul.srt`
+      (failing). End to end,
+      burned and attached, old against new: cue 2 drawn (55 pixels, before 0), 2 packets
+      attached (before 0). 13 planted mutations, each caught. Suite 2154, coverage 100%;
+      matrix 770; `compare HEAD` on 3.13 and 3.14: 465 identical, 1 changed (the new case).
+      `decisions.md` "NUL"; spec 3.4; subverter's README; AGENTS.md's count; the `subrip`
+      skill (a reader row, a writing rule, its ffman row, `measure.py`'s case), the `webvtt`,
+      `lrc` and mappings records. Reviewed (the owner's request): ffmpeg's WebVTT, measured
+      on four cues, loses every cue after the NUL, not the next alone -- corrected in
+      `decisions.md`, this note and the records (the mappings record's SubRip cell too: its
+      cue lost, not cut); `Joined` kept a place a NUL -- 10 million NULs, 162 MiB and 1.9 s
+      -- now `Nuls`, a count and the first place (29 MiB, 0.04 s); 13 mutations again,
+      each caught.*
+- [ ] Found by the NUL box: an ASS transcript holding a NUL -- burned as it is (copied), libass
+      ends its script there, every later event lost (measured). To decide: U+FFFD, as the
+      others' texts, noted; or as now.
 - [ ] `webvtt`: the same.
 - [ ] `ass`: the same, SSA (v4) through it.
 - [ ] `lrc`: the same.

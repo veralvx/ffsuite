@@ -10,17 +10,17 @@ import csv
 import io
 
 from subverter.readers.fields import time_ms
-from subverter.readers.utf8 import by_line
+from subverter.readers.utf8 import by_line, nul_notes
 from subverter.transcript import Cue
 
 __all__ = ["rows"]
 
 
-def rows(kind: str, text: str, name: str) -> list[Cue]:
+def rows(kind: str, text: str, name: str) -> tuple[list[Cue], tuple[str, ...]]:
     """whisper-cli .csv (RFC 4180 quoting) or WhisperX .tsv (tabs, none); a time read, or none.
 
     Each character joined across the texts it spans (``utf8.by_line``: what is still not
-    UTF-8, refused by the line its record starts on).
+    UTF-8, refused by the line its record starts on); its notes (``utf8.nul_notes``).
     """
     lines = io.StringIO(text, newline="")
     records = (
@@ -46,9 +46,11 @@ def rows(kind: str, text: str, name: str) -> list[Cue]:
             continue
         found.append((line, _field(fields, si), _field(fields, ei), _field(fields, ti)))
     whole = by_line([(at, cell) for at, *_, cell in found], name)
-    return [
-        Cue(time_ms(a, 1), time_ms(z, 1), t) for (_, a, z, _), t in zip(found, whole, strict=True)
+    cues = [
+        Cue(time_ms(a, 1), time_ms(z, 1), t)
+        for (_, a, z, _), t in zip(found, whole.texts, strict=True)
     ]
+    return cues, nul_notes(whole.nuls)
 
 
 def _field(fields: list[str], column: int) -> str:

@@ -158,6 +158,7 @@ FFMAN: dict[str, bytes] = {
     "LF then CR": READS["LF then CR"],
     "UTF-8 BOM": READS["UTF-8 BOM"],
     "UTF-16LE BOM": READS["UTF-16LE BOM"],
+    "NUL in the second cue": READS["NUL in the second cue"],
     "text after the last cue": READS["text after the last cue"],
     "a timing line unread (->)": READS["a timing line unread (->)"],
 }

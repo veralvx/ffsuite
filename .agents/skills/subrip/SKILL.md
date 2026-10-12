@@ -65,6 +65,7 @@ burns its own ASS.
 | `&amp;`                                                       | shown as written                                                                                                                                                   | shown as written                                                                                                                                    | shown as written                                                                                                                           |
 | Spaces around a line                                          | removed                                                                                                                                                            | kept                                                                                                                                                | kept by subverter, trimmed by ffman                                                                                                        |
 | Not UTF-8 (`caf\xe9`)                                         | ffmpeg drops the cue, an error, unless `-sub_charenc` names its set (a stream copy passes the bytes); mpv guesses the set (uchardet, else a stray byte as Latin-1) | UTF-8 while each cue is; from the first that is not, every cue read in the code page of VLC's interface language (CP1252 for Western European ones) | joined across lines if split, else refused by its line                                                                                     |
+| A NUL in a text                                               | the reading stops there: that cue and every later one lost                                                                                                         | the line cut there (`strlen`)                                                                                                                       | U+FFFD, as the W3C reads one, noted                                                                                                        |
 | Line ends; BOM                                                | LF, CRLF, CR; a UTF-8 BOM skipped, UTF-16 converted                                                                                                                | LF, CRLF (CR alone in a file without LF); UTF-8 and UTF-16 BOMs                                                                                     | LF, CRLF, CR (CR CR LF one end, as ffmpeg's); a UTF-8 BOM (a UTF-16 file: no cue)                                                          |
 
 ffmpeg's ASS from a cue: `PlayResX: 384`, `PlayResY: 288`, one style, `Default` (Arial 16,
@@ -103,12 +104,12 @@ in `<u>`. All write `HH:MM:SS,mmm`, no BOM, in text mode -- LF, but CRLF on Wind
 
 5. Text of at least one line, and no line of it empty or of spaces (readers end the cue there or
    join the next), last starting with a number (ffmpeg may take it for an index), or with spaces at
-   either end (ffmpeg removes them). A `<` only to open a tag: SubRip has no escape -- a word
-   joiner (U+2060) after it keeps it text, or write `＜` (U+FF1C) or reword; never `&lt;`, shown as
-   written. No `{\` but a leading `{\anN}`. A `\` meant as text before a word joiner (libass reads
-   `\N` `\n` `\h` `\{` `\}`, VLC `\n` and `\h` in either case); a `{` with a `}` after it as `\{`
-   and a joiner (libass's escape; VLC shows the backslash); a line that reads as a timing line led
-   by one (ffmpeg starts a cue there).
+   either end (ffmpeg removes them); no NUL (ffmpeg stops reading there). A `<` only to open a
+   tag: SubRip has no escape -- a word joiner (U+2060) after it keeps it text, or write `＜`
+   (U+FF1C) or reword; never `&lt;`, shown as written. No `{\` but a leading `{\anN}`. A `\`
+   meant as text before a word joiner (libass reads `\N` `\n` `\h` `\{` `\}`, VLC `\n` and `\h`
+   in either case); a `{` with a `}` after it as `\{` and a joiner (libass's escape; VLC shows
+   the backslash); a line that reads as a timing line led by one (ffmpeg starts a cue there).
 6. Markup only `<b> <i> <u> <s>`, `<font color="#rrggbb">`, each closed, nested not crossed, and
    `{\anN}` first in the text. A WebVTT tag (`<v Bob>`, `<c.yellow>`) is not SubRip's.
 

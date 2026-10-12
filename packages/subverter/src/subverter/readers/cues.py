@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from typing import Final, NamedTuple
 
 from subverter.markup import untagged
-from subverter.readers.utf8 import by_line
+from subverter.readers.utf8 import Nuls, by_line, nul_notes
 from subverter.transcript import Cue, Reading, Timing
 
 __all__ = ["Dialect", "Found", "Timed", "read"]
@@ -124,7 +124,8 @@ def _rows(lines: list[str], name: str, dialect: Dialect) -> tuple[list[Cue], tup
                 found.continued.append((i + 1, line.strip()))
                 noted = cue
             texts.append((cue, i))
-    return _joined(lines, name, times, texts), dialect.notes(found)
+    cues, nuls = _joined(lines, name, times, texts)
+    return cues, dialect.notes(found) + nul_notes(nuls)
 
 
 def _take_index(
@@ -148,14 +149,14 @@ def _joined(
     name: str,
     times: list[tuple[int | None, int | None]],
     texts: list[tuple[int, int]],
-) -> list[Cue]:
-    """Each cue, its text lines joined by a space (``utf8.by_line``: each character whole)."""
+) -> tuple[list[Cue], Nuls]:
+    """Each cue, its text lines joined by a space; their NULs (``utf8.by_line``)."""
     whole = by_line([(i + 1, lines[i]) for _, i in texts], name)
     parts: list[list[str]] = [[] for _ in times]
-    for (cue, _), text in zip(texts, whole, strict=True):
+    for (cue, _), text in zip(texts, whole.texts, strict=True):
         if text:  # a line of a character's last bytes alone: given to the line it starts in
             parts[cue].append(text)
-    return [Cue(*t, " ".join(p)) for t, p in zip(times, parts, strict=True)]
+    return [Cue(*t, " ".join(p)) for t, p in zip(times, parts, strict=True)], whole.nuls
 
 
 def _is_highlighted(cues: list[Cue]) -> bool:

@@ -178,6 +178,12 @@ def test_a_webvtt_line_of_spaces_is_its_cues_text(tmp_path: Path) -> None:
     assert [c.text for c in t.chunks] == ["first second"]
 
 
+def test_a_nul_reads_as_u_fffd_noted(tmp_path: Path) -> None:
+    t = ingested(put(tmp_path, "nul.srt", HOSTILE["nul.srt"]))
+    assert [c.text for c in t.chunks] == ["fi\ufffdrst", "second"]
+    assert t.notes == ("1 NULs read as U+FFFD, as the W3C reads them: the first in line 3",)
+
+
 def test_a_csv_header_after_a_blank_line_is_its_header(tmp_path: Path) -> None:
     t = ingested(put(tmp_path, "late-header.csv", HOSTILE["late-header.csv"]))
     assert t.chunks == (Chunk(0, 300, "hello", ""),)

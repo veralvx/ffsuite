@@ -28,10 +28,10 @@ def read(fmt: str, data: bytes, name: str) -> Reading:
             return lrc.read(lrc.split_lines(_text(data)), name)
         case "csv" | "tsv":
             try:
-                rows = table.rows(fmt, _text(data), name)
+                rows, notes = table.rows(fmt, _text(data), name)
             except csv.Error as error:  # a field past csv's limit (128 KiB): no subtitle's text
                 refuse(f"unreadable .{fmt}: {name}: {error}")
-            return Reading(f".{fmt}", has_words=False, cues=tuple(rows))
+            return Reading(f".{fmt}", has_words=False, cues=tuple(rows), notes=notes)
         case _:
             return whisper.read(data, name)
 
