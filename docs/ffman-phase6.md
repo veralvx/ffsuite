@@ -3518,12 +3518,13 @@ tests with 6.8.3's converters.*
       line 6`); not a line alone before a line holding `-->` (the next cue's identifier, the
       W3C's line count 2), a comment, style sheet or region block as the syntax writes them,
       nor blanks alone; nor text before any cue (a header's or a title's). `cues.py` records
-      the runs (`Found.strays`), `webvtt.py` words them. Failing first: 14 reader cases and
-      ffman's `stray.vtt`; nine mutations, each caught (one, the first `-->` a dropped cue's,
-      by a case added for it). Differential: 60000 generated files, the W3C's block
-      algorithm transcribed from `index.bs` -- 0 mismatches in the note and the cue count,
-      HEAD's code mismatching on every one of the 2492 with stray text; that transcription's
-      cue counts Chromium 141's on 1500 more. 200000 strays in 7 MB read in 4.3 s (HEAD 3.8
+      the runs (`Found.strays`), `webvtt.py` words them. Tests: 14 reader cases, 7 failing
+      first, the rest guards, and ffman's `stray.vtt`, failing first; nine mutations, each
+      caught (one, the first `-->` a dropped cue's, by a case added for it). Differential:
+      60000 generated files, the W3C's block algorithm transcribed from `index.bs` -- 0
+      mismatches in the note and the cue count; HEAD's code mismatched on all 2492 of the
+      first 20000 holding stray text; that transcription's cue counts Chromium 141's on 1500
+      more. 200000 strays in 7 MB read in 4.3 s (HEAD 3.8
       s). Suite 2230, 100%; matrix 770; outcome report: 475 identical, `stray.vtt` new, on
       3.13 and 3.14; the `webvtt` skill's ffman column and record re-measured. Found: the
       next box.*

@@ -736,16 +736,20 @@ def test_webvtt_text_after_a_dropped_first_cue_is_noted() -> None:
 
 
 @pytest.mark.parametrize(
-    "data",
+    ("data", "notes"),
     [
-        "WEBVTT\nKind: captions\nLanguage: en\n\n00:01.000 --> 00:02.000\nx\n",  # its header
-        "WEBVTT\n\nA title\n\nmore\n\n00:01.000 --> 00:02.000\nx\n",  # before any cue
-        "WEBVTT\n\n00:01.000 --> 00:02.000\none\nNote: 1 --> 2\ntwo\n",  # the cue's end, noted
+        ("WEBVTT\nKind: captions\nLanguage: en\n\n00:01.000 --> 00:02.000\nx\n", ()),  # its header
+        ("WEBVTT\n\nA title\n\nmore\n\n00:01.000 --> 00:02.000\nx\n", ()),  # before any cue
+        (  # `two` the dropped block's, noted with it
+            "WEBVTT\n\n00:01.000 --> 00:02.000\none\nNote: 1 --> 2\ntwo\n",
+            (_DROPPED.format(n=1, line="Note: 1 --> 2", at=5),),
+        ),
     ],
 )
-def test_webvtt_text_before_any_cue_or_after_an_arrow_is_not_stray(data: str) -> None:
-    notes = subverter.read("vtt", data.encode(), "a.vtt").notes
-    assert not any("text blocks" in note for note in notes)
+def test_webvtt_text_before_any_cue_or_after_an_arrow_is_not_stray(
+    data: str, notes: tuple[str, ...]
+) -> None:
+    assert subverter.read("vtt", data.encode(), "a.vtt").notes == notes
 
 
 # --- WhisperX --highlight_words: by structure, a run of one text a sentence, each <u> a word
