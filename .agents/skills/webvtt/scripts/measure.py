@@ -70,13 +70,14 @@ FILES: dict[str, str] = {
     "no blank line between cues": HEAD + f"{T}\none\n00:00:03.000 --> 00:00:04.000\ntwo\n",
     "a comma time mid-file": HEAD
     + f"{T}\nfirst\n\n00:00:03,000 --> 00:00:04,000\ncomma\n\n00:00:05.000 --> 00:00:06.000\nlast\n",
+    "duplicate cue": HEAD + f"{T}\nsame\n\n{T}\nsame\n",
+    "CR CR LF": (HEAD + f"{T}\nx\n\n00:00:03.000 --> 00:00:04.000\ny\n").replace("\n", "\r\r\n"),
 }
 
 # a file's bytes each, not UTF-8: the text is decoded with replacement (the parser's step 1)
 BYTES: dict[str, bytes] = {
     "Latin-1 é": (HEAD + f"{T}\ncaf").encode() + b"\xe9\n",
     "UTF-16LE, its BOM": ("\ufeff" + HEAD + f"{T}\ncafé\n").encode("utf-16-le"),
-    "duplicate cue": (HEAD + f"{T}\nsame\n\n{T}\nsame\n").encode(),
 }
 
 # a cue's text each: the tag and reference grammar

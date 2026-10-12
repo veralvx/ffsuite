@@ -3500,7 +3500,14 @@ tests with 6.8.3's converters.*
       VLC honours settings alone; ASS's centiseconds told for every conversion (SubRip and
       WebVTT keep milliseconds: measured, now checked); VLC's spaced arrow lost to formatting;
       `.5000` read as 5 s, now 5000 ms. Measured anew: Chromium reads a UTF-16 file by its
-      BOM, against the specification's UTF-8. Found: the next three boxes.*
+      BOM, against the specification's UTF-8. Found: the next three boxes. Reviewed (the
+      owner's request): ffmpeg's UTF-16 row, filed in Chromium's table, moved; rule 3 lacking
+      `WEBVTT`, an identifier ffmpeg skips the cue for too (measured, `WEBVTT-1`); measured
+      and recorded anew: ffman's note on `75:00.000`, its typed `\n` and `\t` read as
+      spaces, Chromium's CR CR LF; the conversions' milliseconds now checked (18 checks);
+      VLC's entities counted, 124; the lrm, rlm and nbsp references named, as the saved
+      skill had lost them, and the package handed over with it -- the card carries
+      `SKILL.md` alone.*
 - [ ] Found by the `webvtt` box: a WebVTT cue's text after an empty line is dropped unnoted
       -- as the W3C, Chromium and VLC drop it, ffmpeg losing every later cue -- where a
       SubRip's is read on and noted (measured). To decide: noted, as the cues dropped for

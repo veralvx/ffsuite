@@ -28,7 +28,7 @@ NEXT = "\n\n00:05.000 --> 00:06.000\nnext\n"  # a following cue, to show the rea
 READS: dict[str, str] = {
     "canonical": HEAD + "00:01.000 --> 00:02.500\nHello\nworld\n",
     "hours": HEAD + "01:00:01.000 --> 01:00:02.000\nan hour in\n",
-    "minutes 75, no hours": HEAD + "75:00.000 --> 75:01.000\nseventy-five\n",
+    "minutes 75, no hours": HEAD + "75:00.000 --> 75:01.000\nseventy-five\n" + NEXT,
     "ms one digit (.5)": HEAD + "00:01.5 --> 00:02.25\nshort\n" + NEXT,
     "ms four digits (.5000)": HEAD + "00:01.5000 --> 00:02.0000\nlong\n" + NEXT,
     "comma (00:01,000)": HEAD
@@ -37,6 +37,7 @@ READS: dict[str, str] = {
     "identifier": HEAD + "intro-1\n00:01.000 --> 00:02.000\nnamed\n",
     "identifier with -->": HEAD + "a --> b\n00:01.000 --> 00:02.000\narrow id\n" + NEXT,
     "identifier NOTE": HEAD + "NOTE\n00:01.000 --> 00:02.000\nnamed NOTE\n" + NEXT,
+    "identifier WEBVTT-1": HEAD + "WEBVTT-1\n00:01.000 --> 00:02.000\nnamed WEBVTT\n" + NEXT,
     "settings": HEAD + "00:01.000 --> 00:02.000 align:start line:0 position:10%\nplaced\n",
     "NOTE, STYLE, REGION": HEAD + "NOTE a comment\n\nSTYLE\n::cue { color: red }\n\n"
     "REGION\nid:r1 width:40%\n\n00:01.000 --> 00:02.000 region:r1\nafter blocks\n",
@@ -44,7 +45,7 @@ READS: dict[str, str] = {
     "00:03.000 --> 00:04.000\ntwo\n",
     "header text": "WEBVTT - a title\nKind: captions\n\n00:01.000 --> 00:02.000\ntitled\n",
     "no blank line after the header": "WEBVTT\n00:01.000 --> 00:02.000\nglued\n",
-    "UTF-8 BOM": "﻿" + HEAD + "00:01.000 --> 00:02.000\nbom\n",
+    "UTF-8 BOM": "\ufeff" + HEAD + "00:01.000 --> 00:02.000\nbom\n",
     "CRLF": (HEAD + "00:01.000 --> 00:02.000\nwindows\nline\n").replace("\n", "\r\n"),
     "no blank line between cues": HEAD + "00:01.000 --> 00:02.000\none\n00:03.000 --> 00:04.000\n"
     "two\n",
@@ -94,7 +95,7 @@ MARKUP: dict[str, str] = {
     "lone <": "a < b and c > d",
     "an unclosed tag": "before <b ends",
     "braces": "{\\an8}not an override {x}",
-    "backslash": "one\\Ntwo \\h",
+    "backslash": "one\\Ntwo \\h a\\nb\\tc",
     "two lines": "one\ntwo",
     "two lines, CRLF": "one\r\ntwo",
     "leading and trailing spaces": "  spaced  ",
@@ -311,6 +312,10 @@ EXAMPLE_FFMAN = [
     [62005, 64000, "Fish & chips < 2 \u20ac"],
 ]
 ROUND_TRIP = "Fish & chips < 2 \u20ac"  # the third cue, into SubRip and back: unescaped
+KEPT_TIMES = {  # the third cue's timing line in each conversion: its milliseconds kept
+    "out.srt": "00:01:02,005 --> 00:01:04,000",
+    "out.vtt": "01:02.005 --> 01:04.000",
+}
 ASS_TIMES = ["0:01:02.01", "0:01:04.01"]  # the third cue written as ASS: centiseconds
 STREAMS = {  # each command's output: its streams (the inputs' audio kept)
     "out.srt": ["subrip,subtitle"],
@@ -351,8 +356,8 @@ def skill(work: Path) -> bool:
     results = [checked("the example, ffmpeg", packets(work / "in.vtt")[1], EXAMPLE_FFMPEG)]
     script, _w = converted(work / "example.ass", "-i", str(work / "in.vtt"))
     results.append(checked("    its ASS", dialogue(script), EXAMPLE_ASS))
-    third = [line.split(",")[1:3] for line in script.splitlines() if line.startswith("Dialogue:")]
-    results.append(checked("    its third cue's ASS times", third[2], ASS_TIMES))
+    timed = [line.split(",")[1:3] for line in script.splitlines() if line.startswith("Dialogue:")]
+    results.append(checked("    its third cue's ASS times", timed[2], ASS_TIMES))
     if PYTHON:
         results.append(checked("    ffman", ffman_chunks(example.encode()), EXAMPLE_FFMAN))
 
@@ -392,6 +397,9 @@ def skill(work: Path) -> bool:
                        "-c", "copy", "-f", "webvtt", "-").stdout  # fmt: skip
             kept = all(x in back for x in KEPT)
             results.append(checked("    its identifier and settings kept", kept, stated=True))
+    for out, timing in KEPT_TIMES.items():
+        timings = [x for x in (work / out).read_text(encoding="utf-8").splitlines() if "-->" in x]
+        results.append(checked(f"    the third cue's times in {out}", timings[-1], timing))
     third = (work / "out.vtt").read_text(encoding="utf-8").rstrip("\n").split("\n")[-1]
     results.append(checked("    the third cue, into SubRip and back", third, ROUND_TRIP))
     results.append(checked("missing from the prose", stated(text), []))

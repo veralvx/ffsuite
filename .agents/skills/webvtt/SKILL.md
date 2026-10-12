@@ -14,7 +14,7 @@ tables -- the specification's rules, Chromium's, ffmpeg's and ffman's readings -
 re-measures Chromium (`python3 scripts/measure.py`, Playwright's Chromium), and
 [scripts/measure_ffmpeg.py](scripts/measure_ffmpeg.py) ffmpeg and ffman, and checks this file's
 example, time rule and commands, failing on a difference
-(`python3 scripts/measure_ffmpeg.py FFMPEG [PYTHON]`, `PYTHON` an interpreter that imports
+(`python3 scripts/measure_ffmpeg.py [FFMPEG [PYTHON]]`, `PYTHON` an interpreter that imports
 subverter and ffman).
 
 ## The format
@@ -66,7 +66,7 @@ it itself. **ffman** reads it with subverter (`readers/webvtt.py`, its cue block
 | `<c.yellow>`, `<v Bob>`, `<lang>`, `<ruby>`         | classes (CSS), a speaker, a language, ruby                           | dropped, their text kept (ruby's `<rt>` run on)                                       | the 8 colour classes and `bg_` ones; a voice coloured by its name; others ignored | removed, their text kept (ruby's run on)                           |
 | `<00:00:01.500>` (a timestamp)                      | the text after it current then (`:past`, `:future`)                  | dropped                                                                               | read, drawn only through a `STYLE` rule                                           | removed                                                            |
 | A `<` as text (`before <b ends`, `a < b and c > d`) | a tag: `before `, the rest of the cue lost; `a  d`                   | the same                                                                              | a tag only with a `>` after it: `before <b ends`; `a  d`                          | removed with what lies up to the next `>`: `before <b ends`; `a d` |
-| References                                          | HTML's, every one; `&amp` without `;` too                            | six: `&amp; &lt; &gt; &lrm; &rlm; &nbsp;`; others as written                          | about 120 named ones, `;` needed, and numeric ones (`&lrm;` as written)           | HTML's, every one                                                  |
+| References                                          | HTML's, every one; `&amp` without `;` too                            | six, by name amp, lt, gt, lrm, rlm and nbsp; others as written                        | 124 named ones (nbsp, not lrm or rlm), `;` needed, and numeric ones               | HTML's, every one                                                  |
 | `{\an8}`, `\N` typed in the text                    | as written                                                           | as written                                                                            | as written                                                                        | `{\...}` removed, `\n` and `\t` a space, `\N` as written           |
 | Identifier; settings; `STYLE`, `REGION`             | read; applied                                                        | a stream copy keeps identifier and settings, decoding drops them; blocks skipped      | read; settings applied; `STYLE` and `REGION` before the first cue                 | ignored: ffman places its own                                      |
 | Not UTF-8 (`caf\xe9`)                               | U+FFFD                                                               | the cue dropped, an error (a stream copy passes the bytes)                            | passed as they are                                                                | refused by its line                                                |
@@ -95,9 +95,9 @@ with `--highlight_words`, write a cue per word span, the word in `<u>`. Their de
 
 1. UTF-8 without a BOM, LF line ends.
 2. `WEBVTT` alone on the first line, then a blank line.
-3. Each cue: an identifier only if it is wanted (never holding `-->`, never starting `NOTE`,
-   `STYLE` or `REGION`, which ffmpeg skips the cue for), its timing line, its text, one blank
-   line -- the last cue too.
+3. Each cue: an identifier only if it is wanted (never holding `-->`, never starting
+   `WEBVTT`, `NOTE`, `STYLE` or `REGION`, which ffmpeg skips the cue for), its timing line,
+   its text, one blank line -- the last cue too.
 4. The timing line exactly `HH:MM:SS.mmm --> HH:MM:SS.mmm`: two-digit hours (more past 99),
    minutes and seconds to 59, three-digit milliseconds, one space each side of `-->` (VLC needs
    them), settings after one space only for the readers that use them.
@@ -111,11 +111,12 @@ with `--highlight_words`, write a cue per word span, the word in `<u>`. Their de
 
 6. Text of at least one line, no line of it empty (every reader ends the cue there, ffmpeg the
    whole file) or holding `-->` (browsers end the cue there); no NUL. `&` as `&amp;`, `<` as
-   `&lt;`, `>` as `&gt;`; no other reference (ffmpeg shows them as written) -- write the character
-   itself, `&nbsp;` the one exception. No `{\` and no typed `\n` (ffman drops or breaks them).
+   `&lt;`, `>` as `&gt;`; no other reference but the no-break space's (ffmpeg shows the rest
+   as written) -- write the character itself. No `{\` and no typed `\n` (ffman drops or
+   breaks them).
 7. Markup only `<b> <i> <u>`, each closed, nested not crossed. Classes, voices, `lang`, ruby,
    timestamps, settings, `STYLE` and `REGION` only for a browser (VLC honours some, the table
-   says which); ffmpeg, mpv and ffman drop them all, their text kept.
+   says which); ffmpeg, mpv and ffman drop them all, a tag's text kept.
 
 ## Reading one correctly
 

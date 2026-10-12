@@ -47,6 +47,7 @@ intro
 | `webvtt`; `WEBVTTx`                                         | refused: no cues                                                 |
 | no blank line after `WEBVTT`                                | read: the timing line still starts a cue                         |
 | CRLF; CR                                                    | read alike                                                       |
+| CR CR LF                                                    | two line ends: each cue of no text                               |
 | a line of spaces or a tab in a cue                          | its text: an empty line alone ends a cue                         |
 | a NUL in the text                                           | U+FFFD                                                           |
 | `00:01.000` (no hours)                                      | 1 s                                                              |
@@ -69,7 +70,6 @@ intro
 | a comma time mid-file                                       | that cue dropped, the rest read                                  |
 | two identical cues                                          | both kept                                                        |
 | a byte not UTF-8 (`caf\xe9`)                                | U+FFFD                                                           |
-| UTF-16LE with its BOM                                       | refused: "Invalid data found"                                    |
 | UTF-16LE with its BOM                                       | read: the BOM honoured (the syntax wants UTF-8)                  |
 
 ## Cue settings
@@ -152,7 +152,7 @@ specification's parser. Every use but a stream copy decodes a cue into ASS and e
 | `00:01.5000 --> 00:02.0000`                             | 6000, -4000                                                                       |
 | a cue timed `00:01,000` (comma) mid-file                | the cues before it read; it and every later one lost                              |
 | an identifier line holding `-->` (`a --> b`)            | the reading ends there: no cue                                                    |
-| a cue whose identifier is `NOTE`                        | skipped whole, the next one read (Chromium reads it, named `NOTE`)                |
+| a cue whose identifier is `NOTE` or `WEBVTT-1`          | skipped whole, the next one read (Chromium reads a cue named `NOTE`)              |
 | `intro-1`; settings `align:start line:0 position:10%`   | dropped by decoding; a stream copy writes both back                               |
 | `NOTE`, `STYLE`, `REGION` blocks; a `NOTE` between cues | skipped                                                                           |
 | `WEBVTT - a title`, `Kind: captions`                    | read; the header's text not kept (a stream copy writes `WEBVTT` alone)            |
@@ -173,22 +173,23 @@ specification's parser. Every use but a stream copy decodes a cue into ASS and e
 | no `WEBVTT`, a `.vtt` name                              | read, a low score (Chromium: refused)                                             |
 | `webvtt` lower-cased                                    | no cue: the block taken for a cue, its timing fails                               |
 | a byte not UTF-8 (`caf\xe9`)                            | read; the decoder drops that cue: "Invalid UTF-8"                                 |
+| UTF-16LE with its BOM                                   | refused: "Invalid data found" (Chromium reads it)                                 |
 
 *Measured* -- the decoder, a cue's text into an ASS event's:
 
-| Cue text                                                     | ASS                                                                  |
-| ------------------------------------------------------------ | -------------------------------------------------------------------- |
-| `<b>b</b> <i>i</i> <u>u</u>`; `<b.loud>b</b>`                | `{\b1}b{\b0} {\i1}i{\i0} {\u1}u{\u0}`; `{\b1}b{\b0}`                 |
-| `<bogus>x</bogus> <image>y</image> <underline>z</underline>` | `{\b1}x{\b0} {\i1}y{\i0} {\u1}z{\u0}`: by first letter               |
-| `<c.yellow>c</c> <v Bob>v</v> <lang en>l</lang>`             | `c v l`: classes, voices (speakers), languages lost                  |
-| `<ruby>kanji<rt>reading</rt></ruby>`                         | `kanjireading`                                                       |
-| `one <00:00:01.500>two <00:00:01.800>three`                  | `one two three`: the word times lost                                 |
-| `&amp; &lt; &gt; &lrm;&rlm; &nbsp;`                          | `& < >`, U+200E U+200F, `\h`                                         |
-| `&copy; &#38; &#x26; &bogus;`                                | kept as written                                                      |
-| `a < b and c > d`                                            | `a  d`: `< b and c >` read as a tag                                  |
-| `before <b ends` (no `>`)                                    | `before `: the rest lost                                             |
-| `{\an8}not an override {x}`; `one\Ntwo`                      | `\{{}\` + U+2060 `an8}...`; `one\` + U+2060 `Ntwo`: shown as written |
-| two lines; leading and trailing spaces                       | `one\Ntwo`; kept                                                     |
+| Cue text                                                     | ASS                                                             |
+| ------------------------------------------------------------ | --------------------------------------------------------------- |
+| `<b>b</b> <i>i</i> <u>u</u>`; `<b.loud>b</b>`                | `{\b1}b{\b0} {\i1}i{\i0} {\u1}u{\u0}`; `{\b1}b{\b0}`            |
+| `<bogus>x</bogus> <image>y</image> <underline>z</underline>` | `{\b1}x{\b0} {\i1}y{\i0} {\u1}z{\u0}`: by first letter          |
+| `<c.yellow>c</c> <v Bob>v</v> <lang en>l</lang>`             | `c v l`: classes, voices (speakers), languages lost             |
+| `<ruby>kanji<rt>reading</rt></ruby>`                         | `kanjireading`                                                  |
+| `one <00:00:01.500>two <00:00:01.800>three`                  | `one two three`: the word times lost                            |
+| `&amp; &lt; &gt; &lrm;&rlm; &nbsp;`                          | `& < >`, U+200E U+200F, `\h`                                    |
+| `&copy; &#38; &#x26; &bogus;`                                | kept as written                                                 |
+| `a < b and c > d`                                            | `a  d`: `< b and c >` read as a tag                             |
+| `before <b ends` (no `>`)                                    | `before `: the rest lost                                        |
+| `{\an8}not an override {x}`; `one\Ntwo \h a\nb\tc`           | `\{{}\` + U+2060 `an8}...`; each `\` + U+2060: shown as written |
+| two lines; leading and trailing spaces                       | `one\Ntwo`; kept                                                |
 
 The decoder's script: ffmpeg's default -- `PlayResX: 384`, `PlayResY: 288`, one `Default`
 style (Arial 16, white, bottom centre, margins 10), as SubRip's.
@@ -224,14 +225,14 @@ sorted, cleaned of their tags, their references decoded, each cut at the next st
 | `one`, `Note: 1 --> 2`, `two`                                              | `one`, noted: the cue ends at the line                                                                                    |
 | an identifier holding `-->` (`a --> b`)                                    | that line dropped, noted; the cue after it read                                                                           |
 | no blank line between two cues                                             | two cues                                                                                                                  |
-| `NOTE` as a cue's identifier                                               | the cue read                                                                                                              |
+| `NOTE` or `WEBVTT-1` as a cue's identifier                                 | the cue read                                                                                                              |
 | end before start; zero duration; a cue without text                        | dropped                                                                                                                   |
 | out of order; two identical; overlapping                                   | sorted; one; each cut at the next start                                                                                   |
 | `<b>b</b> <b.loud>`, `<bogus>x</bogus>`, `<c.yellow>`, `<v Bob>`, `<lang>` | the tags removed, their text kept                                                                                         |
 | `<ruby>kanji<rt>reading</rt></ruby>`; timestamp tags                       | `kanjireading`; removed                                                                                                   |
 | `&amp; &lt; &gt; &lrm;&rlm; &nbsp;`; `&copy; &#38; &#x26; &bogus;`         | decoded, HTML's: `& < >`, U+200E U+200F, U+00A0; `© & & &bogus;`                                                          |
 | `a < b and c > d`; `before <b ends`                                        | `a d`; `before <b ends`: a `<` without a `>` after it kept                                                                |
-| `{\an8}not an override {x}`; `one\Ntwo \h`                                 | `not an override {x}`; `one\Ntwo \h`: an override block removed                                                           |
+| `{\an8}not an override {x}`; `one\Ntwo \h a\nb\tc`                         | `not an override {x}`; `one\Ntwo \h a b c`: an override block removed, a typed `\n` or `\t` a space                       |
 | two lines; CRLF; leading and trailing spaces                               | joined by a space; read; trimmed                                                                                          |
 | a byte not UTF-8 (`caf\xe9`)                                               | refused: "not UTF-8: in.vtt (line 4)"                                                                                     |
 | a NUL in a cue's text                                                      | U+FFFD there, noted                                                                                                       |
