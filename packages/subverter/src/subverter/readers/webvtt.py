@@ -23,6 +23,7 @@ __all__ = ["read", "split_lines"]
 _LINE_END: Final = re.compile(r"\r\n|\r|\n")
 _SIGNATURE: Final = "WEBVTT"
 _AFTER: Final = ("", " ", "\t")  # what may follow it on its line
+_ENDS: Final = re.compile("")  # "collect a WebVTT block": a cue's end, an empty line alone
 
 # "collect a WebVTT timestamp": hours of any ASCII digits and a colon, or none; minutes and
 # seconds of two, each to 59 (``_LAST``); a fraction of three. A first field over 59, or not
@@ -87,6 +88,7 @@ def read(lines: list[str], name: str) -> Reading:
 _DIALECT: Final = Dialect(
     ".vtt",
     _timing,
+    ends=_ENDS,
     arrow_ends=True,
     index=None,
     notes=_notes,

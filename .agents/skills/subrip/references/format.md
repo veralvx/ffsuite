@@ -51,6 +51,8 @@ world
 | last line `2024`, the next cue indexed                   | kept                                                                             |
 | last line `2024` or `3 apples`, the next cue not indexed | dropped: taken for the next cue's index                                          |
 | last line `2024` of the file's last cue                  | kept                                                                             |
+| text after the last cue, an empty line between           | the cue's: `last\ncredits`                                                       |
+| a timing line it cannot read (`->`)                      | the cue before's text: that cue's index, timing line, text                       |
 | the only line `3 apples`, the next cue not indexed       | kept                                                                             |
 | the only line `2024`, the next cue not indexed           | the cue lost: its one line taken for an index                                    |
 | end before start (`00:00:03 --> 00:00:01`)               | 3000, 2000: the gap to the next start                                            |
@@ -59,6 +61,7 @@ world
 | a timing line, no text                                   | no cue                                                                           |
 | `00:00:01,000 --> 00:00:01,000`                          | 1000, 0: kept, written back                                                      |
 | CRLF; CR only; UTF-8 BOM; UTF-16LE BOM                   | read alike, the text in UTF-8                                                    |
+| CR CR LF; LF then CR                                     | read alike: one cue, `written\ntwice`; `lf\ncr`                                  |
 | `caf` and the byte E9 (Latin-1's é)                      | the byte passed unchanged: the text not UTF-8 (the decoder drops the cue: below) |
 | a NUL byte in a cue's text                               | the reading stops: that cue and every later one lost                             |
 | a 5000-byte line                                         | two lines, 4095 and 905 bytes                                                    |
@@ -148,9 +151,9 @@ the next start; braces and backslashes drawn as written). *Measured*:
 | File                                                        | subverter                            | ffman burns                                         |
 | ----------------------------------------------------------- | ------------------------------------ | --------------------------------------------------- |
 | `00:00:01,5 --> 00:00:02,25`                                | 1005, 2025: milliseconds, noted      | the same                                            |
-| `first`, a blank line, `second`                             | `first`; `second` no cue's           | the same                                            |
+| `first`, an empty line, `second`                            | `first second`, noted                | the same                                            |
 | `first`, a line of spaces, `second`                         | `first`; `second` no cue's           | the same                                            |
-| last line `2024`, a blank line, the next cue not indexed    | `the year 2024`                      | the same                                            |
+| last line `2024`, an empty line, the next cue not indexed   | `the year`, noted                    | the same                                            |
 | last line `2024`, the next cue's timing line right after it | `the year`, noted                    | the same                                            |
 | `first`, then `2` and a timing line, no blank line          | `first`, noted                       | the same                                            |
 | `a --> b`, `c`                                              | `a --> b c`                          | the same                                            |
@@ -167,7 +170,9 @@ the next start; braces and backslashes drawn as written). *Measured*:
 | `caf` and the byte E9                                       | refused: "not UTF-8: x.srt (line 3)" | the same                                            |
 | CRLF; a UTF-8 BOM                                           | read                                 | the same                                            |
 | CR only; CR CR LF                                           | read: CR CR LF one line end          | the same                                            |
-| an LF then a CR, each line                                  | each cue of no text                  | refused: "no timed text found"                      |
+| an LF then a CR, each line                                  | its texts, noted                     | the same                                            |
+| text after the last cue, an empty line between              | `last credits`, noted                | the same                                            |
+| a timing line ffmpeg cannot read (`->`)                     | the cue before's text, noted         | the same                                            |
 | UTF-16LE with a BOM                                         | no cue                               | refused: "no timed text found"                      |
 
 ## What SubRip holds

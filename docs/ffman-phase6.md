@@ -3322,9 +3322,37 @@ tests with 6.8.3's converters.*
       transcribed, a property test); the `subrip` skill's ffman row, stale (a CR-only file no
       longer refused), and the `webvtt` and `lrc` records' measured rows; VLC 3's parser traced
       (a mixed file's first cue skipped); the bound's 18 s measured.*
-- [ ] Found by the line-ends box: a SubRip text line after its cue's blank line -- ffmpeg
+- [x] Found by the line-ends box: a SubRip text line after its cue's blank line -- ffmpeg
       8.1.2 keeps it in that cue (`srtdec.c` reads no blank line), subverter drops it,
       silently. To decide: ffmpeg's, or as now, noted.
+      *Done: ffmpeg's, noted (the owner's): a SubRip cue reads on past an empty line to the
+      next timing line, the last cue to the file's end ("2 cues held text after an empty line,
+      read as theirs, as ffmpeg reads them: the first, kept on line 5"); a line of spaces
+      alone ends its text, as ffmpeg's decoder ends it (`htmlsubtitles.c`); a line holding a
+      tab is text; the index, the last line before a timing line with only empty lines
+      between, noted when no empty line stands before it. WebVTT's in the same box (the
+      owner's): an empty line alone ends a cue, a line of spaces or tabs its text, as the W3C
+      and Chromium read it (subverter had ended it there). The layout (the owner's):
+      `cues.Dialect.ends`, any other empty line skipped; `_rows` split for its complexity
+      (`_take_index`, `_joined`). Measured or read: ffmpeg 8.1.2 on 13 forms (its demuxer and
+      decoder each), MPC-HC (`STS.cpp`) and Subtitle Edit (`SubRip.cs`) read on, VLC 3
+      (`subtitle.c`) and Kodi (`DVDSubtitleParserSubrip.cpp`) stop at an empty line; Chromium
+      141 and ffmpeg keep a WebVTT whitespace line. The line-ends box's one difference from
+      ffmpeg, an LF then a CR, gone: its texts read, noted. Tests first: SubRip's 11 forms, the
+      last cue's credits, WebVTT's 4 lines (11 failing on the old code), a cue of no text
+      taking no index (measured); ffman's `continued.srt` and `whitespace.vtt` (2 failing). 13
+      planted mutations, 11 caught; the 2 survivors equivalent -- the empty line's `is_open`
+      and a reset after each text line -- each dead, removed (`emptied`). Suite 2142,
+      coverage 100%; matrix 770; `compare HEAD` on 3.13 and 3.14: 463 identical, 2 changed
+      (the new cases). `decisions.md` "Cue ends" (and "Index lines", "Line ends", "Timing
+      lines"); spec 3.4; subverter's README; AGENTS.md's count; the `subrip` skill's reading
+      and its ffman rows (its `measure.py` run again: each row its output, its own checks
+      passing), the `webvtt` record, the mappings record. Reviewed (the owner's request): a
+      cue whose timing line ffmpeg cannot read (`->`) now the cue before's text, as ffmpeg's
+      -- measured, tested, in "Cue ends" and the record; the `subrip` skill's ffman column,
+      stale (its empty-line and index cells), corrected; its `measure.py` given the CR CR LF,
+      LF-CR, last-cue and unread-timing cases and the notes' presence, its rows each its
+      output again.*
 - [ ] Found by the line-ends box: a NUL in a SubRip's or WebVTT's text -- the W3C makes it
       U+FFFD (Chromium 141 shows it); subverter keeps it, into the ASS. What libass and ffmpeg
       draw, to measure; then to decide.

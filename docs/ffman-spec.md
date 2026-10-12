@@ -191,6 +191,9 @@ camcorder:date=D,time=T`.
   or a tab (W3C): else `not a WebVTT file: FILE (its first line is not WEBVTT)` (New).
 - A transcript's lines end at an LF, a CRLF or a CR alone: a SubRip's and an LRC's CRs before
   an LF part of that end, as ffmpeg reads them; a WebVTT's each CR an end (W3C) (New).
+- A SubRip cue reads on past an empty line to the next timing line, as ffmpeg reads it, the
+  text after one noted; a line of spaces ends it. A WebVTT cue ends at an empty line alone, a
+  line of spaces its text (W3C) (New).
 
 ### 3.5 Soft subtitles (A; from `attach`)
 

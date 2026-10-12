@@ -166,6 +166,18 @@ def test_a_webvtts_cr_cr_lf_is_two_line_ends(tmp_path: Path) -> None:
         _ = ingested(path)
 
 
+def test_a_subrip_cue_reads_on_past_an_empty_line_noted(tmp_path: Path) -> None:
+    t = ingested(put(tmp_path, "continued.srt", HOSTILE["continued.srt"]))
+    assert [c.text for c in t.chunks] == ["first kept", "last credits"]
+    how = "read as theirs, as ffmpeg reads them"
+    assert t.notes == (f"2 cues held text after an empty line, {how}: the first, kept on line 5",)
+
+
+def test_a_webvtt_line_of_spaces_is_its_cues_text(tmp_path: Path) -> None:
+    t = ingested(put(tmp_path, "whitespace.vtt", HOSTILE["whitespace.vtt"]))
+    assert [c.text for c in t.chunks] == ["first second"]
+
+
 def test_a_csv_header_after_a_blank_line_is_its_header(tmp_path: Path) -> None:
     t = ingested(put(tmp_path, "late-header.csv", HOSTILE["late-header.csv"]))
     assert t.chunks == (Chunk(0, 300, "hello", ""),)

@@ -15,7 +15,6 @@ from subverter.transcript import Cue, Reading, Timing
 
 __all__ = ["Dialect", "Found", "Timed", "read"]
 
-_BLANK_LINE: Final = re.compile(r"[ \t]*")  # a cue's end
 _UNDERLINE: Final = re.compile(r"<u>([^<]*)</u>")  # WhisperX --highlight_words: the word
 
 
@@ -35,28 +34,31 @@ class Found:
     """What a reading met that its dialect may note, each by its line (from 1).
 
     ``odd``: a timing line with an odd time. ``indexes``: a cue's line taken for the next
-    cue's index, its number. ``dropped``: a line holding ``-->`` that is no timing line, its
-    block dropped.
+    cue's index, no empty line before it, its number. ``dropped``: a line holding ``-->`` that
+    is no timing line, its block dropped. ``continued``: a cue's first text after an empty line.
     """
 
     odd: list[tuple[int, Timed]] = field(default_factory=list)
     indexes: list[tuple[int, str]] = field(default_factory=list)
     dropped: list[tuple[int, str]] = field(default_factory=list)
+    continued: list[tuple[int, str]] = field(default_factory=list)
 
 
 @dataclass(frozen=True, slots=True)
 class Dialect:
     """A cue format's grammar, as ``read`` takes it.
 
-    ``timing``: a line's timings, or None -- no timing line. ``arrow_ends``: a line holding
-    ``-->`` that is none ends the cue, the lines after it up to a blank line or a timing line no
-    cue's; else it is text. ``index``: a cue's line taken for the next cue's index, its blank
-    line missing, when right before a timing line. ``notes``: what ``Found`` is noted as.
-    ``has_references``, ``has_ass_escapes``: what its texts hold (``Reading``).
+    ``timing``: a line's timings, or None -- no timing line. ``ends``: a line ending the cue,
+    the lines after it up to a timing line no cue's; any other empty line is skipped, the cue
+    going on. ``arrow_ends``: a line holding ``-->`` that is none ends the cue alike; else it
+    is text. ``index``: a cue's last line taken for the next cue's index, only empty lines
+    between it and a timing line. ``notes``: what ``Found`` is noted as. ``has_references``,
+    ``has_ass_escapes``: what its texts hold (``Reading``).
     """
 
     source: str
     timing: Callable[[str], Timed | None]
+    ends: re.Pattern[str]
     arrow_ends: bool
     index: re.Pattern[str] | None
     notes: Callable[[Found], tuple[str, ...]]
@@ -92,39 +94,68 @@ def read(lines: list[str], name: str, dialect: Dialect) -> Reading:
 def _rows(lines: list[str], name: str, dialect: Dialect) -> tuple[list[Cue], tuple[str, ...]]:
     """Cues, their text kept with its tags (a WhisperX <u> marks a word); notes (``dialect``).
 
-    A cue opens at its timing line and closes at a blank line, or at the next cue (bash's
-    intext and its set st, which always changed together). Its text lines joined by a space,
-    each character joined across the lines it spans (``utf8.by_line``: what is still not UTF-8,
-    refused by its line).
+    A cue opens at its timing line and closes at its dialect's end line, or at the next cue; its
+    lines joined (``_joined``: what is still not UTF-8, refused by its line).
     """
     times: list[tuple[int | None, int | None]] = []
     texts: list[tuple[int, int]] = []  # each text line: its cue, its index among the lines
     found, index = Found(), dialect.index
-    is_open = False
+    is_open = emptied = False  # emptied: an empty line met in the open cue
+    noted = -1  # the cue whose text after an empty line is noted
     for i, line in enumerate(lines):
         timing = dialect.timing(line)
         if timing is not None:
             if timing.odd:
                 found.odd.append((i + 1, timing))
-            if index and texts and texts[-1][1] == i - 1 and index.fullmatch(lines[i - 1]):
-                _ = texts.pop()  # the line before (line i, from 1): the next cue's index
-                found.indexes.append((i, lines[i - 1].strip()))
+            if index and is_open:
+                _take_index(index, lines, texts, len(times) - 1, found)
             times.append((timing.start, timing.end))
-            is_open = True
-        elif _BLANK_LINE.fullmatch(line):
+            is_open, emptied = True, False
+        elif dialect.ends.fullmatch(line):
             is_open = False
+        elif not line:
+            emptied = True  # skipped: the cue goes on
         elif dialect.arrow_ends and "-->" in line:
             found.dropped.append((i + 1, line.strip()))
             is_open = False
         elif is_open:
-            texts.append((len(times) - 1, i))
+            cue = len(times) - 1
+            if emptied and noted != cue:  # each cue's first text after it, noted
+                found.continued.append((i + 1, line.strip()))
+                noted = cue
+            texts.append((cue, i))
+    return _joined(lines, name, times, texts), dialect.notes(found)
+
+
+def _take_index(
+    index: re.Pattern[str], lines: list[str], texts: list[tuple[int, int]], cue: int, found: Found
+) -> None:
+    """The cue's last line, a number alone, only empty lines after it: the next cue's index.
+
+    Noted when no empty line stands before it; when one does, no text kept after it either.
+    """
+    if not texts or texts[-1][0] != cue or not index.fullmatch(lines[last := texts[-1][1]]):
+        return
+    _ = texts.pop()
+    if lines[last - 1]:
+        found.indexes.append((last + 1, lines[last].strip()))
+    if found.continued and found.continued[-1][0] == last + 1:
+        _ = found.continued.pop()
+
+
+def _joined(
+    lines: list[str],
+    name: str,
+    times: list[tuple[int | None, int | None]],
+    texts: list[tuple[int, int]],
+) -> list[Cue]:
+    """Each cue, its text lines joined by a space (``utf8.by_line``: each character whole)."""
     whole = by_line([(i + 1, lines[i]) for _, i in texts], name)
     parts: list[list[str]] = [[] for _ in times]
     for (cue, _), text in zip(texts, whole, strict=True):
         if text:  # a line of a character's last bytes alone: given to the line it starts in
             parts[cue].append(text)
-    cues = [Cue(*t, " ".join(p)) for t, p in zip(times, parts, strict=True)]
-    return cues, dialect.notes(found)
+    return [Cue(*t, " ".join(p)) for t, p in zip(times, parts, strict=True)]
 
 
 def _is_highlighted(cues: list[Cue]) -> bool:

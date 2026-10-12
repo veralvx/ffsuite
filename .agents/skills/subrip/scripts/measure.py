@@ -49,6 +49,9 @@ READS: dict[str, bytes] = {
     "'3 apples' alone, next cue unnumbered": b"1\n00:00:01,000 --> 00:00:02,000\n3 apples\n\n00:00:05,000 --> 00:00:06,000\nnext\n",
     "'2024' alone, next cue unnumbered": b"1\n00:00:01,000 --> 00:00:02,000\n2024\n\n00:00:05,000 --> 00:00:06,000\nnext\n",
     "last cue ends with a number": b"1\n00:00:01,000 --> 00:00:02,000\nthe year\n2024\n",
+    "text after the last cue": b"1\n00:00:01,000 --> 00:00:02,000\nlast\n\ncredits\n",
+    "a timing line unread (->)": b"1\n00:00:01,000 --> 00:00:02,000\nfirst\n\n2\n"
+    b"00:00:03,000 -> 00:00:04,000\nsecond\n" + CUE2,
     "end before start": b"1\n00:00:03,000 --> 00:00:01,000\nbackwards\n" + CUE2,
     "out of order": b"1\n00:00:05,000 --> 00:00:06,000\nlater\n\n2\n00:00:01,000 --> 00:00:02,000\nearlier\n",
     "duplicate cue": b"1\n00:00:01,000 --> 00:00:02,000\nsame\n\n2\n00:00:01,000 --> 00:00:02,000\nsame\n",
@@ -57,6 +60,8 @@ READS: dict[str, bytes] = {
     "zero duration": b"1\n00:00:01,000 --> 00:00:01,000\nzero\n",
     "CRLF": b"1\r\n00:00:01,000 --> 00:00:02,000\r\nwindows\r\nline\r\n",
     "CR only": b"1\r00:00:01,000 --> 00:00:02,000\rmac\rline\r",
+    "CR CR LF": b"1\r\r\n00:00:01,000 --> 00:00:02,000\r\r\nwritten\r\r\ntwice\r\r\n",
+    "LF then CR": b"1\n\r00:00:01,000 --> 00:00:02,000\n\rlf\n\rcr\n\r",
     "UTF-8 BOM": b"\xef\xbb\xbf1\n00:00:01,000 --> 00:00:02,000\nbom\n",
     "UTF-16LE BOM": "\ufeff1\n00:00:01,000 --> 00:00:02,000\nsixteen é\n".encode("utf-16-le"),
     "Latin-1 byte": b"1\n00:00:01,000 --> 00:00:02,000\ncaf\xe9\n",
@@ -149,8 +154,12 @@ FFMAN: dict[str, bytes] = {
     "Latin-1 byte": READS["Latin-1 byte"],
     "CRLF": READS["CRLF"],
     "CR only": READS["CR only"],
+    "CR CR LF": READS["CR CR LF"],
+    "LF then CR": READS["LF then CR"],
     "UTF-8 BOM": READS["UTF-8 BOM"],
     "UTF-16LE BOM": READS["UTF-16LE BOM"],
+    "text after the last cue": READS["text after the last cue"],
+    "a timing line unread (->)": READS["a timing line unread (->)"],
 }
 FFMAN_PROBE = """
 import json, sys
@@ -159,14 +168,16 @@ from ffman.subs.ingest import ingest
 for name, text in json.load(sys.stdin).items():
     data = text.encode("latin-1")
     try:
-        cues = [(c.start, c.end, c.text) for c in subverter.read("srt", data, "x.srt").cues]
+        reading = subverter.read("srt", data, "x.srt")
+        cues = [(c.start, c.end, c.text) for c in reading.cues]
+        cues = f"{cues!r}, noted" if reading.notes else repr(cues)
     except Exception as e:
         cues = f"refused: {e}"
     try:
         chunks = [(c.start, c.end, c.text) for c in ingest("x.srt", data).chunks]
     except Exception as e:
         chunks = f"refused: {e}"
-    print(f"{name}: subverter {cues!r}; ffman burns {chunks!r}")
+    print(f"{name}: subverter {cues}; ffman burns {chunks!r}")
 """
 
 # the SRT converted into a container's track, as ffman's --add-subs has ffmpeg do it: a cue's

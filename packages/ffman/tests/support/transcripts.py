@@ -183,6 +183,15 @@ HOSTILE: Final = {
     "cr.vtt": "WEBVTT\r\r00:00.000 --> 00:00.200\rfirst\rline\r\r00:00.200 --> 00:00.400\rsecond\r",
     "crcrlf.vtt": "WEBVTT\r\r\n\r\r\n00:00.000 --> 00:00.400\r\r\nno text\r\r\n",
     "cr.lrc": "[00:00.00]first\r[00:00.20]second\r",
+    # a SubRip cue reads on past an empty line, as ffmpeg (so mpv) reads it -- the text after one
+    # kept, noted; the credits after the last cue its text; `2` an index (6.8.2). Before: each
+    # cue ended at it, `kept` and `credits` dropped, silently
+    "continued.srt": (
+        "1\n00:00:00,000 --> 00:00:00,200\nfirst\n\nkept\n\n2\n00:00:00,200 --> 00:00:00,400\n"
+        "last\n\ncredits\n"
+    ),
+    # a WebVTT cue's line of spaces its text, as the W3C reads it (6.8.2). Before: its end
+    "whitespace.vtt": "WEBVTT\n\n00:00.000 --> 00:00.400\nfirst\n   \nsecond\n",
     # each text attached exactly into every container (6.8.2), burned as written. Before: an
     # attached `{text}` hidden, `\N` a break, `<b>` bold, a cue lost to its timing line
     "attached.vtt": _ATTACHED_VTT,

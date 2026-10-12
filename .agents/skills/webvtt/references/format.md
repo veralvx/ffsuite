@@ -46,6 +46,7 @@ intro
 | `webvtt`; `WEBVTTx`                                         | refused: no cues                                                 |
 | no blank line after `WEBVTT`                                | read: the timing line still starts a cue                         |
 | CRLF; CR                                                    | read alike                                                       |
+| a line of spaces or a tab in a cue                          | its text: an empty line alone ends a cue                         |
 | a NUL in the text                                           | U+FFFD                                                           |
 | `00:01.000` (no hours)                                      | 1 s                                                              |
 | `1:00:00.000` (one-digit hour)                              | 3600 s: the parser takes it (the syntax wants two digits)        |

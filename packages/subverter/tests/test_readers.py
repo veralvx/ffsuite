@@ -34,7 +34,7 @@ def test_a_format_without_a_reader_is_refused(fmt: str, message: str) -> None:
         _ = subverter.read(fmt, b"x", f"a.{fmt}")
 
 
-# --- SubRip and WebVTT: a cue opens at its --> line, closes at a blank line or the next cue
+# --- SubRip and WebVTT: a cue opens at its --> line, closes at its format's end line or the next cue
 
 
 def test_srt_a_bom_and_crs_off_lines_joined_the_last_cue_closed_at_the_end() -> None:
@@ -165,14 +165,14 @@ _NO_TEXT: Final = (Cue(1000, 2000, ""), Cue(3000, 4000, ""))
         ("vtt", _VTT.replace("line2\n\n", "line2\r\r"), _BOTH),
         ("vtt", _VTT.replace("\n", "\r\r\n"), _NO_TEXT),
         ("vtt", _VTT.replace("\n", "\n\r"), _NO_TEXT),
-        # ffmpeg 8.1.2, each but the last: a lone CR a line end, in a line too; CR CR LF one;
-        # LF CR two -- ffmpeg reads its texts, as it reads no blank line
+        # ffmpeg 8.1.2, each: a lone CR a line end, in a line too; CR CR LF one; LF CR two, each
+        # cue's empty lines skipped (its texts after them noted)
         ("srt", _SRT.replace("\n", "\r"), _BOTH),
         ("srt", _SRT.replace("\n", "\r", 3), _BOTH),
         ("srt", _SRT.replace("first", "fi\rrst"), (Cue(1000, 2000, "fi rst line2"), _BOTH[1])),
         ("srt", _SRT.replace("\n", "\r\r\n"), _BOTH),
         ("srt", _SRT.replace("line2\n\n", "line2\n\r\n"), _BOTH),
-        ("srt", _SRT.replace("\n", "\n\r"), _NO_TEXT),
+        ("srt", _SRT.replace("\n", "\n\r"), _BOTH),
         # ffmpeg's lrcdec ends a line at an LF alone and drops each CR: a CR-only file one line
         # (`first[00:03.00]second`), `fi\rrst` read `first` -- SubRip's line ends instead
         (
@@ -228,7 +228,7 @@ def _ffmpeg_lines(text: str) -> list[str]:
 
 @given(st.lists(st.sampled_from(("\r", "\n", "a")), max_size=12).map("".join))
 def test_subrips_lines_holding_text_are_ffmpegs(text: str) -> None:
-    # its blank lines differ: ffmpeg's reader yields none; here a blank line ends a cue
+    # its empty lines differ: ffmpeg's reader yields none; here, each kept for the notes
     assert [s for s in subrip.split_lines(text) if s] == [s for s in _ffmpeg_lines(text) if s]
 
 
@@ -577,7 +577,6 @@ def test_subrip_indexes_without_a_blank_line_counted_a_cue_of_one_index_line_emp
 @pytest.mark.parametrize(
     ("text", "first"),
     [
-        (f"first\n2\n\n{_T2}", "first 2"),  # a blank line between: the cue ended, `2` its text
         ("first\n2", "first 2"),  # no timing line after it: the file's end
         ("first\n2\na --> b", "first 2 a --> b"),  # a line holding --> is no timing line
     ],
@@ -586,6 +585,94 @@ def test_a_number_not_right_before_a_subrip_timing_line_is_text(text: str, first
     data = f"1\n{_T1}\n{text}\n"
     reading = subverter.read("srt", data.encode(), "a.srt")
     assert (reading.cues[0], reading.notes) == (Cue(1000, 2000, first), ())
+
+
+# SubRip, as ffmpeg 8.1.2 reads it (measured, its ASS): its demuxer skips an empty line, so a
+# cue's text runs on to the next timing line, its last line the next cue's index if a number
+# alone; its decoder ends the text at a line of spaces (htmlsubtitles.c); a tab, text
+_CONTINUED_NOTE: Final = (
+    "{n} cues held text after an empty line, read as theirs, as ffmpeg reads them: the first,"
+    " {text} on line {line}"
+)
+
+
+@pytest.mark.parametrize(
+    ("text", "first", "notes"),
+    [
+        (
+            "first\n\nstray\n\n2",
+            "first stray",
+            (_CONTINUED_NOTE.format(n=1, text="stray", line=5),),
+        ),
+        (
+            "first\n\n\n\nstray one\nstray two\n\nstray three\n\n2",
+            "first stray one stray two stray three",
+            (_CONTINUED_NOTE.format(n=1, text="stray one", line=7),),
+        ),
+        ("first\n\n2024\n\n3", "first 2024", (_CONTINUED_NOTE.format(n=1, text="2024", line=5),)),
+        ("first\n\n2\n", "first", ()),  # the index, empty lines either side of it
+        ("first\n2\n", "first", (_INDEX_NOTE.format(n=1, number="2", line=4),)),
+        ("the year\n2024\n", "the year", (_INDEX_NOTE.format(n=1, number="2024", line=4),)),
+        ("first\n   \nsecond line\n\n2", "first", ()),  # the text ended at the spaces
+        ("first\n\n   \nafter spaces\n\n2", "first", ()),
+        ("first\n2\n   ", "first 2", ()),  # the spaces after `2`: its text, no index
+        (  # a timing line ffmpeg cannot read: its cue the one before's, as ffmpeg's (measured)
+            "first\n\n2\n00:00:02,500 -> 00:00:02,800\ncut",
+            "first 2 00:00:02,500 -> 00:00:02,800 cut",
+            (_CONTINUED_NOTE.format(n=1, text="2", line=5),),
+        ),
+        ("first\n\t\nsecond\n\n2", "first \t second", ()),
+        ("first\n \t \nsecond\n\n2", "first  \t  second", ()),
+    ],
+)
+def test_a_subrip_cue_runs_on_past_an_empty_line_as_ffmpeg_reads_it(
+    text: str, first: str, notes: tuple[str, ...]
+) -> None:
+    data = f"1\n{_T1}\n{text}\n{_T2}\nsecond\n"
+    reading = subverter.read("srt", data.encode(), "a.srt")
+    assert reading.cues == (Cue(1000, 2000, first), Cue(3000, 4000, "second"))
+    assert reading.notes == notes
+
+
+def test_a_subrip_cue_of_no_text_takes_no_index_from_the_cue_before() -> None:
+    # ffmpeg: `first\N2024`, the empty cue dropped, `third` (measured): `2024` its cue's text,
+    # that cue ended by the spaces
+    t3 = "00:00:05,000 --> 00:00:06,000"
+    data = f"1\n{_T1}\nfirst\n2024\n   \n2\n{_T2}\n{t3}\nthird\n"
+    reading = subverter.read("srt", data.encode(), "a.srt")
+    assert reading.cues == (
+        Cue(1000, 2000, "first 2024"),
+        Cue(3000, 4000, ""),
+        Cue(5000, 6000, "third"),
+    )
+    assert reading.notes == ()
+
+
+def test_a_subrip_files_last_cue_runs_to_its_end() -> None:
+    # ffmpeg: `last\nSubtitles by X`, the credits after the last cue its text (measured)
+    data = f"1\n{_T1}\nfirst\n\n2\n{_T2}\nlast\n\nSubtitles by X\n"
+    reading = subverter.read("srt", data.encode(), "a.srt")
+    assert reading.cues == (Cue(1000, 2000, "first"), Cue(3000, 4000, "last Subtitles by X"))
+    assert reading.notes == (_CONTINUED_NOTE.format(n=1, text="Subtitles by X", line=9),)
+
+
+@pytest.mark.parametrize(
+    ("line", "first"),
+    [
+        ("", "first"),
+        ("   ", "first     second"),
+        ("\t", "first \t second"),
+        (" \t ", "first  \t  second"),
+    ],
+)
+def test_only_an_empty_line_ends_a_webvtt_cue(line: str, first: str) -> None:
+    # "collect a WebVTT block" ends at an empty line alone: Chromium 141 reads `first\n   \nsecond`
+    # (measured), its lines joined here by a space; after an empty line, no cue's
+    data = f"WEBVTT\n\n00:01.000 --> 00:02.000\nfirst\n{line}\nsecond\n\n00:03.000 --> 00:04.000\nnext\n"
+    assert subverter.read("vtt", data.encode(), "a.vtt").cues == (
+        Cue(1000, 2000, first),
+        Cue(3000, 4000, "next"),
+    )
 
 
 def test_a_webvtt_line_before_a_timing_line_is_text() -> None:
