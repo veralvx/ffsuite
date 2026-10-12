@@ -18,6 +18,8 @@ from ffman.errors import refuse
 from ffman.media.paths import ext_of
 from ffman.subs import markup, normalize
 
+# the formats ffman reads none of: burned and attached as they are, from its copy (``passed``)
+PASSED_THROUGH: Final = ("ass", "ssa")
 _UTF16: Final = (codecs.BOM_UTF16_LE, codecs.BOM_UTF16_BE)
 _LINE_END: Final = re.compile(rb"\r\n|\r|\n")  # an editor's: the note's line
 
@@ -46,7 +48,7 @@ def passed(data: bytes) -> Passed:
 def ingest(name: str, data: bytes) -> Transcript:
     """A transcript from its bytes, as bash's ingest_subs read it: its refusals, its notes."""
     fmt = ext_of(name)
-    if fmt in ("ass", "ssa"):  # passed through: ffman's copy, burned or attached (``passed``)
+    if fmt in PASSED_THROUGH:
         notes = passed(data).notes
         return Transcript(fmt, f".{fmt}", has_words=False, chunks=(), words=(), notes=notes)
     found = readers.read(fmt, data, name)

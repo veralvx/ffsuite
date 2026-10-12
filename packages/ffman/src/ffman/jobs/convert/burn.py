@@ -23,7 +23,7 @@ from ffman.plan.outputs import Output, check_burn_source, output_kind
 from ffman.plan.request import ConvertOptions
 from ffman.subs.ass import FONT, FONT_FILES, Style, bold
 from ffman.subs.ass import script as ass_script
-from ffman.subs.ingest import ingest, passed
+from ffman.subs.ingest import PASSED_THROUGH, ingest, passed
 from ffman.subs.layout import Bar, BarKind, bar_args, bar_centre, bar_rows, bar_times
 from ffman.subs.metrics import Metrics, parse
 
@@ -68,7 +68,7 @@ def run(o: ConvertOptions, subs: str, runner: Runner) -> None:
     )
     shown = (size.width, size.height) if size is not None else (source.width, source.height)
     bar = None
-    if not o.margin_bottom_given and transcript.fmt not in ("ass", "ssa"):
+    if not o.margin_bottom_given and transcript.fmt not in PASSED_THROUGH:
         bar = _bar(o, runner, media, picture, shown[1])
     bar_y = bar.y if bar is not None else None
     style = Style(
@@ -91,7 +91,7 @@ def run(o: ConvertOptions, subs: str, runner: Runner) -> None:
 def _check_timings(o: ConvertOptions, t: Transcript) -> None:
     """What the mode needs of the transcript (bash's overlay, after ingest_subs)."""
     mode = o.overlay_mode
-    if t.fmt in ("ass", "ssa") and mode != "plain":
+    if t.fmt in PASSED_THROUGH and mode != "plain":
         refuse(f"an .{t.fmt} file can only be burned with --overlay-mode plain")
     if mode == "chunk-word":
         if not t.has_words:
@@ -189,7 +189,7 @@ def _subtitles(  # noqa: PLR0913 -- the subtitles, where, what, how big, how, wi
     frame: Fraction | None,
 ) -> Filter:
     """The ASS to burn -- written, or the user's own copied -- and its filter, fonts and all."""
-    if t.fmt in ("ass", "ssa"):
+    if t.fmt in PASSED_THROUGH:
         path = runner.workdir / f"subs.{t.fmt}"
         _ = path.write_bytes(passed(data).data)  # each NUL U+FFFD: libass ended its script there
     else:

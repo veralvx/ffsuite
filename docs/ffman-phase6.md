@@ -3395,7 +3395,12 @@ tests with 6.8.3's converters.*
       `compare HEAD` on 3.13 and 3.14: 465 identical, 3 changed (`burn/hostile/nul.ass` and
       `attach/nul-ass` new; `attach/t.ass` given ffman's copy). `decisions.md` "ASS NUL";
       spec 3.4; AGENTS.md's count; the `ass` record (libass's `process_text`, ffmpeg's
-      reading, `measure_ffmpeg.py`'s cases) and the mappings record.*
+      reading, `measure_ffmpeg.py`'s cases) and the mappings record. Reviewed (the owner's
+      request): `("ass", "ssa")`, written in five places, named once -- `PASSED_THROUGH`
+      (a refactor commit; `compare` against the fix: 468 identical); `passed`'s docstring
+      says what ffmpeg does with the rest of the line; a UTF-16 ASS's U+0000, measured kept
+      and cut when attached, added to its box; an SSA tested at last -- a mutant dropping it
+      survived the whole suite; the spec's bullet one rule, its comments one word.*
 - [ ] Found by the ASS NUL box: a UTF-16 ASS (its BOM) cannot be burned -- ffmpeg's `ass`
       filter gives libass no codepage, whose script ends at the first NUL: "Could not create
       a libass track", the job failed; attached, ffmpeg's reader decodes it -- a U+0000 in it

@@ -11,6 +11,7 @@ from ffman.errors import refuse
 from ffman.media.probe import Media
 from ffman.plan.encode import AUDIO_ENCODERS, FDK_AAC, VIDEO_ALIASES, VIDEO_ENCODERS, family
 from ffman.plan.request import ConvertOptions
+from ffman.subs.ingest import PASSED_THROUGH
 
 
 @dataclass(frozen=True, slots=True)
@@ -89,7 +90,7 @@ def subtitle_codec(out_ext: str, subtitle_format: str) -> str:
     """The codec a container takes a subtitle track in (bash's sub_codec_for)."""
     kind = family(out_ext)
     if kind == "matroska":
-        return "ass" if subtitle_format in ("ass", "ssa") else "srt"
+        return "ass" if subtitle_format in PASSED_THROUGH else "srt"
     codec = {"mp4": "mov_text", "webm": "webvtt"}.get(kind)
     if codec is None:
         where = "give --output with .mka or .m4a (audio), .mkv or .mp4 (video)"

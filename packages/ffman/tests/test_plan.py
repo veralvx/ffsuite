@@ -273,6 +273,11 @@ def test_attachments_carried_within_one_family() -> None:
 ACROSS = ["-map", "0:V?", "-map", "0:a?", "-map", "0:s?"]
 
 
+@pytest.mark.parametrize(("fmt", "codec"), [("ass", "ass"), ("ssa", "ass"), ("srt", "srt")])
+def test_matroska_keeps_ass_and_ssa_styled(fmt: str, codec: str) -> None:
+    assert subtitle_codec("mkv", fmt) == codec
+
+
 @pytest.mark.parametrize(
     ("in_ext", "out_ext", "fmt", "codec", "streams"),
     [  # bash's attach: its maps and scopy

@@ -9,7 +9,7 @@ from ffman.media.run import Runner, note
 from ffman.plan.encode import container_flags
 from ffman.plan.request import ConvertOptions
 from ffman.plan.streams import attach_streams, attachments, kept_metadata, subtitle_codec
-from ffman.subs.ingest import ingest, passed
+from ffman.subs.ingest import PASSED_THROUGH, ingest, passed
 from ffman.subs.srt import srt
 
 
@@ -28,7 +28,7 @@ def run(o: ConvertOptions, runner: Runner) -> None:
         o, runner, media, out_ext
     )  # after the flow's refusals, before any pass (F6)
     codec = subtitle_codec(out_ext, transcript.fmt)  # an ASS stays styled where it can (Matroska)
-    if transcript.fmt in ("ass", "ssa"):
+    if transcript.fmt in PASSED_THROUGH:
         track = str(runner.workdir / f"subs.{transcript.fmt}")
         _ = Path(track).write_bytes(passed(data).data)  # each NUL U+FFFD: ffmpeg cut its line
     else:

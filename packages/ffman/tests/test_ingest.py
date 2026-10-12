@@ -418,9 +418,10 @@ def test_refusals(tmp_path: Path, name: str, text: str, message: str) -> None:
         _ = ingested(str(tmp_path / "missing.srt"))
 
 
-def test_ass_is_burned_as_it_is(tmp_path: Path) -> None:
-    t = ingested(put(tmp_path, "a.ass", "[Script Info]\n"))
-    assert (t.fmt, t.chunks, t.has_words) == ("ass", (), False)
+@pytest.mark.parametrize("fmt", ["ass", "ssa"])
+def test_ass_and_ssa_pass_through(tmp_path: Path, fmt: str) -> None:
+    t = ingested(put(tmp_path, f"a.{fmt}", "[Script Info]\n"))
+    assert (t.fmt, t.chunks, t.has_words) == (fmt, (), False)
 
 
 @pytest.mark.parametrize("name", sorted(HOSTILE))
