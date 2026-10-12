@@ -3401,11 +3401,33 @@ tests with 6.8.3's converters.*
       says what ffmpeg does with the rest of the line; a UTF-16 ASS's U+0000, measured kept
       and cut when attached, added to its box; an SSA tested at last -- a mutant dropping it
       survived the whole suite; the spec's bullet one rule, its comments one word.*
-- [ ] Found by the ASS NUL box: a UTF-16 ASS (its BOM) cannot be burned -- ffmpeg's `ass`
+- [x] Found by the ASS NUL box: a UTF-16 ASS (its BOM) cannot be burned -- ffmpeg's `ass`
       filter gives libass no codepage, whose script ends at the first NUL: "Could not create
       a libass track", the job failed; attached, ffmpeg's reader decodes it -- a U+0000 in it
       kept, its line cut, unnoted (measured). To decide: recoded to UTF-8 in ffman's copy,
       its NULs then U+FFFD; refused, named; or as now.
+      *Done: recoded to UTF-8 in ffman's copy, burned and attached alike, not noted; a unit
+      not UTF-16 refused by its line, `not UTF-16: FILE (line N)` (the owner's, each). In
+      `passed`, now given the file's name: `_utf8` first, so a U+0000 is a NUL then, U+FFFD,
+      noted. Researched: `vf_subtitles.c` calls `ass_read_file(..., NULL)`, libass recodes
+      only given a codepage (`read_file_recode`); ffmpeg's reader recodes a BOM's UTF-16
+      (`ff_text_init_avio`) and takes a unit not UTF-16 for a NUL (`ff_text_r8`) -- measured,
+      a lone surrogate cut its line and took the next unit, an odd last byte a header line.
+      Tests first: the recode (LE, BE), its U+0000 noted, four invalid files refused by
+      line, ffman's hostile pair, and the NUL end-to-end tests run on UTF-16 too (10 failing
+      on the old code: the burn failed, `fi` attached). End to end, LE and BE burned as
+      UTF-8's (303 and 483 pixels, alike). 12 planted mutations, each caught. Suite 2178,
+      coverage 100%; matrix 770; `compare HEAD` on 3.13 and 3.14: 468 identical, 3 changed
+      (`burn/hostile/utf-16.ass`, `burn/hostile/utf-16-bad.ass`, `attach/utf-16-ass`, new).
+      `decisions.md` "ASS UTF-16" (and "ASS NUL" brought up to date); spec 3.4; AGENTS.md's
+      count; the `ass` record (libass's and ffmpeg's rules, ffmpeg's readings, the UTF-16
+      burn, `measure_ffmpeg.py`'s cases) and the mappings record. Reviewed (the owner's
+      request): two properties added -- any UTF-16 text passed as its UTF-8 is (LE and BE,
+      a U+0000 and an inner BOM alike), any bytes after a BOM passed whole or refused by a
+      line -- each failing on a planted bug the examples alone also catch; 400,000 fuzzed
+      files, none raising but a refusal; `measure_ffmpeg.py`'s failure line without its
+      temporary path; the burn's and attach's name to `passed` cannot be refused there,
+      ingest refusing first (an equivalent mutant, kept: one signature).*
 - [ ] Found by the ASS NUL box: a CP1252 ASS attached loses each event not UTF-8 -- ffmpeg's
       ASS decoder drops it ("Invalid data found"); burned, libass draws it (measured). To
       decide: refused by its line, as the other formats' bytes; recoded; or as now.

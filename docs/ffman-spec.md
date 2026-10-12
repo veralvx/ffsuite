@@ -196,7 +196,9 @@ camcorder:date=D,time=T`.
   line of spaces its text (W3C) (New).
 - A NUL in a transcript's text reads as U+FFFD, as the W3C reads one, noted: `1 NULs read as
   U+FFFD, as the W3C reads them: the first in line 3`; an ASS's or SSA's alike, in the copy
-  ffman gives ffmpeg, burned or attached -- a UTF-16 one's (its BOM) as they are (New).
+  ffman gives ffmpeg, burned or attached (New).
+- An ASS or SSA in UTF-16 (its BOM) is UTF-8 in that copy, as ffmpeg's reader recodes it; a
+  unit not UTF-16 is refused by its line: `not UTF-16: FILE (line N)` (New).
 
 ### 3.5 Soft subtitles (A; from `attach`)
 

@@ -28,7 +28,7 @@ from ffman.subs.layout import CROPDETECT
 from tests.support.fonts import font
 from tests.support.measures import frames
 from tests.support.media import tool
-from tests.support.transcripts import HOSTILE, encoded
+from tests.support.transcripts import HOSTILE
 
 pytestmark = pytest.mark.ffmpeg
 
@@ -443,13 +443,14 @@ def test_a_track_is_added(
     assert "-map 1:s:0" in printed
 
 
-@pytest.fixture
-def nul_ass(tmp_path: Path, ffmpeg: str) -> tuple[Path, Path]:
+@pytest.fixture(params=["utf-8", "utf-16"])  # UTF-16's: recoded, its U+0000 a NUL then
+def nul_ass(request: pytest.FixtureRequest, tmp_path: Path, ffmpeg: str) -> tuple[Path, Path]:
     """0.4 s of black, 320x180 at 25 fps; an ASS holding a NUL, its events 0.2 s each."""
     black = tmp_path / "black.mp4"
     make(ffmpeg, "-f", "lavfi", "-i", "color=black:s=320x180:r=25:d=0.4", str(black))
     own = tmp_path / "nul.ass"
-    _ = own.write_bytes(encoded(HOSTILE["nul.ass"]))
+    codec = cast("str", request.param)
+    _ = own.write_bytes(cast("str", HOSTILE["nul.ass"]).encode(codec))  # utf-16: its BOM first
     return black, own
 
 

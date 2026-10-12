@@ -82,7 +82,8 @@ def run(o: ConvertOptions, subs: str, runner: Runner) -> None:
         text=o.font_color,
         outline=o.outline_color,
     )
-    subtitles = _subtitles(data, runner, transcript, shown, style, fonts, frame=video.frame_time())
+    frame = video.frame_time()
+    subtitles = _subtitles(subs, data, runner, transcript, shown, style, fonts, frame=frame)
     fx = replace(fx, subtitles=subtitles)
     prepared = passes.effects(o, runner, fx, headed, restore=restore)
     render.run(o, runner, render.Render(target, encoded, media, video, fx, prepared, tags))
@@ -179,6 +180,7 @@ def font_metrics(fonts: str, style: Style) -> Metrics | None:
 
 
 def _subtitles(  # noqa: PLR0913 -- the subtitles, where, what, how big, how, with which fonts
+    subs: str,
     data: bytes,
     runner: Runner,
     t: Transcript,
@@ -191,7 +193,7 @@ def _subtitles(  # noqa: PLR0913 -- the subtitles, where, what, how big, how, wi
     """The ASS to burn -- written, or the user's own copied -- and its filter, fonts and all."""
     if t.fmt in PASSED_THROUGH:
         path = runner.workdir / f"subs.{t.fmt}"
-        _ = path.write_bytes(passed(data).data)  # each NUL U+FFFD: libass ended its script there
+        _ = path.write_bytes(passed(data, subs).data)  # UTF-8, each NUL U+FFFD
     else:
         # the source's frames: a burn keeps them, so its words' animations end a frame early
         text, notes = ass_script(t, *shown, style, frame=frame, metrics=font_metrics(fonts, style))

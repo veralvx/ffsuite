@@ -30,7 +30,7 @@ def run(o: ConvertOptions, runner: Runner) -> None:
     codec = subtitle_codec(out_ext, transcript.fmt)  # an ASS stays styled where it can (Matroska)
     if transcript.fmt in PASSED_THROUGH:
         track = str(runner.workdir / f"subs.{transcript.fmt}")
-        _ = Path(track).write_bytes(passed(data).data)  # each NUL U+FFFD: ffmpeg cut its line
+        _ = Path(track).write_bytes(passed(data, subs).data)  # UTF-8, each NUL U+FFFD
     else:
         track = str(runner.workdir / "subs.srt")
         # each text for the track's codec; UTF-8: ffmpeg drops a cue that is not (decode.c)

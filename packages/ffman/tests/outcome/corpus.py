@@ -763,6 +763,10 @@ def _attach() -> list[Case]:
         _conv("attach/split", "-i", "v.mp4", "--add-subs", "hostile/split.srt", "-o", "x.mkv"),
         # an ASS's NUL U+FFFD in ffman's copy (6.8.2): before, ffmpeg's reader cut its line
         _conv("attach/nul-ass", "-i", "v.mp4", "--add-subs", "hostile/nul.ass", "-o", "x.mkv"),
+        # a UTF-16 ASS UTF-8 in ffman's copy (6.8.2), as ffmpeg's reader recoded it
+        _conv(
+            "attach/utf-16-ass", "-i", "v.mp4", "--add-subs", "hostile/utf-16.ass", "-o", "x.mkv"
+        ),
         _conv("attach/onto-track", "-i", "tracks.mkv", "--add-subs", "wx.srt"),
         _conv("attach/language-alone", "-i", "v.mp4", "--language", "por"),
         # the SRT clip: the duration in whole ms, floored (bash's float made 1.005 s 1004)

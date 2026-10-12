@@ -2,8 +2,8 @@
 
 The format's reader (``readers``) gives cues; the normalisers (``normalize``)
 make them chunks and, where the source times words, words. ASS and SSA pass
-through: burned and attached as they are, from ffman's copy, each NUL in it
-U+FFFD (``passed``).
+through: burned and attached as they are, from ffman's copy -- UTF-8, each NUL
+in it U+FFFD (``passed``).
 """
 
 import codecs
@@ -21,7 +21,7 @@ from ffman.subs import markup, normalize
 # the formats ffman reads none of: burned and attached as they are, from its copy (``passed``)
 PASSED_THROUGH: Final = ("ass", "ssa")
 _UTF16: Final = (codecs.BOM_UTF16_LE, codecs.BOM_UTF16_BE)
-_LINE_END: Final = re.compile(rb"\r\n|\r|\n")  # an editor's: the note's line
+_LINE_END: Final = re.compile(rb"\r\n|\r|\n")  # an editor's: the line a note or refusal names
 
 
 class Passed(NamedTuple):
@@ -31,25 +31,47 @@ class Passed(NamedTuple):
     notes: tuple[str, ...]
 
 
-def passed(data: bytes) -> Passed:
-    """``data``, each NUL U+FFFD, as in the transcripts ffman reads (``utf8.nul_notes``): noted.
+def passed(data: bytes, name: str) -> Passed:
+    """The copy of ``data`` ffmpeg is given: UTF-8 (``_utf8``), each NUL U+FFFD, noted.
 
     Kept, a NUL ends libass's script -- burned, every later event lost -- and ffmpeg's ASS
     reader cuts its line there, the rest a header line (measured, libass 0.17.1 and ffmpeg
-    8.1.2). A UTF-16 file (its BOM) is left as it is: its NULs are its characters' bytes.
+    8.1.2): U+FFFD, as in the transcripts ffman reads (``utf8.nul_notes``). A UTF-16 file
+    (its BOM) is recoded first, so its U+0000s are NULs then.
     """
+    if data.startswith(_UTF16):
+        data = _utf8(data, name)
     first = data.find(b"\0")
-    if first < 0 or data.startswith(_UTF16):
+    if first < 0:
         return Passed(data, ())
-    nuls = Nuls(data.count(b"\0"), f"line {len(_LINE_END.findall(data, 0, first)) + 1}")
+    nuls = Nuls(data.count(b"\0"), f"line {_line(data, first)}")
     return Passed(data.replace(b"\0", "\ufffd".encode()), nul_notes(nuls))
+
+
+def _utf8(data: bytes, name: str) -> bytes:
+    """A UTF-16 file as UTF-8, as ffmpeg's reader recodes it; refused at the line it is not.
+
+    ffmpeg's ``ass`` filter gives libass no codepage, whose script then ends at its first NUL
+    byte: no track, the burn failed (measured). ffmpeg's reader takes a unit not UTF-16 -- a
+    lone surrogate, an odd last byte -- for a NUL (``ff_text_r8``): its line cut there.
+    """
+    try:
+        return data.decode("utf-16").encode()
+    except UnicodeDecodeError as e:  # its start a unit's: what is before it is UTF-16
+        read = data[: e.start].decode("utf-16").encode()
+        refuse(f"not UTF-16: {name} (line {_line(read, len(read))})")
+
+
+def _line(data: bytes, at: int) -> int:
+    """The line offset ``at`` is on, from 1, as an editor counts them."""
+    return len(_LINE_END.findall(data, 0, at)) + 1
 
 
 def ingest(name: str, data: bytes) -> Transcript:
     """A transcript from its bytes, as bash's ingest_subs read it: its refusals, its notes."""
     fmt = ext_of(name)
     if fmt in PASSED_THROUGH:
-        notes = passed(data).notes
+        notes = passed(data, name).notes
         return Transcript(fmt, f".{fmt}", has_words=False, chunks=(), words=(), notes=notes)
     found = readers.read(fmt, data, name)
     references, escapes = found.has_references, found.has_ass_escapes

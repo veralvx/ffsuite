@@ -1,7 +1,7 @@
 """ASS and SSA through ffmpeg, measured: what its `ass` demuxer reads of a script, and what its
 `ass` muxer writes back -- by a stream copy, and through the `ass` decoder and encoder; and
-whether libass (through ffmpeg's `ass` filter) draws `\\{` and `\\}` as braces, and what of a
-script after a NUL.
+whether libass (through ffmpeg's `ass` filter) draws `\\{` and `\\}` as braces, what of a
+script after a NUL, and whether it draws a UTF-16 one.
 
 Usage: python3 measure_ffmpeg.py [FFMPEG]  (default: ffmpeg on PATH; ffprobe beside it). Prints
 what it found; references/format.md's "ffmpeg" tables are this output, at ffmpeg n8.1.2.
@@ -79,6 +79,16 @@ SCRIPTS: dict[str, str] = {
     + dialogue("plus plus"),
     "a NUL in a text": HEAD + dialogue("fi\0rst") + dialogue("next", "0:00:03.00", "0:00:04.00"),
 }
+CAFE = HEAD + dialogue("café", "0:00:00.00", "0:00:01.00")
+UTF16 = "\ufeff" + CAFE  # its BOM first
+LONE = "\ufeff" + HEAD + dialogue("fi\ud800rst") + dialogue("next", "0:00:03.00", "0:00:04.00")
+# a script each, as bytes: UTF-16, valid or not
+ENCODED: dict[str, bytes] = {
+    "UTF-16LE (its BOM)": UTF16.encode("utf-16-le"),
+    "UTF-16BE (its BOM)": UTF16.encode("utf-16-be"),
+    "UTF-16LE, a lone surrogate": LONE.encode("utf-16-le", "surrogatepass"),
+    "UTF-16LE, an odd byte last": UTF16.encode("utf-16-le") + b"x",
+}
 
 
 def logged(stderr: str) -> str:
@@ -131,17 +141,24 @@ def packets(path: Path) -> tuple[str, list[tuple[int, int, str]]]:
     return data["format"]["format_name"], found
 
 
-def frame(work: Path, *texts: str) -> str:
-    """The digest of the frame libass draws for an event of each text at once (320x180, grey)."""
-    script = work / "drawn.ass"
-    events = "".join(dialogue(text, "0:00:00.00", "0:00:01.00") for text in texts)
-    _ = script.write_text(HEAD + events, encoding="utf-8")
-    drawn = subprocess.run(
+def drawn(work: Path, script: bytes) -> str:
+    """The digest of the frame libass draws of ``script`` (320x180, grey), or why none was."""
+    path = work / "drawn.ass"
+    _ = path.write_bytes(script)
+    r = subprocess.run(
         [FFMPEG, "-v", "error", "-f", "lavfi", "-i", "color=c=black:s=320x180:d=1", "-vf",
-         f"ass={script}", "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "gray", "-"],
-        capture_output=True, check=True,
-    ).stdout  # fmt: skip
-    return hashlib.sha256(drawn).hexdigest()
+         f"ass={path}", "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "gray", "-"],
+        capture_output=True, check=False,
+    )  # fmt: skip
+    if r.returncode:
+        return f"[failed: {logged(r.stderr.decode()).replace(str(path), path.name)}]"
+    return hashlib.sha256(r.stdout).hexdigest()
+
+
+def frame(work: Path, *texts: str) -> str:
+    """The digest of the frame libass draws for an event of each text at once."""
+    events = "".join(dialogue(text, "0:00:00.00", "0:00:01.00") for text in texts)
+    return drawn(work, (HEAD + events).encode("utf-8"))
 
 
 def main() -> None:
@@ -151,8 +168,8 @@ def main() -> None:
         src, out = work / "in.ass", work / "out.ass"
         print("\n## The demuxer's packets (start cs, duration cs, data); then the muxer's events,")
         print("## by a stream copy and by the ass decoder and encoder (a transcoding)\n")
-        for name, text in SCRIPTS.items():
-            _ = src.write_bytes(text.encode("utf-8"))
+        for name, data in {**{k: v.encode("utf-8") for k, v in SCRIPTS.items()}, **ENCODED}.items():
+            _ = src.write_bytes(data)
             fmt, found = packets(src)
             print(f"{name}: [{fmt}] {found!r}")
             for how, args in (("copy", ("-c", "copy")), ("transcoded", ())):
@@ -172,13 +189,20 @@ def main() -> None:
         print(f"SSA v4 written back, transcoded: {written!r}")
 
         print("\n## libass, through the ass filter: what each event draws (a frame's digest)\n")
-        drawn = {text: frame(work, text) for text in ("ab", "a{x}b", "a\\{x\\}b")}
-        for text, digest in drawn.items():
-            print(f"{text!r}: {digest[:12]}" + (" -- as 'ab'" if digest == drawn["ab"] else ""))
+        digests = {text: frame(work, text) for text in ("ab", "a{x}b", "a\\{x\\}b")}
+        for text, digest in digests.items():
+            print(f"{text!r}: {digest[:12]}" + (" -- as 'ab'" if digest == digests["ab"] else ""))
         alone, up = frame(work, "a"), "{\\an8}up"  # a second event, at the top
         for texts in (("a", up), ("a\0b", up)):
             digest = frame(work, *texts)
             print(f"{texts!r}: {digest[:12]}" + (" -- as 'a' alone" if digest == alone else ""))
+        utf8 = drawn(work, CAFE.encode("utf-8"))
+        for codec in ("utf-16-le", "utf-16-be"):
+            digest = drawn(work, UTF16.encode(codec))
+            shown = digest if digest.startswith("[") else digest[:12]
+            print(
+                f"'café' in {codec} (its BOM): {shown}" + (" -- as UTF-8" if digest == utf8 else "")
+            )
 
 
 if __name__ == "__main__":

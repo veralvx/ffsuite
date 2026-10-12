@@ -36,6 +36,7 @@ Dialogue: 0,0:00:01.00,0:00:02.50,Default,Bob,0,0,0,,{\an8}Hello,\Nworld
 | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
 | Lines end at CR or LF; a UTF-8 BOM is skipped; leading spaces of a line ignored                                                                                                                                                                    | `process_text`, `process_line`               |
 | A NUL ends the script: its line cut there, nothing after it read (measured below: an event after one not drawn)                                                                                                                                    | `process_text`                               |
+| Bytes read as UTF-8 unless a codepage is given (iconv); ffmpeg's `ass` filter gives none, so a UTF-16 script ends at its first NUL byte: no track (measured below)                                                                                 | `read_file_recode`, `vf_subtitles.c`         |
 | Sections, by a case-insensitive prefix: `[Script Info]`, `[V4+ Styles]` (ASS), `[V4 Styles]` (SSA), `[Events]`, `[Fonts]`. Any other header -- `[V4++ Styles]`, `[Aegisub Project Garbage]`, `[Graphics]` -- leaves the previous section in force  | `process_line`                               |
 | The type: the styles section's, else `ScriptType` (`4.00` with a trailing `+` is ASS, without SSA; `v4.00++` neither). No type, no track: the file is refused                                                                                      | `parse_script_type`, `parse_memory`          |
 | `[Script Info]` keys are case-sensitive, `Key:` exactly; a repeated key warns, the last wins                                                                                                                                                       | `process_info_line`                          |
@@ -158,6 +159,7 @@ everything else is the header, written back verbatim.
 | Rule                                                                                                                                                                                                                                                                                     | Source                         |
 | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
 | Detection: `[Script Info]` after any blank lines                                                                                                                                                                                                                                         | `ass_probe`                    |
+| A UTF-16 BOM (LE or BE): the text recoded to UTF-8 as it is read; a unit not UTF-16 -- a lone surrogate, an odd last byte -- read as a NUL                                                                                                                                               | `ff_text_r8` (`subtitles.c`)   |
 | An event: a line `Dialogue: <layer>,%d:%d:%d<any>%d,%d:%d:%d<any>%d,` -- the fraction an integer of **centiseconds**, any width; the packet `ReadOrder,Layer,` and the rest of the line. Every other line -- `Comment:`, a `Dialogue:` it cannot read, every section -- joins the header | `read_dialogue`                |
 | Times in centiseconds (time base 1/100); sorted by start, a negative duration becomes the gap to the next start; duplicates kept                                                                                                                                                         | `ff_subtitles_queue_finalize`  |
 | The decoder and encoder pass each event's text through untouched: the header is the decoder's script, the encoder's too                                                                                                                                                                  | `ass_decode_frame`             |
@@ -183,6 +185,9 @@ everything else is the header, written back verbatim.
 | SSA v4 (`[V4 Styles]`, `Marked=0`)                            | read (`Marked=0` layer 0); written back as SSA, `Marked=0`                                                          |
 | `v4.00++` (`[V4++ Styles]`)                                   | read; written with `Marked=0` under a `Layer` Format line: taken for SSA                                            |
 | a NUL in a text (`fi` NUL `rst`, then `next`)                 | the event cut, `fi`; the rest, `rst`, a header line (written after the events); `next` kept                         |
+| UTF-16, LE or BE (its BOM), `café`                            | read as UTF-8; written UTF-8                                                                                        |
+| UTF-16, a lone surrogate (`fi` U+D800 `rst`, then `next`)     | the surrogate and the unit after it a NUL: the event `fi`, `st` a header line; `next` kept                          |
+| UTF-16, an odd byte (`x`) last                                | the events read; `x` a header line                                                                                  |
 
 The header -- `[Script Info]`, the styles -- is written back as it was read, ffmpeg's comment
 not added. From SubRip, WebVTT or LRC, ffmpeg's default script instead (their records):
@@ -191,7 +196,8 @@ not added. From SubRip, WebVTT or LRC, ffmpeg's default script instead (their re
 *Measured* -- libass through ffmpeg's `ass` filter (the frame's digest; that ffmpeg's libass
 0.17.1, whose `ass_get_next_char` 0.17.4 keeps): `a{x}b` draws as `ab` (`{x}` an override
 block); `a\{x\}b` draws otherwise -- its braces and `x` shown. `a` NUL `b`, an event after it,
-draws as `a` alone: the script ends at the NUL.
+draws as `a` alone: the script ends at the NUL. A UTF-16 script (its BOM, LE or BE) draws
+nothing: "Could not create a libass track", the filter not initialized -- the job fails.
 
 ## Aegisub's writing (3.4.2)
 

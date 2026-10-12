@@ -215,6 +215,18 @@ HOSTILE: Final = {
     "nul.ass": ASS_HEAD
     + "Dialogue: 0,0:00:00.00,0:00:00.20,Default,,0,0,0,,fi\x00rst\n"
     + "Dialogue: 0,0:00:00.20,0:00:00.40,Default,,0,0,0,,second\n",
+    # a UTF-16 ASS (6.8.2): UTF-8 in ffman's copy, as ffmpeg's reader recodes it; one with a
+    # lone surrogate refused by its line. Before: copied as it was -- libass, given no codepage,
+    # made no script of it, the burn failed; ffmpeg cut the surrogate's line
+    "utf-16.ass": (
+        "\ufeff"
+        + ASS_HEAD
+        + "Dialogue: 0,0:00:00.00,0:00:00.20,Default,,0,0,0,,café\n"
+        + "Dialogue: 0,0:00:00.20,0:00:00.40,Default,,0,0,0,,second\n"
+    ).encode("utf-16-le"),
+    "utf-16-bad.ass": (
+        "\ufeff" + ASS_HEAD + "Dialogue: 0,0:00:00.00,0:00:00.40,Default,,0,0,0,,fi\ud800rst\n"
+    ).encode("utf-16-le", "surrogatepass"),
     # each text attached exactly into every container (6.8.2), burned as written. Before: an
     # attached `{text}` hidden, `\N` a break, `<b>` bold, a cue lost to its timing line
     "attached.vtt": _ATTACHED_VTT,

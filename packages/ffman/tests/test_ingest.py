@@ -1,3 +1,4 @@
+import codecs
 import json
 import re
 import time
@@ -6,6 +7,8 @@ from pathlib import Path
 from typing import Final
 
 import pytest
+from hypothesis import given
+from hypothesis import strategies as st
 from subverter.transcript import Chunk, Word
 
 from ffman.errors import REFUSALS
@@ -200,20 +203,71 @@ def test_an_ass_nul_reads_as_u_fffd_noted(tmp_path: Path) -> None:
     ],
 )
 def test_an_ass_nul_is_u_fffd_in_ffmans_copy(data: bytes, n: int, line: int) -> None:
-    found, fffd = passed(data), "\ufffd".encode()
+    found, fffd = passed(data, "a.ass"), "\ufffd".encode()
     assert (b"\0" in found.data, found.data.count(fffd)) == (False, n)
     assert found.data.replace(fffd, b"\0") == data  # the rest as it was
     assert found.notes == (NUL_NOTE.format(n=n, line=line),)
 
 
 def test_an_ass_without_a_nul_is_copied_as_it_is() -> None:
-    assert passed(b"[Script Info]\n") == (b"[Script Info]\n", ())
+    assert passed(b"[Script Info]\n", "a.ass") == (b"[Script Info]\n", ())
 
 
 @pytest.mark.parametrize("codec", ["utf-16-le", "utf-16-be"])
-def test_a_utf_16_ass_is_copied_as_it_is(codec: str) -> None:
-    data = "\ufeff[Script Info]\n".encode(codec)  # its NULs bytes of its characters
-    assert passed(data) == (data, ())
+def test_a_utf_16_ass_is_utf_8_in_ffmans_copy(codec: str) -> None:
+    data = "\ufeff[Script Info]\ncafé\n".encode(codec)  # its BOM: ffmpeg's reader recodes it
+    assert passed(data, "a.ass") == ("[Script Info]\ncafé\n".encode(), ())  # not noted
+
+
+def test_a_utf_16_ass_nul_is_u_fffd_noted() -> None:
+    data = "\ufeffa\r\nb\x00c\x00".encode("utf-16-le")  # a character, its bytes UTF-16's
+    assert passed(data, "a.ass") == (
+        "a\r\nb\ufffdc\ufffd".encode(),
+        (NUL_NOTE.format(n=2, line=2),),
+    )
+
+
+@pytest.mark.parametrize(
+    ("data", "line"),
+    [
+        ("\ufeffa\nfi\ud800rst".encode("utf-16-le", "surrogatepass"), 2),  # a lone surrogate
+        ("\ufeffa\nfi\udc00rst".encode("utf-16-be", "surrogatepass"), 2),
+        ("\ufeffa\r\nb\rfi\ud800".encode("utf-16-le", "surrogatepass"), 3),  # its pair cut off
+        ("\ufeffa\nb".encode("utf-16-le") + b"x", 2),  # an odd byte last
+    ],
+)
+def test_an_ass_not_utf_16_after_its_bom_is_refused_by_its_line(
+    tmp_path: Path, data: bytes, line: int
+) -> None:
+    path = put(tmp_path, "a.ass", data)
+    with pytest.raises(REFUSALS, match=f"^{re.escape(f'not UTF-16: {path} (line {line})')}$"):
+        _ = ingested(path)
+
+
+@given(st.text(), st.sampled_from(["utf-16-le", "utf-16-be"]))
+def test_a_utf_16_ass_is_passed_as_its_utf_8(text: str, codec: str) -> None:
+    """Recoded first: its copy and notes its UTF-8's, a U+0000 and a BOM inside alike."""
+    assert passed(("\ufeff" + text).encode(codec), "a.ass") == passed(text.encode(), "a.ass")
+
+
+@given(st.sampled_from([codecs.BOM_UTF16_LE, codecs.BOM_UTF16_BE]), st.binary())
+def test_any_utf_16_ass_is_passed_or_refused_by_its_line(bom: bytes, rest: bytes) -> None:
+    try:
+        _ = (bom + rest).decode("utf-16")
+    except UnicodeDecodeError:
+        with pytest.raises(REFUSALS, match=r"^not UTF-16: a\.ass \(line [1-9][0-9]*\)$"):
+            _ = passed(bom + rest, "a.ass")
+    else:
+        found = passed(bom + rest, "a.ass").data
+        assert b"\0" not in found
+        _ = found.decode()  # UTF-8 whole, or this raises
+
+
+def test_the_hostile_utf_16_ass_files(tmp_path: Path) -> None:
+    assert ingested(put(tmp_path, "utf-16.ass", HOSTILE["utf-16.ass"])).notes == ()
+    path = put(tmp_path, "utf-16-bad.ass", HOSTILE["utf-16-bad.ass"])
+    with pytest.raises(REFUSALS, match=f"^{re.escape(f'not UTF-16: {path} (line 12)')}$"):
+        _ = ingested(path)
 
 
 def test_a_csv_header_after_a_blank_line_is_its_header(tmp_path: Path) -> None:
