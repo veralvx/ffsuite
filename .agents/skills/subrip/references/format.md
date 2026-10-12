@@ -166,7 +166,9 @@ the next start; braces and backslashes drawn as written). *Measured*:
 | `  lead and trail  `                                        | as written                           | `lead and trail`                                    |
 | `caf` and the byte E9                                       | refused: "not UTF-8: x.srt (line 3)" | the same                                            |
 | CRLF; a UTF-8 BOM                                           | read                                 | the same                                            |
-| CR only; UTF-16LE with a BOM                                | no cue                               | refused: "no timed text found"                      |
+| CR only; CR CR LF                                           | read: CR CR LF one line end          | the same                                            |
+| an LF then a CR, each line                                  | each cue of no text                  | refused: "no timed text found"                      |
+| UTF-16LE with a BOM                                         | no cue                               | refused: "no timed text found"                      |
 
 ## What SubRip holds
 

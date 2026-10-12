@@ -3290,10 +3290,44 @@ tests with 6.8.3's converters.*
       `ffman-from-bash.md`, closed at 6.7.9, had grown a bullet a box since (15, this one's
       among them): restored as closed (the owner's choice), each change its commit's subject
       and its `decisions.md` row.*
-- [ ] Found by the signature box: a WebVTT whose lines end in a CR alone -- a line end to
+- [x] Found by the signature box: a WebVTT whose lines end in a CR alone -- a line end to
       the W3C (Chromium 141 reads its cues); ffmpeg 8.1.2's demuxer and subverter read none
       (`readers._lines` splits at LF). To decide: the standard (CR a line end), or as now;
       SubRip's to measure alike.
+      *Done: a line ends at an LF, a CRLF or a CR alone -- WebVTT's the W3C's, each CRLF, CR
+      and LF one end (the owner's); SubRip's, assessed (the owner's call), `\r*\n|\r`: the
+      CRs before an LF part of its end, as `ff_subtitles_read_line` takes them, so CR CR LF, a
+      CRLF file written again in text mode, reads as written -- of three rules, the one
+      reading every measured form but an LF then a CR as ffmpeg does (VLC's loses a mixed
+      file's cue, the W3C's a CR CR LF cue's later lines); LRC's as SubRip's (the owner's).
+      Each module its `split_lines` (the owner chose a pattern a module; measured, SubRip's
+      pattern `\r*\n|\r` is quadratic on a run of CRs -- 20,000 in 0.17 s -- so its split is
+      at the LFs, then the CRs, held equal to the pattern by a property test; 200,000 CRs read
+      in 0.04 s). Measured: ffmpeg's SubRip
+      demuxer reads CR-only and CR CR LF files, its WebVTT one loses a CR-only file's first cue
+      and reads no cue of a CR CR LF one, its LRC one ends a line at an LF alone, dropping each
+      CR; Chromium reads the W3C's (CR CR LF: cues of no text); VLC 3 an LF, else a CR (by
+      source); CSV and TSV already read each. Known: an LF then a CR is two ends (each cue of
+      no text; ffmpeg reads its texts), and a CR in an LRC line ends it (ffmpeg drops the CR).
+      Tests first: Chromium's and ffmpeg's tables, any mix of a format's ends read as LF (17
+      failing on the old code), the splits' oracles, the bound, LRC's line count; ffman's five
+      hostile cases (`cr.*`, `crcrlf.*`; 5 failing). 10 planted mutations, 8 caught; the two
+      survivors equivalent -- `_AFTER`'s CR, `_lines`' last-line pop -- each dead, removed.
+      Suite 2121, coverage 100%; matrix 770; `compare HEAD` on 3.13 and 3.14: 458 identical, 5
+      changed (the new cases). Spec 3.4; `decisions.md` "Line ends" (and "WebVTT signature":
+      its ffmpeg reading, missed by the last review, corrected); subverter's README; AGENTS.md's
+      count; the mappings record. Reviewed (the owner's request): `split_lines`' claim
+      narrowed -- its lines holding text ffmpeg's, its blank lines kept, which ffmpeg's reader
+      skips (proven on the 88,573 texts of up to 10 CRs, LFs and letters; that reader
+      transcribed, a property test); the `subrip` skill's ffman row, stale (a CR-only file no
+      longer refused), and the `webvtt` and `lrc` records' measured rows; VLC 3's parser traced
+      (a mixed file's first cue skipped); the bound's 18 s measured.*
+- [ ] Found by the line-ends box: a SubRip text line after its cue's blank line -- ffmpeg
+      8.1.2 keeps it in that cue (`srtdec.c` reads no blank line), subverter drops it,
+      silently. To decide: ffmpeg's, or as now, noted.
+- [ ] Found by the line-ends box: a NUL in a SubRip's or WebVTT's text -- the W3C makes it
+      U+FFFD (Chromium 141 shows it); subverter keeps it, into the ASS. What libass and ffmpeg
+      draw, to measure; then to decide.
 - [ ] `webvtt`: the same.
 - [ ] `ass`: the same, SSA (v4) through it.
 - [ ] `lrc`: the same.

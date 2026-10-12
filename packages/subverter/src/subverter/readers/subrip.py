@@ -1,7 +1,8 @@
 """SubRip's grammar, as ffmpeg's srt demuxer reads it (``cues.Dialect``).
 
-Its timing line, a seconds fraction not of three digits a count of ms; a number alone right
-before a timing line the next cue's index; a line holding ``-->`` that is no timing line, text.
+Its line ends (``split_lines``); its timing line, a seconds fraction not of three digits a
+count of ms; a number alone right before a timing line the next cue's index; a line holding
+``-->`` that is no timing line, text.
 """
 
 import re
@@ -13,7 +14,7 @@ from subverter.readers.cues import read as read_cues
 from subverter.readers.fields import DECIMAL, NUMBER, exact, is_decimal, ms
 from subverter.transcript import Reading
 
-__all__ = ["read"]
+__all__ = ["read", "split_lines"]
 
 _PARTS: Final = 3  # a time's most: hours, minutes, seconds
 _MS_DIGITS: Final = 3  # a fraction of seconds, as SubRip writes one: milliseconds
@@ -110,6 +111,19 @@ def _in_seconds(value: int) -> str:
     """``value`` ms as seconds, its trailing zeros off: 1005 is ``1.005``, 6000 ``6``."""
     sign, size = "-" if value < 0 else "", abs(value)
     return f"{sign}{size // 1000}.{size % 1000:03d}".rstrip("0").rstrip(".")
+
+
+def split_lines(text: str) -> list[str]:
+    r"""The text's lines, at ``\r*\n|\r``: a CR or an LF ends one, the CRs before an LF part of it.
+
+    Each line holding text ffmpeg's (``ff_subtitles_read_line``, which takes CR CR LF as one end
+    too): a CRLF file written again in text mode reads as written (VLC 3 alike). Its blank lines
+    differ: ffmpeg skips the CRs and an LF after any end, so reads none (its demuxer needs none);
+    here a blank line ends a cue, each kept -- so an LF then a CR is two ends. In linear time, as
+    that pattern is not: at the LFs, each part's CRs before one off, then at the CRs left.
+    """
+    *ended, last = text.split("\n")
+    return [line for part in ended for line in part.rstrip("\r").split("\r")] + last.split("\r")
 
 
 def read(lines: list[str], name: str) -> Reading:

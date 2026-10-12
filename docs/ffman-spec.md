@@ -189,6 +189,8 @@ camcorder:date=D,time=T`.
   text's path, `not UTF-8: FILE (.transcription[0].tokens[3].text)` (New).
 - A WebVTT transcript opens with its signature, `WEBVTT` alone on its line or before a space
   or a tab (W3C): else `not a WebVTT file: FILE (its first line is not WEBVTT)` (New).
+- A transcript's lines end at an LF, a CRLF or a CR alone: a SubRip's and an LRC's CRs before
+  an LF part of that end, as ffmpeg reads them; a WebVTT's each CR an end (W3C) (New).
 
 ### 3.5 Soft subtitles (A; from `attach`)
 

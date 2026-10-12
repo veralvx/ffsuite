@@ -53,6 +53,7 @@ output is the tables marked *measured*).
 | a first line without a tag; `  [00:01.00]` first       | not LRC: "Invalid data found"                                                                             |
 | a UTF-8 BOM                                            | detected, but the first line lost: the BOM stays in it                                                    |
 | CRLF                                                   | CR removed                                                                                                |
+| CR only                                                | one line: each CR dropped (`first[00:03.00]second`, at the first stamp)                                   |
 | whisper-cli's `[by:whisper.cpp]`, `[60:19.99]`         | `creator` = `whisper.cpp`; 3619.99 s                                                                      |
 
 *Measured* -- the muxer, from SubRip:

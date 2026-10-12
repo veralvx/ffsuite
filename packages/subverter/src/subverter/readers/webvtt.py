@@ -1,4 +1,4 @@
-"""WebVTT, as the W3C reads it: its signature, then its cues (``cues``, by its ``Dialect``).
+"""WebVTT, as the W3C reads it: its line ends, its signature, its cues (``cues``, its ``Dialect``).
 
 A file not opening with its signature is refused, as the W3C's parser processes none (Chromium
 141 alike; VLC 3 refuses each unless forced; ffmpeg's demuxer reads one whose first block opens
@@ -18,11 +18,11 @@ from subverter.readers.cues import read as read_cues
 from subverter.readers.fields import exact, ms
 from subverter.transcript import Reading
 
-__all__ = ["read"]
+__all__ = ["read", "split_lines"]
 
+_LINE_END: Final = re.compile(r"\r\n|\r|\n")
 _SIGNATURE: Final = "WEBVTT"
-# what may follow it on its line: nothing, a space or a tab -- or a CR, a line end to the W3C
-_AFTER: Final = ("", " ", "\t", "\r")
+_AFTER: Final = ("", " ", "\t")  # what may follow it on its line
 
 # "collect a WebVTT timestamp": hours of any ASCII digits and a colon, or none; minutes and
 # seconds of two, each to 59 (``_LAST``); a fraction of three. A first field over 59, or not
@@ -61,6 +61,11 @@ def _notes(found: Found) -> tuple[str, ...]:
     line, text = found.dropped[0]
     why = "a line holding --> that is no WebVTT timing line (W3C)"
     return (f"{len(found.dropped)} cues dropped: {why}, the first {text} on line {line}",)
+
+
+def split_lines(text: str) -> list[str]:
+    """The text's lines, as the W3C ends them: at each CRLF, CR or LF -- CR CR LF two ends."""
+    return _LINE_END.split(text)
 
 
 def read(lines: list[str], name: str) -> Reading:

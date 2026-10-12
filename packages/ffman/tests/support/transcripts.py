@@ -173,6 +173,16 @@ HOSTILE: Final = {
     # a WebVTT without its signature (6.8.2): refused, as the W3C's parser processes no such
     # file (Chromium none). Before: read, as ffmpeg reads it
     "unsigned.vtt": "00:00.000 --> 00:00.400\nno signature\n",
+    # line ends (6.8.2): a CR alone one (the W3C's; ffmpeg's SubRip demuxer and VLC 3 alike);
+    # SubRip's CR CR LF one, as ffmpeg reads it, WebVTT's two, as the W3C -- each cue then of no
+    # text, refused. Before:
+    # a CR alone no line end (the SubRip and WebVTT refused, the LRC one line), a CR CR LF's
+    # first CR kept (the SubRip's next index joined to its cue's text, the WebVTT read)
+    "cr.srt": "1\r00:00:00,000 --> 00:00:00,200\rfirst\rline\r\r2\r00:00:00,200 --> 00:00:00,400\rsecond\r",
+    "crcrlf.srt": "1\r\r\n00:00:00,000 --> 00:00:00,200\r\r\nfirst\r\r\nline\r\r\n\r\r\n2\r\r\n00:00:00,200 --> 00:00:00,400\r\r\nsecond\r\r\n",
+    "cr.vtt": "WEBVTT\r\r00:00.000 --> 00:00.200\rfirst\rline\r\r00:00.200 --> 00:00.400\rsecond\r",
+    "crcrlf.vtt": "WEBVTT\r\r\n\r\r\n00:00.000 --> 00:00.400\r\r\nno text\r\r\n",
+    "cr.lrc": "[00:00.00]first\r[00:00.20]second\r",
     # each text attached exactly into every container (6.8.2), burned as written. Before: an
     # attached `{text}` hidden, `\N` a break, `<b>` bold, a cue lost to its timing line
     "attached.vtt": _ATTACHED_VTT,

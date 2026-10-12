@@ -21,11 +21,11 @@ def read(fmt: str, data: bytes, name: str) -> Reading:
         refuse(f"unsupported subtitle format '.{fmt}' ({', '.join(FORMATS)})")
     match fmt:
         case "srt":
-            return subrip.read(_lines(data), name)
+            return subrip.read(subrip.split_lines(_text(data)), name)
         case "vtt":
-            return webvtt.read(_lines(data), name)
+            return webvtt.read(webvtt.split_lines(_text(data)), name)
         case "lrc":
-            return lrc.read(_lines(data), name)
+            return lrc.read(lrc.split_lines(_text(data)), name)
         case "csv" | "tsv":
             try:
                 rows = table.rows(fmt, _text(data), name)
@@ -43,11 +43,3 @@ def _text(data: bytes) -> str:
     ``-ml`` writes one, and refuse what still is not UTF-8 by its line.
     """
     return data.decode("utf-8", "surrogateescape").removeprefix("\ufeff")
-
-
-def _lines(data: bytes) -> list[str]:
-    """The text's lines, a trailing CR off each (awk sees no record after the last newline)."""
-    lines = [line.removesuffix("\r") for line in _text(data).split("\n")]
-    if lines and lines[-1] == "":
-        _ = lines.pop()
-    return lines

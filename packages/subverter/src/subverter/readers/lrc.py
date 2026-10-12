@@ -4,10 +4,13 @@ import re
 from typing import Final
 
 from subverter.readers.fields import exact, ms
+from subverter.readers.subrip import split_lines
 from subverter.readers.utf8 import by_line
 from subverter.transcript import Cue, Reading
 
-__all__ = ["read"]
+# ``split_lines``, its line ends: no standard's, so SubRip's (ffmpeg's lrcdec ends a line at an
+# LF alone, dropping each CR -- a CR-only file one line)
+__all__ = ["read", "split_lines"]
 
 _TIME: Final = r"\[([0-9]+):([0-9]+(?:[.][0-9]+)?)\]"  # [mm:ss.xx]
 _STAMP: Final = re.compile(_TIME)

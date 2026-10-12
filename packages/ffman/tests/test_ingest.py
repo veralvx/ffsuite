@@ -146,6 +146,26 @@ def test_a_webvtt_without_its_signature_is_refused(tmp_path: Path) -> None:
         _ = ingested(path)
 
 
+@pytest.mark.parametrize(
+    ("name", "texts"),
+    [
+        ("cr.srt", ["first line", "second"]),
+        ("crcrlf.srt", ["first line", "second"]),
+        ("cr.vtt", ["first line", "second"]),
+        ("cr.lrc", ["first", "second"]),
+    ],
+)
+def test_a_transcripts_lines_may_end_in_a_cr(tmp_path: Path, name: str, texts: list[str]) -> None:
+    t = ingested(put(tmp_path, name, HOSTILE[name]))
+    assert [c.text for c in t.chunks] == texts
+
+
+def test_a_webvtts_cr_cr_lf_is_two_line_ends(tmp_path: Path) -> None:
+    path = put(tmp_path, "crcrlf.vtt", HOSTILE["crcrlf.vtt"])  # a cue of no text: none timed
+    with pytest.raises(REFUSALS, match=f"^{re.escape(f'no timed text found in: {path}')}$"):
+        _ = ingested(path)
+
+
 def test_a_csv_header_after_a_blank_line_is_its_header(tmp_path: Path) -> None:
     t = ingested(put(tmp_path, "late-header.csv", HOSTILE["late-header.csv"]))
     assert t.chunks == (Chunk(0, 300, "hello", ""),)

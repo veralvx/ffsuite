@@ -11,9 +11,10 @@ from typing import Final
 
 import pytest
 import subverter
-from hypothesis import given
+from hypothesis import assume, given
 from hypothesis import strategies as st
 from subverter import Cue, Reading, Timing
+from subverter.readers import subrip, webvtt
 
 # --- the dispatcher: a .txt and an unknown format refused, in the words ffman's tests record
 
@@ -112,11 +113,138 @@ def test_an_empty_webvtt_file_is_refused(data: bytes) -> None:
         _ = subverter.read("vtt", data, "a.vtt")
 
 
-@pytest.mark.parametrize("data", [b"WEBVTT", b"WEBVTT\n", b"WEBVTT\r00:01.000 --> 00:02.000\rx\r"])
+@pytest.mark.parametrize("data", [b"WEBVTT", b"WEBVTT\n", b"WEBVTT\r"])
 def test_a_signed_webvtt_file_of_no_cue_is_read_as_none(data: bytes) -> None:
-    # its signature alone; CR line ends -- a line end to the W3C (Chromium reads its cue), not yet
-    # to subverter (the plan's next box): signed, so not refused
     assert subverter.read("vtt", data, "a.vtt").cues == ()
+
+
+# Line ends. WebVTT's the W3C's ("WebVTT parser algorithm": CRLF, CR and LF each one); SubRip's
+# \r*\n|\r, its lines holding text ffmpeg's (ff_subtitles_read_line) -- a CRLF file written
+# again in text mode, CR CR LF, read as written; VLC 3 alike; LRC's SubRip's
+_PLAIN: Final = {
+    "srt": "1\n00:00:01,000 --> 00:00:02,000\nfirst\nline2\n\n2\n00:00:03,000 --> 00:00:04,000\nsecond\n",
+    "vtt": "WEBVTT\n\n00:01.000 --> 00:02.000\nfirst\nline2\n\n00:03.000 --> 00:04.000\nsecond\n",
+    "lrc": "[00:01.00]first\n[00:03.00]second\n",
+}
+_SUBRIPS: Final = ("\n", "\r\n", "\r", "\r\r\n")  # CR CR LF one end
+_ENDS: Final = {"srt": _SUBRIPS, "lrc": _SUBRIPS, "vtt": ("\n", "\r\n", "\r")}
+
+
+@given(st.data())
+@pytest.mark.parametrize("fmt", sorted(_PLAIN))
+def test_any_mix_of_a_formats_line_ends_reads_as_lf(fmt: str, data: st.DataObject) -> None:
+    lines = _PLAIN[fmt].split("\n")[:-1]
+    kinds = st.sampled_from(_ENDS[fmt])
+    ends = data.draw(st.lists(kinds, min_size=len(lines), max_size=len(lines)))
+    # a lone CR before a blank line ended by an LF: one line end with it -- another file
+    _ = assume(
+        not any(
+            a == "\r" and line == "" and b != "\r"
+            for a, line, b in zip(ends, lines[1:], ends[1:], strict=False)
+        )
+    )
+    text = "".join(line + end for line, end in zip(lines, ends, strict=True))
+    plain = subverter.read(fmt, _PLAIN[fmt].encode(), f"a.{fmt}")
+    assert subverter.read(fmt, text.encode(), f"a.{fmt}") == plain
+
+
+_VTT: Final = _PLAIN["vtt"]
+_SRT: Final = _PLAIN["srt"]
+_BOTH: Final = (Cue(1000, 2000, "first line2"), Cue(3000, 4000, "second"))
+_NO_TEXT: Final = (Cue(1000, 2000, ""), Cue(3000, 4000, ""))
+
+
+@pytest.mark.parametrize(
+    ("fmt", "text", "cues"),
+    [
+        # Chromium 141, each: a lone CR a line end, in a line too; CR CR LF and LF CR two ends,
+        # so a blank line after each timing line -- its cue of no text
+        ("vtt", _VTT.replace("\n", "\r"), _BOTH),
+        ("vtt", _VTT.replace("\n", "\r", 3), _BOTH),
+        ("vtt", _VTT.replace("first", "fi\rrst"), (Cue(1000, 2000, "fi rst line2"), _BOTH[1])),
+        ("vtt", _VTT.replace("line2\n\n", "line2\r\r"), _BOTH),
+        ("vtt", _VTT.replace("\n", "\r\r\n"), _NO_TEXT),
+        ("vtt", _VTT.replace("\n", "\n\r"), _NO_TEXT),
+        # ffmpeg 8.1.2, each but the last: a lone CR a line end, in a line too; CR CR LF one;
+        # LF CR two -- ffmpeg reads its texts, as it reads no blank line
+        ("srt", _SRT.replace("\n", "\r"), _BOTH),
+        ("srt", _SRT.replace("\n", "\r", 3), _BOTH),
+        ("srt", _SRT.replace("first", "fi\rrst"), (Cue(1000, 2000, "fi rst line2"), _BOTH[1])),
+        ("srt", _SRT.replace("\n", "\r\r\n"), _BOTH),
+        ("srt", _SRT.replace("line2\n\n", "line2\n\r\n"), _BOTH),
+        ("srt", _SRT.replace("\n", "\n\r"), _NO_TEXT),
+        # ffmpeg's lrcdec ends a line at an LF alone and drops each CR: a CR-only file one line
+        # (`first[00:03.00]second`), `fi\rrst` read `first` -- SubRip's line ends instead
+        (
+            "lrc",
+            "[00:01.00]first\r[00:03.00]second\r",
+            (Cue(1000, 3000, "first"), Cue(3000, 6000, "second")),
+        ),
+        (
+            "lrc",
+            "[00:01.00]first\r\r\n[00:03.00]second\r\r\n",
+            (Cue(1000, 3000, "first"), Cue(3000, 6000, "second")),
+        ),
+        (
+            "lrc",
+            "[00:01.00]fi\rrst\n[00:03.00]second\n",
+            (Cue(1000, 3000, "fi"), Cue(3000, 6000, "second")),
+        ),
+    ],
+)
+def test_each_formats_line_ends_are_read_as_measured(
+    fmt: str, text: str, cues: tuple[Cue, ...]
+) -> None:
+    assert subverter.read(fmt, text.encode(), f"a.{fmt}").cues == cues
+
+
+def test_an_lrcs_cr_cr_lf_is_one_line_end_as_subrips() -> None:
+    # observable in a line's number alone: an LRC reads no blank line
+    data = b"[ti:x]\r\r\n[offset:+500]\r\r\n[00:01.00]one\r\r\n"
+    reading = subverter.read("lrc", data, "a.lrc")
+    assert reading.notes == ("LRC offset on line 2 applied: every line 500 ms sooner",)
+
+
+@given(st.lists(st.sampled_from(("\r", "\n", "a")), max_size=12).map("".join))
+def test_subrips_split_is_its_pattern(text: str) -> None:
+    assert subrip.split_lines(text) == re.split(r"\r*\n|\r", text)
+
+
+def _ffmpeg_lines(text: str) -> list[str]:
+    """ffmpeg 8.1's ff_subtitles_read_line, transcribed: to a CR or an LF, then CRs and an LF."""
+    lines: list[str] = []
+    i = 0
+    while i < len(text):
+        start = i
+        while i < len(text) and text[i] not in "\r\n":
+            i += 1
+        lines.append(text[start:i])
+        i += i < len(text)  # the CR or LF that ended it
+        while text[i : i + 1] == "\r":
+            i += 1
+        i += text[i : i + 1] == "\n"
+    return lines
+
+
+@given(st.lists(st.sampled_from(("\r", "\n", "a")), max_size=12).map("".join))
+def test_subrips_lines_holding_text_are_ffmpegs(text: str) -> None:
+    # its blank lines differ: ffmpeg's reader yields none; here a blank line ends a cue
+    assert [s for s in subrip.split_lines(text) if s] == [s for s in _ffmpeg_lines(text) if s]
+
+
+@given(st.lists(st.sampled_from(("\r", "\n", "a")), max_size=12).map("".join))
+def test_webvtts_line_ends_are_the_w3cs(text: str) -> None:
+    # "WebVTT parser algorithm": each CRLF an LF, then each CR an LF
+    assert webvtt.split_lines(text) == text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+
+
+@pytest.mark.parametrize("fmt", ["srt", "vtt", "lrc"])
+def test_a_run_of_crs_is_read_in_linear_time(fmt: str) -> None:
+    # a run of CRs, no LF after it: ``\r*\n|\r`` scans the run again at each CR (18 s here)
+    data = b"WEBVTT" * (fmt == "vtt") + b"\r" * 200_000
+    began = time.monotonic()
+    assert subverter.read(fmt, data, f"a.{fmt}").cues == ()
+    assert time.monotonic() - began < 1
 
 
 @pytest.mark.parametrize(
