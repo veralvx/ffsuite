@@ -127,59 +127,9 @@ which git-cliff writes at each release from the commits (`packages/ffman/CHANGEL
   differently, each for one of these.
 - **A transcript Python cannot hold is refused, never a crash.** A time past a
   double's range -- a JSON integer, an LRC minute, a SubRip hour -- is no
-  time; JSON nested past 1000 levels is refused as such; a CSV or
+  time; JSON nested past Python's recursion limit is refused as such; a CSV or
   TSV field past `csv`'s 128 KiB is refused, naming the limit (no subtitle's
   text is that long; bash's gawk read it). Each was a Python traceback.
-- **A transcript's texts are UTF-8.** whisper-cli writes its tokens' bytes, and
-  `-ml` splits a segment between tokens, so a character can span two cues: it is
-  joined into the cue it starts in (in whisper JSON, the token too). bash kept
-  the bytes: libass reads a byte not UTF-8 as its Latin-1 character, so such a
-  character burned as wrong ones, a byte each, and a Latin-1 file as Latin-1; ffmpeg
-  dropped such a cue from `--add-subs`' track. What else is not UTF-8 is
-  refused by its line (a JSON's by its path); the port had stopped on a
-  traceback (a JSON: refused whole).
-- **A sentence of no words is reported.** A transcript that times words can give a
-  sentence none -- WhisperX's segment its aligner could not align (`"words": []`),
-  whisper-cli's of special tokens alone, a highlighted run without `<u>` -- shown
-  unhighlighted, as one whose words have no time. Both are counted in "N sentences
-  had no word timings"; bash counted the second alone.
-- **A line holding `-->` is a timing line only with a time either side.** bash's reader
-  opened a cue at any such line, reading each side as awk reads a number: `Note: 1 --> 2` in a
-  cue's text became a cue from 1 s to 2 minutes, `a --> b` one at 0 of no length -- its text
-  lost, and a file of such cues refused. Now that line is SubRip's text, as ffmpeg reads it; in
-  WebVTT it ends the cue and its block is dropped, as the specification and browsers do. An end
-  glued to what follows it (`00:00:02,000X1:5`) read 0; now its time, as ffmpeg reads it.
-- **A fraction not of three digits is milliseconds in SubRip, no time in WebVTT.** bash
-  read `00:00:01,5` as a decimal, 1.5 s; ffmpeg (so mpv) and VLC read its digits as a count
-  of milliseconds, 1.005 s, and now SubRip's are read so, noted. In WebVTT the standard holds:
-  such a time ends the cue and its block is dropped, as browsers do, noted.
-- **A SubRip index with no blank line before it is an index.** bash read `first`, `2`, a
-  timing line as `first 2`; now a number alone right before a timing line is the next cue's
-  index, as ffmpeg (so mpv) reads it, noted. Any other line stays text, and WebVTT's too.
-- **A SubRip's `\N` and `\h` are ASS's escapes.** bash burned them as `/N` and `/h` and wrote
-  them raw into `--add-subs`' SRT; now `\N` is a line break (a space, ffman wrapping, as every
-  break in a cue) and `\h` a no-break space, as ffmpeg, mpv and VLC read them.
-- **Braces and backslashes are drawn as written.** bash burned `\` as `/` and braces as
-  parentheses, so no text could make an override; now ffman writes libass's own escapes for them
-  (a backslash before a word joiner, as ffmpeg does), and a SubRip's `\{` and `\}` are braces.
-- **A SubRip's `{text}` is hidden.** bash kept it as text; once ffmpeg's decoder drops ASS's
-  tags, libass reads any `{...}` left as an override block, ASS's comment form among them, so
-  ffmpeg and mpv hide it -- now ffman too, noted.
-- **WebVTT's timing lines are the W3C's.** bash read each side of a `-->` as a number: `5 --> 7`
-  was 5 to 7 minutes, `00:01.0e1` 10 s, a sign or a one-digit field read. Now a timing line is
-  the W3C's, else its cue is dropped, noted.
-- **An attached track holds its text exactly.** bash wrote each text raw into the SRT ffmpeg
-  converts into the track: a `{text}` was hidden, a typed `\N` a line break, a WebVTT's
-  `&lt;b&gt;` bold, WebM's `<` and `&` misread, a text like a timing line a lost cue; now each
-  text is written for its track's codec.
-- **An override block is removed before breaks become spaces.** bash broke `{\t(...)}`, ASS's
-  animation, by its `\t` first and showed it; now it is dropped whole, as the players drop it.
-- **An LRC's `[offset:]` is applied.** bash read no ID tag; now every time moves by it,
-  in ms, `+` sooner -- the convention -- and a note says so. One not a whole number is
-  ignored, noted.
-- **An LRC line of several stamps is a line each.** bash read its first stamp alone, the
-  rest shown as text (`[00:09.00]chorus`); now each stamp is a line of the text, as the
-  convention's repeated line and ffmpeg read it.
 - **Times are exact, to the millisecond.** A time is read from its decimal
   text -- JSON's numbers included -- never through a float, and rounded half up
   to the whole millisecond, one rule in every format (bash had three: SubRip and
