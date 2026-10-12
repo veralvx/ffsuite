@@ -1,7 +1,8 @@
 """SubRip, measured: what ffmpeg's `srt` demuxer reads of a file, what its `subrip` decoder makes
-of the text (ASS), and what its `subrip` encoder and `srt` muxer write; what ffman reads and
-burns of the same; then the skill checked from its own text -- its example, its time rule and
-its commands, a mismatch failing the run.
+of the text (ASS), and what its `subrip` encoder and `srt` muxer write; what a Matroska, MP4 or
+WebM track stores once an SRT is converted into it; what ffman reads, burns and attaches; then
+the skill checked from its own text -- its example, its time rule and its commands, a mismatch
+failing the run.
 
 Usage: python3 measure.py [FFMPEG [PYTHON]]  (default: ffmpeg on PATH, ffprobe beside it;
 PYTHON an interpreter that imports subverter and ffman, for their readings). Prints what it
@@ -168,6 +169,27 @@ for name, text in json.load(sys.stdin).items():
     print(f"{name}: subverter {cues!r}; ffman burns {chunks!r}")
 """
 
+# the SRT converted into a container's track, as ffman's --add-subs has ffmpeg do it: a cue's
+# text each, a cue `next` after it; what each track stores, the text as written and as ffman
+# writes it for that codec (subs/srt.py)
+MUXED: dict[str, str] = {
+    "brace text": "a {text} b",
+    "typed \\N, \\h": "a \\N b \\h c",
+    "escaped braces": "a \\{text\\} b",
+    "unclosed {\\": "a{\\i1 b c",
+    "a tag, <, &": "<b>x</b> 1 < 2 & &amp;",
+    "a timing line": "00:00:01,000 --> 00:00:02,000",
+}
+TRACKS = {"mka": ("flac", "srt"), "m4a": ("aac", "mov_text"), "webm": ("libopus", "webvtt")}
+WRITTEN_PROBE = """
+import json, sys
+from subverter.transcript import Chunk
+from ffman.subs.srt import srt
+texts, codecs = json.load(sys.stdin)
+cue = lambda t, c: srt((Chunk(0, 1, t, ""),), None, codec=c).split("\\n", 2)[2].rstrip("\\n")
+print(json.dumps({c: [cue(t, c) for t in texts] for c in codecs}))
+"""
+
 # the cases also remuxed: through the demuxer and the muxer alone (-c copy)
 REMUXED = {"coordinates", "hours 100", "negative hour", "end before start",
            "ms four digits (,5000)", "zero duration"}  # fmt: skip
@@ -248,6 +270,63 @@ def packets(path: Path, *, forced: bool) -> tuple[str, list[tuple[int, int, str]
     return data["format"]["format_name"], found
 
 
+def track(work: Path, ext: str, text: str) -> tuple[list[str], list[str]]:
+    """``text`` in a cue, `next` after it, converted into a ``ext`` track: what it stores.
+
+    Each cue as the track holds it, and as ffmpeg's decoder hands it to libass (mpv's reading).
+    """
+    audio, codec = TRACKS[ext]
+    srt, out = work / "mux.srt", work / f"mux.{ext}"
+    cues = f"1\n00:00:01,000 --> 00:00:02,000\n{text}\n\n2\n00:00:05,000 --> 00:00:06,000\nnext\n"
+    _ = srt.write_text(cues, encoding="utf-8")
+    r = run(FFMPEG, "-v", "error", "-y", "-f", "lavfi", "-i", "anullsrc=d=7", "-i", str(srt),
+            "-map", "0:a", "-map", "1:s", "-c:a", audio, "-c:s", codec, str(out))  # fmt: skip
+    if r.returncode:
+        return [f"[failed: {logged(r.stderr)}]"], []
+    lavc = run(FFMPEG, "-v", "error", "-i", str(out), "-map", "0:s", "-c:s", "ass", "-f", "ass",
+               "-")  # fmt: skip
+    if ext == "m4a":  # mov_text: a sample's 16-bit length, its text, its style boxes
+        probe = run(FFPROBE, "-v", "error", "-select_streams", "s", "-show_packets",
+                    "-show_data", "-of", "json", str(out))  # fmt: skip
+        samples = [unhex(p["data"]) for p in json.loads(probe.stdout)["packets"]]
+        texts = [s[2 : 2 + int.from_bytes(s[:2], "big")].decode() for s in samples]
+        return [t for t in texts if t], dialogue(lavc.stdout)
+    fmt = "srt" if ext == "mka" else "webvtt"
+    stored = run(FFMPEG, "-v", "error", "-i", str(out), "-map", "0:s", "-c:s", "copy",
+                 "-f", fmt, "-")  # fmt: skip
+    found = []
+    for block in stored.stdout.split("\n\n"):
+        lines = block.split("\n")
+        timed = [i for i, line in enumerate(lines) if " --> " in line]
+        if timed:  # the first: a timing line (a text holding one comes after it)
+            found.append("\n".join(lines[timed[0] + 1 :]).rstrip("\n"))
+    return found, dialogue(lavc.stdout)
+
+
+def muxed(work: Path) -> None:
+    """Each MUXED text through each track, as written and, with PYTHON, as ffman writes it."""
+    written: dict[str, list[str]] = {}
+    if PYTHON:
+        codecs = [codec for _, codec in TRACKS.values()]
+        given = json.dumps([list(MUXED.values()), codecs])
+        r = subprocess.run([PYTHON, "-c", WRITTEN_PROBE], input=given,
+                           capture_output=True, text=True, check=True)  # fmt: skip
+        written = json.loads(r.stdout)
+
+    def shown_track(ext: str, text: str) -> str:
+        """``text`` through a ``ext`` track, printable."""
+        found, lavc = track(work, ext, text)
+        return f"{found!r}, to libass {lavc!r}"
+
+    for i, (name, text) in enumerate(MUXED.items()):
+        print(f"{name}: {text!r}")
+        for ext, (_audio, codec) in TRACKS.items():
+            print(f"    .{ext} ({codec}): {shown_track(ext, text)}")
+            if written:
+                ffman = written[codec][i]
+                print(f"        ffman writes {ffman!r}: {shown_track(ext, ffman)}")
+
+
 def dialogue(ass: str) -> list[str]:
     """An ASS file's events' text (after the ninth comma of each Dialogue line)."""
     return [line.split(",", 9)[9] for line in ass.splitlines() if line.startswith("Dialogue:")]
@@ -309,6 +388,9 @@ def main() -> None:
         crlf, bom = b"\r\n" in written, written.startswith(b"\xef\xbb\xbf")
         print(f"bytes: line ends {'CRLF' if crlf else 'LF'}, BOM {bom}")
         print("-c:s text (no markup): " + subrip(event("{\\b1}b{\\b0} \\Nx"), codec="text"))
+
+        print("\n## Muxed: a cue's text converted into each container's track\n")
+        muxed(work)
 
         ffman()
 

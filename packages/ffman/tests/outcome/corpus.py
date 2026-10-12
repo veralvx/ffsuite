@@ -759,6 +759,19 @@ def _attach() -> list[Case]:
             "-o",
             "x.mkv",
         ),
+        # each text the track's readers would misread, written for its codec (6.8.2)
+        *(
+            _conv(
+                f"attach/attached-{ext}",
+                "-i",
+                media,
+                "--add-subs",
+                "hostile/attached.vtt",
+                "-o",
+                f"x.{ext}",
+            )
+            for ext, media in (("mkv", "v.mp4"), ("mp4", "v.mp4"), ("webm", "v9.webm"))
+        ),
         # whisper-cli -ml 1's characters split between cues, joined into SubRip (6.8.1)
         _conv("attach/split", "-i", "v.mp4", "--add-subs", "hostile/split.srt", "-o", "x.mkv"),
         _conv("attach/onto-track", "-i", "tracks.mkv", "--add-subs", "wx.srt"),

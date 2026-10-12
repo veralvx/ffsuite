@@ -101,10 +101,13 @@ in `<u>`. All write `HH:MM:SS,mmm`, no BOM, in text mode -- LF, but CRLF on Wind
    ```
 
 5. Text of at least one line, and no line of it empty or of spaces (readers end the cue there or
-   join the next), last starting with a number (ffmpeg may take it for an index), or with spaces
-   at either end (ffmpeg removes them). A `<` only to open a tag: SubRip cannot escape it --
-   write `＜` (U+FF1C) or reword; never `&lt;`, shown as written. No `{\` but a leading `{\anN}`,
-   no `\N`, `\n` or `\h` meant as text.
+   join the next), last starting with a number (ffmpeg may take it for an index), or with spaces at
+   either end (ffmpeg removes them). A `<` only to open a tag: SubRip has no escape -- a word
+   joiner (U+2060) after it keeps it text, or write `＜` (U+FF1C) or reword; never `&lt;`, shown as
+   written. No `{\` but a leading `{\anN}`. A `\` meant as text before a word joiner (libass reads
+   `\N` `\n` `\h` `\{` `\}`, VLC `\n` and `\h` in either case); a `{` with a `}` after it as `\{`
+   and a joiner (libass's escape; VLC shows the backslash); a line that reads as a timing line led
+   by one (ffmpeg starts a cue there).
 6. Markup only `<b> <i> <u> <s>`, `<font color="#rrggbb">`, each closed, nested not crossed, and
    `{\anN}` first in the text. A WebVTT tag (`<v Bob>`, `<c.yellow>`) is not SubRip's.
 
@@ -127,9 +130,13 @@ ffmpeg -i video.mkv -i in.srt -map 0 -map 1 -c copy out.mkv     # SubRip kept as
 ffmpeg -i video.mp4 -vf subtitles=in.srt -c:a copy out-burn.mp4  # burned: libass draws its ASS
 ```
 
-MP4 and MOV hold text subtitles as `mov_text`, WebM as `webvtt`, MKV as SubRip itself. ffman
-attaches with `--add-subs` -- `subs/srt.py` writes each cue's index, `HH:MM:SS,mmm` times and
-one line of text cleaned of its tags, LF -- and burns with `--burn-subs` from its own ASS.
+MP4 and MOV hold text subtitles as `mov_text`, WebM as `webvtt`, MKV as SubRip itself. Converting
+decodes the SRT into ASS and encodes that text raw but for `\N`, `\n` and `{\...}`: a typed `\N`
+becomes a break, an unclosed `{\` cuts the cue (in SubRip and WebVTT its style runs on), WebVTT's
+`&` and `<` go unescaped (references/format.md, "Muxed"). ffman attaches with `--add-subs` --
+`subs/srt.py` writes each cue's index, `HH:MM:SS,mmm` times and one line of text cleaned of its
+tags, LF, the text written for the track's codec so it holds it exactly -- and burns with
+`--burn-subs` from its own ASS.
 
 ## Example
 
@@ -156,10 +163,10 @@ as written, its lines joined by a space (`<i>Previously:</i> the road north, at 
 ## Sources
 
 FFmpeg n8.1.2 (`libavformat/srtdec.c`, `srtenc.c`, `subtitles.c`; `libavcodec/srtdec.c`,
-`srtenc.c`, `htmlsubtitles.c`, `ass_split.c`); VLC 3.0.24 (`modules/demux/subtitle.c`,
-`modules/codec/subsdec.c`, `src/input/stream.c`); mpv 0.41.0 (`demux/demux.c`,
-`demux/demux_lavf.c`, `misc/charset_conv.c`, `sub/lavc_conv.c`, `sub/sd_ass.c`); libass
-0.17.1 (`ass_parse.c`); whisper.cpp's, OpenAI whisper's and WhisperX's writers (the
+`srtenc.c`, `htmlsubtitles.c`, `ass_split.c`, `movtextdec.c`, `webvttenc.c`); VLC 3.0.24
+(`modules/demux/subtitle.c`, `modules/codec/subsdec.c`, `src/input/stream.c`); mpv 0.41.0
+(`demux/demux.c`, `demux/demux_lavf.c`, `misc/charset_conv.c`, `sub/lavc_conv.c`, `sub/sd_ass.c`);
+libass 0.17.1 (`ass_parse.c`); whisper.cpp's, OpenAI whisper's and WhisperX's writers (the
 `whisper-transcripts` skill); ffman's `subverter/readers/subrip.py`, `subs/normalize.py`,
 `subs/markup.py`, `subs/ass.py` and `subs/srt.py`.
 Measurements: `scripts/measure.py`.

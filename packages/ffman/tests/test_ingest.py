@@ -424,14 +424,14 @@ BACKSLASHED: Final = {  # one text with a backslash, in every format a transcrip
 
 @pytest.mark.parametrize("name", list(BACKSLASHED))
 def test_a_backslash_is_one_in_every_format(tmp_path: Path, name: str) -> None:
-    """Read once, burned as one, before a word joiner (no escape from the text), attached as itself."""
+    """Read once; burned and attached as one, before a word joiner (no escape from the text)."""
     t = ingested(put(tmp_path, name, BACKSLASHED[name]))
     assert [c.text for c in t.chunks] == ["a\\b"]
     assert all(w.text == "a\\b" for w in t.words)
     burned = script(t, 1920, 1080, Style())[0]
     assert "a\\\u2060b" in burned
     assert "a\\\\" not in burned
-    assert "\na\\b\n" in srt(t.chunks, None)
+    assert "\na\\\u2060b\n" in srt(t.chunks, None, codec="srt")
 
 
 REFERENCED: Final = (
@@ -547,9 +547,10 @@ def test_a_time_is_its_decimal_rounded_half_up_to_the_ms(
 
 def test_the_srt_clip_is_the_duration_floored_to_the_ms() -> None:
     """No cue outlasts the media: 1.005 s is 1005 ms (bash truncated a float: 1004)."""
-    assert "00:00:00,000 --> 00:00:01,005" in srt((Chunk(0, 2000, "a", ""),), Fraction("1.005"))
-    assert srt((Chunk(1005, 1500, "at the end", ""),), Fraction("1.005")) == ""
-    assert "00:00:00,000 --> 00:00:02,000" in srt((Chunk(0, 2000, "a", ""),), None)
+    a, end = (Chunk(0, 2000, "a", ""),), (Chunk(1005, 1500, "at the end", ""),)
+    assert "00:00:00,000 --> 00:00:01,005" in srt(a, Fraction("1.005"), codec="srt")
+    assert srt(end, Fraction("1.005"), codec="srt") == ""
+    assert "00:00:00,000 --> 00:00:02,000" in srt(a, None, codec="srt")
 
 
 BOUNDLESS: Final = {  # a number no reader may expand: an exponent, or digits past int's 4300

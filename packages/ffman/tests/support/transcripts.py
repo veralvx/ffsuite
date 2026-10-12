@@ -12,6 +12,25 @@ def encoded(text: str | bytes) -> bytes:
     return text if isinstance(text, bytes) else text.encode()
 
 
+# what a track's readers take as markup or structure -- SubRip's, mov_text's converter's,
+# WebVTT's -- each a text: the chunk's text, and the WebVTT holding it, a reference decoded
+# once the overrides are off (6.8.2: the attached track holds the text exactly)
+ATTACHED: Final = {
+    "a {text} b": "a {text} b",
+    "{\\an8}x": "&#123;\\an8}x",
+    "a{\\b c": "a&#123;\\b c",
+    "{y:i}x": "{y:i}x",
+    "a \\N b \\h c\\x": "a \\N b \\h c\\x",
+    "<b>x</b> 1 < 2": "&lt;b&gt;x&lt;/b&gt; 1 &lt; 2",
+    "& &amp;": "&amp; &amp;amp;",
+    "00:00:01,000 --> 00:00:02,000": "00:00:01,000 --&gt; 00:00:02,000",
+    "2024": "2024",
+}
+_ATTACHED_VTT: Final = "WEBVTT\n\n" + "".join(
+    f"00:00.{40 * i:03d} --> 00:00.{40 * i + 40:03d}\n{vtt}\n\n"
+    for i, vtt in enumerate(ATTACHED.values())
+)  # each in the corpus's 0.4 s
+
 HOSTILE: Final = {
     # a line too long for one line, in scripts without spaces: Japanese by kinsoku, Thai by
     # its syllables (6.5): never a line opening on 、 or 。, never after เ -- each a text the
@@ -144,4 +163,7 @@ HOSTILE: Final = {
     # word joiner; a SubRip's own \{ \} its braces, its {d} a block, hidden as libass hides it,
     # noted. Before: burned `a/(b/) c/x (d)`
     "braces.srt": "1\n00:00:00,000 --> 00:00:00,400\na\\{b\\} c\\x {d}\n",
+    # each text attached exactly into every container (6.8.2), burned as written. Before: an
+    # attached `{text}` hidden, `\N` a break, `<b>` bold, a cue lost to its timing line
+    "attached.vtt": _ATTACHED_VTT,
 }

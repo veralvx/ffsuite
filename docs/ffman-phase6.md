@@ -3194,10 +3194,41 @@ tests with 6.8.3's converters.*
       ffman's). AGENTS.md's layout names `unescaped`. Suite 2004, coverage 100%; matrix 770;
       `compare HEAD~1` on 3.13 and 3.14: 451 identical, 1 changed -- `braces.srt`'s `{d}`
       hidden, noted.*
-- [ ] Found by the drawing box: `--add-subs` writes each chunk's text into the SRT as it is,
+- [x] Found by the drawing box: `--add-subs` writes each chunk's text into the SRT as it is,
       where SubRip has no escape: a `{text}` from any source hidden by ffmpeg and mpv, a
       WebVTT's or a JSON's literal `\N` a break. To decide: a look-alike character, dropped,
-      or as now.
+      or as now. *Done -- the box widened to: the attached track holds the text exactly. The
+      owner's: exact per container, of four; the faults research found, here; `srt()` takes
+      the codec; silent. Research: ffmpeg converts ffman's SRT into every track -- its subrip
+      decoder into ASS, then the track's encoder (`srt` in Matroska too, `mov_text`,
+      `webvtt`), which writes that text raw but for `\N`, `\n` and `{\...}` (`ass_split.c`,
+      n8.1.2). Measured through ffman's attach: a `{text}` hidden by mpv in MKV and MP4, a typed
+      `\N` a break, a WebVTT's `&lt;b&gt;` bold, WebM's `1 < 2` cut and `&amp;` read `&`
+      (ffmpeg's webvtt encoder escapes nothing), an unclosed `{\` cutting its cue and its
+      italic running into the next, a timing-line text a lost cue. `subs/srt.py` writes each
+      text for its codec: a word joiner after each `\`, `{` and `<`; in Matroska a `{` with a
+      `}` after it `\{` and a joiner (libass's escape); in WebM `&amp;` `&lt;` `&gt;`; a joiner
+      first where `-->` stands. Proved: 2,700 random hostile texts through the real ffmpeg,
+      none differ (Matroska drawn through lavc and libass, MP4's samples, WebM's cues as the
+      W3C reads them); Chromium 141 renders WebM's hostile cues pixel for pixel as without the
+      joiners; VLC 3 by source (`subsdec.c`). Left: ffmpeg's `mov_text` decoder hands its text
+      to libass unescaped, so mpv still hides an MP4's `{text}` (the stored text is exact).
+      Tests first: `test_srt.py`'s 14 cases (13 failing on the old writing, a plain text the
+      control), a Matroska round-trip property through subverter's reader and `unescaped`, an
+      attach into .mka, .m4a and .webm read back from each track (failing); 14 planted mutations, each caught. The
+      corpus: `hostile/attached.vtt`, burned and attached into each container (456 cases).
+      Suite 2023, coverage 100%; matrix 770; `compare HEAD` on 3.13 and 3.14: 452 identical, 4
+      changed -- `attach/references`' `<b>` joined, the three attached cases. `decisions.md`
+      "Attached text" ("WebVTT references" corrected); from-bash; the `subrip` skill's writing
+      rule, its muxing paragraph, and a "Muxed" section measured by `measure.py`, what mpv's
+      libass receives with it. Reviewed: a table's name (`_JOINS`), the docstring's `\n`, the
+      skill's VLC escapes (either case), its sources, mpv's MP4 reading measured. Reviewed
+      again (the owner's request): the 13 failing cases proved against the old writing; the
+      style's run into the next cue stated for SubRip and WebVTT alone (MP4 cuts only); a
+      property for WebM's text, read as the W3C reads a cue -- its oracle made faithful when two
+      planted mutants survived `untagged` (a `<` with no `>`, a `-->`), each WebVTT escape then
+      caught; `measure.py` reading a track's stored text and libass's in one function;
+      `ATTACHED`'s comment. Suite 2024.*
 - [ ] Found by the short-fraction box: WebVTT's timestamps wholly the W3C's ("collect a
       WebVTT timestamp"), where subverter still takes bash's lenient forms -- a bare
       number as minutes (`5 --> 7`), a sign, minutes or seconds not of two digits or past

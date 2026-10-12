@@ -117,6 +117,29 @@ The decoder's script: `PlayResX: 384`, `PlayResY: 288`, `ScaledBorderAndShadow: 
 Times from ASS centiseconds: `0:00:01.23` -> `00:00:01,230`. Overlapping events stay
 overlapping cues. The `text` encoder (`-c:s text`) writes the text without markup.
 
+## Muxed: an SRT converted into a container's track
+
+ffmpeg converts an SRT into a track through its `subrip` decoder, into ASS, and the track's
+encoder -- `srt` (Matroska), `mov_text` (MP4), `webvtt` (WebM) -- which writes that ASS text raw
+but for `\N`, `\n` (a line break) and `{\...}` (`ass_split.c`): none unescapes `\{`, the
+`webvtt` encoder escapes no `&` or `<`. mpv reads MP4's track through ffmpeg's `mov_text` decoder,
+which hands its text to libass unescaped: a stored `{text}` is hidden there too. *Measured* (the
+script's `to libass` lines, mpv's reading), a cue's text, a cue `next` after it:
+
+| Cue text                        | Matroska (`srt`)                                               | MP4 (`mov_text`)        | WebM (`webvtt`)                                                |
+| ------------------------------- | -------------------------------------------------------------- | ----------------------- | -------------------------------------------------------------- |
+| `a {text} b`                    | as written: libass hides `{text}`                              | as written              | as written                                                     |
+| `a \N b \h c`                   | `\N` a line break, `\h` as written                             | the same                | the same                                                       |
+| `a \{text\} b`                  | as written: libass reads braces                                | as written              | as written                                                     |
+| `a{\i1 b c` (no `}`)            | `a<i>`, then `next</i>`: the rest lost, the italic into `next` | `a`                     | `a<i>`, then `next</i>`                                        |
+| `<b>x</b> 1 < 2 & &amp;`        | as written: a tag                                              | `x 1 < 2 & &amp;`, bold | as written: a tag; the W3C cuts `< 2` and reads `&amp;` as `&` |
+| `00:00:01,000 --> 00:00:02,000` | lost: read as a timing line, its cue empty                     | the same                | the same                                                       |
+
+ffman writes each text for its track (`subs/srt.py`), each stored exactly (the script's
+`ffman writes` lines): a word joiner (U+2060, zero width) after each `\`, `{` and `<`; for
+Matroska, a `{` with a `}` after it as `\{` and a joiner, as libass reads it; for WebM, `&amp;`
+`&lt;` `&gt;`; a text holding `-->` led by a joiner.
+
 ## ffman's reading
 
 subverter's cues, and the chunks ffman's burn draws (its `ingest`: sorted, cleaned, each cut at
