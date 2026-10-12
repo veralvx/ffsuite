@@ -26,7 +26,9 @@ from ffman.options import CONVERT, parse
 from ffman.subs.ass import FONT_FILES, Style
 from ffman.subs.layout import CROPDETECT
 from tests.support.fonts import font
+from tests.support.measures import frames
 from tests.support.media import tool
+from tests.support.transcripts import HOSTILE, encoded
 
 pytestmark = pytest.mark.ffmpeg
 
@@ -439,6 +441,48 @@ def test_a_track_is_added(
     printed = capsys.readouterr().out
     assert " ".join(copied) in printed
     assert "-map 1:s:0" in printed
+
+
+@pytest.fixture
+def nul_ass(tmp_path: Path, ffmpeg: str) -> tuple[Path, Path]:
+    """0.4 s of black, 320x180 at 25 fps; an ASS holding a NUL, its events 0.2 s each."""
+    black = tmp_path / "black.mp4"
+    make(ffmpeg, "-f", "lavfi", "-i", "color=black:s=320x180:r=25:d=0.4", str(black))
+    own = tmp_path / "nul.ass"
+    _ = own.write_bytes(encoded(HOSTILE["nul.ass"]))
+    return black, own
+
+
+_ASS_NUL_NOTE: Final = "ffman: 1 NULs read as U+FFFD, as the W3C reads them: the first in line 12"
+
+
+def test_an_ass_nul_is_burned_as_u_fffd_every_event_drawn(
+    nul_ass: tuple[Path, Path], ffmpeg: str, ffprobe: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    black, own = nul_ass
+    out = black.with_name("b.mp4")
+    assert main(["convert", "-i", str(black), "--burn-subs", str(own), "-o", str(out)]) == 0
+    assert _ASS_NUL_NOTE in capsys.readouterr().err
+    seen = frames(ffmpeg, ffprobe, str(out))
+    lit = [sum(p > 128 for p in frame) for frame in seen.pixels]  # text on black
+    assert len(lit) == 10  # 0.4 s at 25 fps
+    assert all(lit), lit  # libass read on: kept, the NUL ended its script -- the second none
+
+
+def test_an_ass_nul_is_attached_as_u_fffd(
+    nul_ass: tuple[Path, Path], ffmpeg: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    black, own = nul_ass
+    out = black.with_name("a.mkv")
+    assert main(["convert", "-i", str(black), "--add-subs", str(own), "-o", str(out)]) == 0
+    assert _ASS_NUL_NOTE in capsys.readouterr().err
+    track = tool(
+        ffmpeg, "-v", "error", "-i", str(out), "-map", "0:s:0", "-c", "copy", "-f", "ass", "-"
+    )
+    texts = [
+        line.rsplit(",,", 1)[-1] for line in track.splitlines() if line.startswith("Dialogue:")
+    ]
+    assert texts == ["fi\ufffdrst", "second"]  # kept, ffmpeg's reader cut its line there: fi
 
 
 def test_a_tracks_notes_are_passed_on(clip: Path, capsys: pytest.CaptureFixture[str]) -> None:

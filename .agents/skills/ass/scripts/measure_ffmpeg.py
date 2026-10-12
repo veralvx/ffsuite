@@ -1,6 +1,7 @@
 """ASS and SSA through ffmpeg, measured: what its `ass` demuxer reads of a script, and what its
 `ass` muxer writes back -- by a stream copy, and through the `ass` decoder and encoder; and
-whether libass (through ffmpeg's `ass` filter) draws `\\{` and `\\}` as braces.
+whether libass (through ffmpeg's `ass` filter) draws `\\{` and `\\}` as braces, and what of a
+script after a NUL.
 
 Usage: python3 measure_ffmpeg.py [FFMPEG]  (default: ffmpeg on PATH; ffprobe beside it). Prints
 what it found; references/format.md's "ffmpeg" tables are this output, at ffmpeg n8.1.2.
@@ -76,6 +77,7 @@ SCRIPTS: dict[str, str] = {
     "SSA v4": SSA,
     "v4.00++": HEAD.replace("v4.00+", "v4.00++").replace("[V4+ Styles]", "[V4++ Styles]")
     + dialogue("plus plus"),
+    "a NUL in a text": HEAD + dialogue("fi\0rst") + dialogue("next", "0:00:03.00", "0:00:04.00"),
 }
 
 
@@ -129,10 +131,11 @@ def packets(path: Path) -> tuple[str, list[tuple[int, int, str]]]:
     return data["format"]["format_name"], found
 
 
-def frame(work: Path, text: str) -> str:
-    """The digest of the frame libass draws for one event of ``text`` (320x180, grey)."""
+def frame(work: Path, *texts: str) -> str:
+    """The digest of the frame libass draws for an event of each text at once (320x180, grey)."""
     script = work / "drawn.ass"
-    _ = script.write_text(HEAD + dialogue(text, "0:00:00.00", "0:00:01.00"), encoding="utf-8")
+    events = "".join(dialogue(text, "0:00:00.00", "0:00:01.00") for text in texts)
+    _ = script.write_text(HEAD + events, encoding="utf-8")
     drawn = subprocess.run(
         [FFMPEG, "-v", "error", "-f", "lavfi", "-i", "color=c=black:s=320x180:d=1", "-vf",
          f"ass={script}", "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "gray", "-"],
@@ -172,6 +175,10 @@ def main() -> None:
         drawn = {text: frame(work, text) for text in ("ab", "a{x}b", "a\\{x\\}b")}
         for text, digest in drawn.items():
             print(f"{text!r}: {digest[:12]}" + (" -- as 'ab'" if digest == drawn["ab"] else ""))
+        alone, up = frame(work, "a"), "{\\an8}up"  # a second event, at the top
+        for texts in (("a", up), ("a\0b", up)):
+            digest = frame(work, *texts)
+            print(f"{texts!r}: {digest[:12]}" + (" -- as 'a' alone" if digest == alone else ""))
 
 
 if __name__ == "__main__":

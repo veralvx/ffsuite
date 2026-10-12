@@ -6,6 +6,21 @@ box. tests/test_ingest.py checks what must hold of any transcript, on each.
 
 from typing import Final
 
+# an ASS's script and its style, its events to follow: the corpus's t.ass
+ASS_HEAD: Final = """[Script Info]
+ScriptType: v4.00+
+PlayResX: 1920
+PlayResY: 1080
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, OutlineColour, BackColour, Bold, Italic, \
+BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV
+Style: Default,IBM Plex Sans,57,&H00FFFFFF,&H00000000,&H00000000,0,0,1,2,0,2,40,40,54
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+"""
+
 
 def encoded(text: str | bytes) -> bytes:
     """A transcript's bytes: a ``str`` as UTF-8, ``bytes`` as they are."""
@@ -195,6 +210,11 @@ HOSTILE: Final = {
     # a NUL in a text (6.8.2): U+FFFD, as the W3C reads one, noted. Before: written into the
     # ASS, where libass ended the script -- `fi` drawn, every later cue lost (measured)
     "nul.srt": "1\n00:00:00,000 --> 00:00:00,200\nfi\x00rst\n\n2\n00:00:00,200 --> 00:00:00,400\nsecond\n",
+    # a NUL in an ASS (6.8.2): U+FFFD in ffman's copy, burned and attached, noted. Before:
+    # burned as it was, libass ended the script there -- `fi` drawn, `second` lost (measured)
+    "nul.ass": ASS_HEAD
+    + "Dialogue: 0,0:00:00.00,0:00:00.20,Default,,0,0,0,,fi\x00rst\n"
+    + "Dialogue: 0,0:00:00.20,0:00:00.40,Default,,0,0,0,,second\n",
     # each text attached exactly into every container (6.8.2), burned as written. Before: an
     # attached `{text}` hidden, `\N` a break, `<b>` bold, a cue lost to its timing line
     "attached.vtt": _ATTACHED_VTT,

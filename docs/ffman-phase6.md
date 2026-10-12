@@ -3380,9 +3380,30 @@ tests with 6.8.3's converters.*
       cue lost, not cut); `Joined` kept a place a NUL -- 10 million NULs, 162 MiB and 1.9 s
       -- now `Nuls`, a count and the first place (29 MiB, 0.04 s); 13 mutations again,
       each caught.*
-- [ ] Found by the NUL box: an ASS transcript holding a NUL -- burned as it is (copied), libass
+- [x] Found by the NUL box: an ASS transcript holding a NUL -- burned as it is (copied), libass
       ends its script there, every later event lost (measured). To decide: U+FFFD, as the
       others' texts, noted; or as now.
+      *Done: U+FFFD, noted, as the others' (the owner's): "1 NULs read as U+FFFD, as the W3C
+      reads them: the first in line 12", an editor's line. ffman's copy for every ASS and SSA,
+      burned or attached (the owner's: `--add-subs` gave ffmpeg the user's file, whose reader
+      cuts the event's line at a NUL, its rest a header line -- measured); a UTF-16 one (its
+      BOM) copied as it is. `ingest.passed` gives the copy's bytes and notes; the burn and the
+      attach each write it (`test_architecture`: `subs` touches no file). Tests first:
+      `passed`'s cases, the ingest note, burned and attached end to end (9 failing on the old
+      code: the second event drawn in every frame, before 0 pixels; `fi\ufffdrst` attached,
+      before `fi`). 10 planted mutations, each caught. Suite 2164, coverage 100%; matrix 770;
+      `compare HEAD` on 3.13 and 3.14: 465 identical, 3 changed (`burn/hostile/nul.ass` and
+      `attach/nul-ass` new; `attach/t.ass` given ffman's copy). `decisions.md` "ASS NUL";
+      spec 3.4; AGENTS.md's count; the `ass` record (libass's `process_text`, ffmpeg's
+      reading, `measure_ffmpeg.py`'s cases) and the mappings record.*
+- [ ] Found by the ASS NUL box: a UTF-16 ASS (its BOM) cannot be burned -- ffmpeg's `ass`
+      filter gives libass no codepage, whose script ends at the first NUL: "Could not create
+      a libass track", the job failed; attached, ffmpeg's reader decodes it -- a U+0000 in it
+      kept, its line cut, unnoted (measured). To decide: recoded to UTF-8 in ffman's copy,
+      its NULs then U+FFFD; refused, named; or as now.
+- [ ] Found by the ASS NUL box: a CP1252 ASS attached loses each event not UTF-8 -- ffmpeg's
+      ASS decoder drops it ("Invalid data found"); burned, libass draws it (measured). To
+      decide: refused by its line, as the other formats' bytes; recoded; or as now.
 - [ ] `webvtt`: the same.
 - [ ] `ass`: the same, SSA (v4) through it.
 - [ ] `lrc`: the same.

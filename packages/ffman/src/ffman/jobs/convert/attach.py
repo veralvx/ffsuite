@@ -9,7 +9,7 @@ from ffman.media.run import Runner, note
 from ffman.plan.encode import container_flags
 from ffman.plan.request import ConvertOptions
 from ffman.plan.streams import attach_streams, attachments, kept_metadata, subtitle_codec
-from ffman.subs.ingest import ingest
+from ffman.subs.ingest import ingest, passed
 from ffman.subs.srt import srt
 
 
@@ -20,7 +20,8 @@ def run(o: ConvertOptions, runner: Runner) -> None:
     target = resolve_output(o.input, o.output, in_place=o.in_place, overwrite=o.overwrite)
     out_ext = ext_of(str(target))
     _ = subtitle_codec(out_ext, "srt")  # the container takes text subtitles: before reading them
-    transcript = ingest(subs, read_file(subs))
+    data = read_file(subs)
+    transcript = ingest(subs, data)
     for line in transcript.notes:
         note(line)
     tags = tagging.metadata_file(
@@ -28,7 +29,8 @@ def run(o: ConvertOptions, runner: Runner) -> None:
     )  # after the flow's refusals, before any pass (F6)
     codec = subtitle_codec(out_ext, transcript.fmt)  # an ASS stays styled where it can (Matroska)
     if transcript.fmt in ("ass", "ssa"):
-        track = subs
+        track = str(runner.workdir / f"subs.{transcript.fmt}")
+        _ = Path(track).write_bytes(passed(data).data)  # each NUL U+FFFD: ffmpeg cut its line
     else:
         track = str(runner.workdir / "subs.srt")
         # each text for the track's codec; UTF-8: ffmpeg drops a cue that is not (decode.c)

@@ -35,6 +35,7 @@ Dialogue: 0,0:00:01.00,0:00:02.50,Default,Bob,0,0,0,,{\an8}Hello,\Nworld
 | Rule (libass)                                                                                                                                                                                                                                      | Source                                       |
 | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
 | Lines end at CR or LF; a UTF-8 BOM is skipped; leading spaces of a line ignored                                                                                                                                                                    | `process_text`, `process_line`               |
+| A NUL ends the script: its line cut there, nothing after it read (measured below: an event after one not drawn)                                                                                                                                    | `process_text`                               |
 | Sections, by a case-insensitive prefix: `[Script Info]`, `[V4+ Styles]` (ASS), `[V4 Styles]` (SSA), `[Events]`, `[Fonts]`. Any other header -- `[V4++ Styles]`, `[Aegisub Project Garbage]`, `[Graphics]` -- leaves the previous section in force  | `process_line`                               |
 | The type: the styles section's, else `ScriptType` (`4.00` with a trailing `+` is ASS, without SSA; `v4.00++` neither). No type, no track: the file is refused                                                                                      | `parse_script_type`, `parse_memory`          |
 | `[Script Info]` keys are case-sensitive, `Key:` exactly; a repeated key warns, the last wins                                                                                                                                                       | `process_info_line`                          |
@@ -181,6 +182,7 @@ everything else is the header, written back verbatim.
 | CRLF; a UTF-8 BOM; blank lines first                          | read alike; written LF                                                                                              |
 | SSA v4 (`[V4 Styles]`, `Marked=0`)                            | read (`Marked=0` layer 0); written back as SSA, `Marked=0`                                                          |
 | `v4.00++` (`[V4++ Styles]`)                                   | read; written with `Marked=0` under a `Layer` Format line: taken for SSA                                            |
+| a NUL in a text (`fi` NUL `rst`, then `next`)                 | the event cut, `fi`; the rest, `rst`, a header line (written after the events); `next` kept                         |
 
 The header -- `[Script Info]`, the styles -- is written back as it was read, ffmpeg's comment
 not added. From SubRip, WebVTT or LRC, ffmpeg's default script instead (their records):
@@ -188,7 +190,8 @@ not added. From SubRip, WebVTT or LRC, ffmpeg's default script instead (their re
 
 *Measured* -- libass through ffmpeg's `ass` filter (the frame's digest; that ffmpeg's libass
 0.17.1, whose `ass_get_next_char` 0.17.4 keeps): `a{x}b` draws as `ab` (`{x}` an override
-block); `a\{x\}b` draws otherwise -- its braces and `x` shown.
+block); `a\{x\}b` draws otherwise -- its braces and `x` shown. `a` NUL `b`, an event after it,
+draws as `a` alone: the script ends at the NUL.
 
 ## Aegisub's writing (3.4.2)
 

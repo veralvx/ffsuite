@@ -15,7 +15,7 @@ from importlib import resources
 from pathlib import Path
 from typing import Final
 
-from tests.support.transcripts import HOSTILE, encoded
+from tests.support.transcripts import ASS_HEAD, HOSTILE, encoded
 
 EVERYTHING: Final = "all.mkv"  # every kind of stream (6.6.5, proven): built last, by hand
 FIXTURES: Final = Path(__file__).resolve().parent.parent / "fixtures" / "transcripts"
@@ -117,20 +117,7 @@ _UNREADABLE_OJF: Final = (
     '{"transcription": [{"offsets": {"from": 0, "to": 1000}, "text": " hi",'
     ' "tokens": [{"text": 5, "offsets": {"from": 0, "to": 500}}]}]}'
 )
-_ASS: Final = """[Script Info]
-ScriptType: v4.00+
-PlayResX: 1920
-PlayResY: 1080
-
-[V4+ Styles]
-Format: Name, Fontname, Fontsize, PrimaryColour, OutlineColour, BackColour, Bold, Italic, \
-BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV
-Style: Default,IBM Plex Sans,57,&H00FFFFFF,&H00000000,&H00000000,0,0,1,2,0,2,40,40,54
-
-[Events]
-Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
-Dialogue: 0,0:00:00.00,0:00:00.30,Default,,0,0,0,,an ASS line
-"""
+_ASS: Final = ASS_HEAD + "Dialogue: 0,0:00:00.00,0:00:00.30,Default,,0,0,0,,an ASS line\n"
 
 
 def build(corpus: Path, ffmpeg: str) -> None:
@@ -774,6 +761,8 @@ def _attach() -> list[Case]:
         ),
         # whisper-cli -ml 1's characters split between cues, joined into SubRip (6.8.1)
         _conv("attach/split", "-i", "v.mp4", "--add-subs", "hostile/split.srt", "-o", "x.mkv"),
+        # an ASS's NUL U+FFFD in ffman's copy (6.8.2): before, ffmpeg's reader cut its line
+        _conv("attach/nul-ass", "-i", "v.mp4", "--add-subs", "hostile/nul.ass", "-o", "x.mkv"),
         _conv("attach/onto-track", "-i", "tracks.mkv", "--add-subs", "wx.srt"),
         _conv("attach/language-alone", "-i", "v.mp4", "--language", "por"),
         # the SRT clip: the duration in whole ms, floored (bash's float made 1.005 s 1004)

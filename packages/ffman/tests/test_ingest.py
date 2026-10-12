@@ -10,6 +10,7 @@ from subverter.transcript import Chunk, Word
 
 from ffman.errors import REFUSALS
 from ffman.subs.ass import Style, script
+from ffman.subs.ingest import passed
 from ffman.subs.srt import srt
 from tests.support.ingesting import ingested
 from tests.support.transcripts import HOSTILE, encoded
@@ -18,6 +19,7 @@ DROPPED: Final = (
     "{n} cues dropped: a line holding --> that is no WebVTT timing line (W3C), the first {line} "
     "on line {at}"
 )
+NUL_NOTE: Final = "{n} NULs read as U+FFFD, as the W3C reads them: the first in line {line}"
 
 
 def put(tmp_path: Path, name: str, text: str | bytes) -> str:
@@ -181,7 +183,37 @@ def test_a_webvtt_line_of_spaces_is_its_cues_text(tmp_path: Path) -> None:
 def test_a_nul_reads_as_u_fffd_noted(tmp_path: Path) -> None:
     t = ingested(put(tmp_path, "nul.srt", HOSTILE["nul.srt"]))
     assert [c.text for c in t.chunks] == ["fi\ufffdrst", "second"]
-    assert t.notes == ("1 NULs read as U+FFFD, as the W3C reads them: the first in line 3",)
+    assert t.notes == (NUL_NOTE.format(n=1, line=3),)
+
+
+def test_an_ass_nul_reads_as_u_fffd_noted(tmp_path: Path) -> None:
+    t = ingested(put(tmp_path, "nul.ass", HOSTILE["nul.ass"]))
+    assert (t.fmt, t.chunks, t.notes) == ("ass", (), (NUL_NOTE.format(n=1, line=12),))
+
+
+@pytest.mark.parametrize(
+    ("data", "n", "line"),
+    [
+        (b"a\0b", 1, 1),
+        (b"a\r\nb\rc\nd\r\re\0f", 1, 6),  # an editor's lines: CRLF one end, CR CR two
+        (b"\0\nx\0\0", 3, 1),  # counted, the first named
+    ],
+)
+def test_an_ass_nul_is_u_fffd_in_ffmans_copy(data: bytes, n: int, line: int) -> None:
+    found, fffd = passed(data), "\ufffd".encode()
+    assert (b"\0" in found.data, found.data.count(fffd)) == (False, n)
+    assert found.data.replace(fffd, b"\0") == data  # the rest as it was
+    assert found.notes == (NUL_NOTE.format(n=n, line=line),)
+
+
+def test_an_ass_without_a_nul_is_copied_as_it_is() -> None:
+    assert passed(b"[Script Info]\n") == (b"[Script Info]\n", ())
+
+
+@pytest.mark.parametrize("codec", ["utf-16-le", "utf-16-be"])
+def test_a_utf_16_ass_is_copied_as_it_is(codec: str) -> None:
+    data = "\ufeff[Script Info]\n".encode(codec)  # its NULs bytes of its characters
+    assert passed(data) == (data, ())
 
 
 def test_a_csv_header_after_a_blank_line_is_its_header(tmp_path: Path) -> None:

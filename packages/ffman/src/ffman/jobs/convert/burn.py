@@ -1,7 +1,6 @@
 """The burn flow: bash's overlay -- subtitles drawn in, in the bar when there is one."""
 
 import re
-import shutil
 from collections import Counter
 from dataclasses import replace
 from fractions import Fraction
@@ -24,7 +23,7 @@ from ffman.plan.outputs import Output, check_burn_source, output_kind
 from ffman.plan.request import ConvertOptions
 from ffman.subs.ass import FONT, FONT_FILES, Style, bold
 from ffman.subs.ass import script as ass_script
-from ffman.subs.ingest import ingest
+from ffman.subs.ingest import ingest, passed
 from ffman.subs.layout import Bar, BarKind, bar_args, bar_centre, bar_rows, bar_times
 from ffman.subs.metrics import Metrics, parse
 
@@ -49,7 +48,8 @@ def run(o: ConvertOptions, subs: str, runner: Runner) -> None:
     check_restorable(o.effects, video, restore=restore)
     fonts = fonts_dir(runner, o.font)
     size = target_size(source, video=True, width=o.width, height=o.height, aspect=o.aspect_text)
-    transcript = ingest(subs, read_file(subs))
+    data = read_file(subs)
+    transcript = ingest(subs, data)
     for line in transcript.notes:
         note(line)
     _check_timings(o, transcript)
@@ -82,7 +82,7 @@ def run(o: ConvertOptions, subs: str, runner: Runner) -> None:
         text=o.font_color,
         outline=o.outline_color,
     )
-    subtitles = _subtitles(subs, runner, transcript, shown, style, fonts, frame=video.frame_time())
+    subtitles = _subtitles(data, runner, transcript, shown, style, fonts, frame=video.frame_time())
     fx = replace(fx, subtitles=subtitles)
     prepared = passes.effects(o, runner, fx, headed, restore=restore)
     render.run(o, runner, render.Render(target, encoded, media, video, fx, prepared, tags))
@@ -179,7 +179,7 @@ def font_metrics(fonts: str, style: Style) -> Metrics | None:
 
 
 def _subtitles(  # noqa: PLR0913 -- the subtitles, where, what, how big, how, with which fonts
-    subs: str,
+    data: bytes,
     runner: Runner,
     t: Transcript,
     shown: tuple[int, int],
@@ -191,7 +191,7 @@ def _subtitles(  # noqa: PLR0913 -- the subtitles, where, what, how big, how, wi
     """The ASS to burn -- written, or the user's own copied -- and its filter, fonts and all."""
     if t.fmt in ("ass", "ssa"):
         path = runner.workdir / f"subs.{t.fmt}"
-        _ = shutil.copyfile(subs, path)
+        _ = path.write_bytes(passed(data).data)  # each NUL U+FFFD: libass ended its script there
     else:
         # the source's frames: a burn keeps them, so its words' animations end a frame early
         text, notes = ass_script(t, *shown, style, frame=frame, metrics=font_metrics(fonts, style))

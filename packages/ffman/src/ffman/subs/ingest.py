@@ -2,22 +2,53 @@
 
 The format's reader (``readers``) gives cues; the normalisers (``normalize``)
 make them chunks and, where the source times words, words. ASS and SSA pass
-through: burned as they are.
+through: burned and attached as they are, from ffman's copy, each NUL in it
+U+FFFD (``passed``).
 """
 
+import codecs
+import re
+from typing import Final, NamedTuple
+
 from subverter import readers
+from subverter.readers.utf8 import Nuls, nul_notes
 from subverter.transcript import Transcript
 
 from ffman.errors import refuse
 from ffman.media.paths import ext_of
 from ffman.subs import markup, normalize
 
+_UTF16: Final = (codecs.BOM_UTF16_LE, codecs.BOM_UTF16_BE)
+_LINE_END: Final = re.compile(rb"\r\n|\r|\n")  # an editor's: the note's line
+
+
+class Passed(NamedTuple):
+    """An ASS's or SSA's bytes as ffmpeg is given them; their notes."""
+
+    data: bytes
+    notes: tuple[str, ...]
+
+
+def passed(data: bytes) -> Passed:
+    """``data``, each NUL U+FFFD, as in the transcripts ffman reads (``utf8.nul_notes``): noted.
+
+    Kept, a NUL ends libass's script -- burned, every later event lost -- and ffmpeg's ASS
+    reader cuts its line there, the rest a header line (measured, libass 0.17.1 and ffmpeg
+    8.1.2). A UTF-16 file (its BOM) is left as it is: its NULs are its characters' bytes.
+    """
+    first = data.find(b"\0")
+    if first < 0 or data.startswith(_UTF16):
+        return Passed(data, ())
+    nuls = Nuls(data.count(b"\0"), f"line {len(_LINE_END.findall(data, 0, first)) + 1}")
+    return Passed(data.replace(b"\0", "\ufffd".encode()), nul_notes(nuls))
+
 
 def ingest(name: str, data: bytes) -> Transcript:
     """A transcript from its bytes, as bash's ingest_subs read it: its refusals, its notes."""
     fmt = ext_of(name)
-    if fmt in ("ass", "ssa"):  # burned as they are
-        return Transcript(fmt, f".{fmt}", has_words=False, chunks=(), words=(), notes=())
+    if fmt in ("ass", "ssa"):  # passed through: ffman's copy, burned or attached (``passed``)
+        notes = passed(data).notes
+        return Transcript(fmt, f".{fmt}", has_words=False, chunks=(), words=(), notes=notes)
     found = readers.read(fmt, data, name)
     references, escapes = found.has_references, found.has_ass_escapes
     chunks = normalize.cues(found.cues, references=references, escapes=escapes)
