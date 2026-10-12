@@ -3528,10 +3528,29 @@ tests with 6.8.3's converters.*
       s). Suite 2230, 100%; matrix 770; outcome report: 475 identical, `stray.vtt` new, on
       3.13 and 3.14; the `webvtt` skill's ffman column and record re-measured. Found: the
       next box.*
-- [ ] Found by the stray-text box: a SubRip cue's text after a line of spaces is dropped
+- [x] Found by the stray-text box: a SubRip cue's text after a line of spaces is dropped
       unnoted -- as ffmpeg's decoder drops it, the lines after one to the next timing line
       no cue's (measured: `first`, then `   `, then `lost` -- ffmpeg 8.1.2 and ffman draw
       `first` alone). To decide: noted, as WebVTT's text in no cue now is; or as now.
+      *Done (the owner's, after the readers' sources: read on, noted): a line of spaces is
+      skipped as an empty line is, the cue going on to the next timing line, its text after
+      one noted by cue (`2 cues held text after a line of spaces, read as theirs, as MPC-HC
+      and Subtitle Edit read them (ffmpeg's decoder drops it): the first, lost on line 5`).
+      Read: ffmpeg's decoder ends the text at one (`htmlsubtitles.c`, since n1.0, its own
+      comment meaning to drop no text) and Kodi trims it to an empty line, which ends its
+      text -- both drop what follows; ffmpeg's demuxer keeps it (a stream copy into MKV too,
+      measured), VLC 3 as text, and MPC-HC (`STS.cpp`), Subtitle Edit (`SubRip.cs`),
+      mkvmerge, srt and pysubs2 read on. A number alone stays the next cue's index only with
+      empty lines alone before the timing line, as ffmpeg's demuxer reads it; a line of
+      spaces before an index is no missing blank line, unnoted. `Dialect.blank` (SubRip's
+      ` *`, `ends` none), `Found.spaced`, the open cue's blanks in `cues._Blanks`. Tests: 7
+      cases (6 readers', ffman's `spaced.srt`) failing first, 2 guards; nine mutations, each
+      caught. Differential, 60000 generated files: the 19062 without a line of spaces read
+      exactly as HEAD reads them, cues and notes; the rest as an independent reading of the
+      rule reads them, 0 mismatches (HEAD's on 9797 of the first 20000). Suite 2237, 100%;
+      matrix 770; outcome report: 476 identical, `spaced.srt` new, on 3.13 and 3.14; the
+      `subrip` skill's ffman column, reading and record re-measured, its sources pinned
+      (MPC-HC, Subtitle Edit, Kodi).*
 - [ ] Found by the `webvtt` box: in a WebVTT text ffman removes `{\...}` override blocks and
       reads a typed `\n` or `\t` as a space -- SubRip's reading -- where Chromium, ffmpeg and
       VLC show them as written (measured; VLC by source). To decide: as written in WebVTT;

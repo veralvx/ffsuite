@@ -35,8 +35,9 @@ class Found:
     """What a reading met that its dialect may note, each by its line (from 1).
 
     ``odd``: a timing line with an odd time. ``indexes``: a cue's line taken for the next
-    cue's index, no empty line before it, its number. ``dropped``: a line holding ``-->`` that
-    is no timing line, its block dropped. ``continued``: a cue's first text after an empty line.
+    cue's index, no blank line before it, its number. ``dropped``: a line holding ``-->`` that
+    is no timing line, its block dropped. ``continued``: a cue's first text after an empty line,
+    no line of spaces before it. ``spaced``: a cue's first text after a line of spaces.
     ``strays``: a run of lines no cue holds, opening after an empty line past the first line
     holding ``-->`` -- not a line alone before one (the next cue's identifier, as the W3C reads
     it), nor blanks alone -- its first line of text, as written.
@@ -46,6 +47,7 @@ class Found:
     indexes: list[tuple[int, str]] = field(default_factory=list)
     dropped: list[tuple[int, str]] = field(default_factory=list)
     continued: list[tuple[int, str]] = field(default_factory=list)
+    spaced: list[tuple[int, str]] = field(default_factory=list)
     strays: list[tuple[int, str]] = field(default_factory=list)
 
 
@@ -54,16 +56,17 @@ class Dialect:
     """A cue format's grammar, as ``read`` takes it.
 
     ``timing``: a line's timings, or None -- no timing line. ``ends``: a line ending the cue,
-    the lines after it up to a timing line no cue's; any other empty line is skipped, the cue
-    going on. ``arrow_ends``: a line holding ``-->`` that is none ends the cue alike; else it
-    is text. ``index``: a cue's last line taken for the next cue's index, only empty lines
+    the lines after it up to a timing line no cue's; None, none. ``blank``: a line skipped, the
+    cue going on. ``arrow_ends``: a line holding ``-->`` that is none ends the cue alike; else
+    it is text. ``index``: a cue's last line taken for the next cue's index, only empty lines
     between it and a timing line. ``notes``: what ``Found`` is noted as. ``has_references``,
     ``has_ass_escapes``: what its texts hold (``Reading``).
     """
 
     source: str
     timing: Callable[[str], Timed | None]
-    ends: re.Pattern[str]
+    ends: re.Pattern[str] | None
+    blank: re.Pattern[str]
     arrow_ends: bool
     index: re.Pattern[str] | None
     notes: Callable[[Found], tuple[str, ...]]
@@ -104,9 +107,8 @@ def _rows(lines: list[str], name: str, dialect: Dialect) -> tuple[list[Cue], tup
     """
     times: list[tuple[int | None, int | None]] = []
     texts: list[tuple[int, int]] = []  # each text line: its cue, its index among the lines
-    found, index = Found(), dialect.index
-    is_open = emptied = False  # emptied: an empty line met in the open cue
-    noted = -1  # the cue whose text after an empty line is noted
+    found, index, ends = Found(), dialect.index, dialect.ends
+    is_open, blanks = False, _Blanks()  # the open cue's blank lines
     skipped: list[int] = []  # the lines no cue holds
     arrow = len(lines)  # the first line holding -->, a timing line or dropped; none yet
     for i, line in enumerate(lines):
@@ -115,29 +117,53 @@ def _rows(lines: list[str], name: str, dialect: Dialect) -> tuple[list[Cue], tup
             arrow = min(arrow, i)
             if timing.odd:
                 found.odd.append((i + 1, timing))
-            if index and is_open:
-                _take_index(index, lines, texts, len(times) - 1, found)
+            if (
+                index
+                and is_open
+                and (last := _index(index, lines, texts, len(times) - 1, i)) is not None
+            ):
+                _note_index(dialect, lines, last, found)
             times.append((timing.start, timing.end))
-            is_open, emptied = True, False
-        elif dialect.ends.fullmatch(line):
+            is_open, blanks = True, _Blanks()
+        elif ends and ends.fullmatch(line):
             is_open = False
-        elif not line:
-            emptied = True  # skipped: the cue goes on
+        elif dialect.blank.fullmatch(line):
+            blanks.met(line)  # skipped: the cue goes on
         elif dialect.arrow_ends and "-->" in line:
             arrow = min(arrow, i)
             found.dropped.append((i + 1, line.strip()))
             is_open = False
         elif is_open:
-            cue = len(times) - 1
-            if emptied and noted != cue:  # each cue's first text after it, noted
-                found.continued.append((i + 1, line.strip()))
-                noted = cue
-            texts.append((cue, i))
+            blanks.note(found, i + 1, line)
+            texts.append((len(times) - 1, i))
         else:
             skipped.append(i)
     found.strays = _strays(lines, skipped, arrow)
     cues, nuls = _joined(lines, name, times, texts)
     return cues, dialect.notes(found) + nul_notes(nuls)
+
+
+@dataclass(slots=True)
+class _Blanks:
+    """The blank lines an open cue met, a line of spaces among them or not; its text after them."""
+
+    met_blank: bool = False
+    met_spaces: bool = False
+    noted_empty: bool = False  # its first text after an empty line, no line of spaces before it
+    noted_spaces: bool = False  # its first text after a line of spaces
+
+    def met(self, line: str) -> None:
+        """A blank line, empty or of spaces."""
+        self.met_blank, self.met_spaces = True, self.met_spaces or bool(line)
+
+    def note(self, found: Found, at: int, line: str) -> None:
+        """A text line (line ``at``, from 1): the cue's first after its kind of blank, noted."""
+        if self.met_spaces and not self.noted_spaces:
+            found.spaced.append((at, line.strip()))
+            self.noted_spaces = True
+        elif self.met_blank and not self.met_spaces and not self.noted_empty:
+            found.continued.append((at, line.strip()))
+            self.noted_empty = True
 
 
 def _strays(lines: list[str], skipped: list[int], arrow: int) -> list[tuple[int, str]]:
@@ -156,20 +182,33 @@ def _strays(lines: list[str], skipped: list[int], arrow: int) -> list[tuple[int,
     return strays
 
 
-def _take_index(
-    index: re.Pattern[str], lines: list[str], texts: list[tuple[int, int]], cue: int, found: Found
-) -> None:
-    """The cue's last line, a number alone, only empty lines after it: the next cue's index.
+def _index(
+    index: re.Pattern[str], lines: list[str], texts: list[tuple[int, int]], cue: int, timing: int
+) -> int | None:
+    """The cue's last line, taken off its texts, when the next cue's index; its line, or None.
 
-    Noted when no empty line stands before it; when one does, no text kept after it either.
+    A number alone, only empty lines between it and the timing line (``timing``, from 0) -- a
+    line of spaces there keeps it text, as ffmpeg's demuxer reads it.
     """
-    if not texts or texts[-1][0] != cue or not index.fullmatch(lines[last := texts[-1][1]]):
-        return
+    if not texts or texts[-1][0] != cue:
+        return None
+    last = texts[-1][1]
+    if not index.fullmatch(lines[last]) or any(lines[last + 1 : timing]):
+        return None
     _ = texts.pop()
-    if lines[last - 1]:
+    return last
+
+
+def _note_index(dialect: Dialect, lines: list[str], last: int, found: Found) -> None:
+    """An index taken (``_index``): noted when no blank line stands before it.
+
+    When one does, it is no text after that blank: its ``Found.continued`` or ``spaced`` undone.
+    """
+    if not dialect.blank.fullmatch(lines[last - 1]):
         found.indexes.append((last + 1, lines[last].strip()))
-    if found.continued and found.continued[-1][0] == last + 1:
-        _ = found.continued.pop()
+    for after in (found.continued, found.spaced):
+        if after and after[-1][0] == last + 1:
+            _ = after.pop()
 
 
 def _joined(

@@ -152,7 +152,7 @@ the next start; braces and backslashes drawn as written). *Measured*:
 | ----------------------------------------------------------- | ------------------------------------ | --------------------------------------------------- |
 | `00:00:01,5 --> 00:00:02,25`                                | 1005, 2025: milliseconds, noted      | the same                                            |
 | `first`, an empty line, `second`                            | `first second`, noted                | the same                                            |
-| `first`, a line of spaces, `second`                         | `first`; `second` no cue's           | the same                                            |
+| `first`, a line of spaces, `second`                         | `first second`, noted                | the same                                            |
 | last line `2024`, an empty line, the next cue not indexed   | `the year`, noted                    | the same                                            |
 | last line `2024`, the next cue's timing line right after it | `the year`, noted                    | the same                                            |
 | `first`, then `2` and a timing line, no blank line          | `first`, noted                       | the same                                            |

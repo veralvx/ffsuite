@@ -11,7 +11,7 @@ they disagree at the edges. Everything here is read in their sources and measure
 n8.1.2 and ffman measured, VLC 3.0.24 and mpv 0.41.0 by source. ffmpeg's and ffman's full
 tables are in [references/format.md](references/format.md);
 [scripts/measure.py](scripts/measure.py) re-measures them and checks this file's example,
-time rule and commands, failing on a difference (`python3 scripts/measure.py FFMPEG [PYTHON]`,
+time rule and commands, failing on a difference (`python3 scripts/measure.py [FFMPEG [PYTHON]]`,
 `PYTHON` an interpreter that imports subverter and ffman).
 
 ## The format
@@ -50,8 +50,8 @@ burns its own ASS.
 | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | Recognised                                                    | first non-blank line a number, the next a timing line with a space each side of `-->`; hours needed (`00:01,000` reads as no cue)                                  | a timing line in its first 256 lines and 4 KiB, the spaces not needed; hours needed                                                                 | by the name, `.srt`; `00:01,000` read too (bash's)                                                                                         |
 | A short fraction (`00:00:01,5`)                               | the digits are milliseconds: 1.005 s; `,5000` adds 5 s                                                                                                             | the same: 1.005 s                                                                                                                                   | the same: 1.005 s, noted                                                                                                                   |
-| A blank line inside a cue's text                              | an empty one skipped, the next line the same cue's; one of spaces ends the text, the rest of the cue dropped                                                       | an empty one ends the cue, what follows until a timing line lost; one of spaces is text                                                             | as ffmpeg's: an empty one skipped, the text after it noted; one of spaces ends the text                                                    |
-| A cue's last line starting with a number (`2024`, `3 apples`) | taken for the next cue's index -- dropped -- when the next cue has no index line (a cue's only line kept if more than a number)                                    | text                                                                                                                                                | text, but a number alone, only empty lines between it and a timing line: the next cue's index, dropped, noted when no empty line before it |
+| A blank line inside a cue's text                              | an empty one skipped, the next line the same cue's; one of spaces ends the text, the rest of the cue dropped                                                       | an empty one ends the cue, what follows until a timing line lost; one of spaces is text                                                             | an empty one skipped, as ffmpeg's; one of spaces too, as MPC-HC's: the text after either noted                                             |
+| A cue's last line starting with a number (`2024`, `3 apples`) | taken for the next cue's index -- dropped -- when the next cue has no index line (a cue's only line kept if more than a number)                                    | text                                                                                                                                                | text, but a number alone, only empty lines between it and a timing line: the next cue's index, dropped, noted when no blank line before it |
 | No blank line before the next index                           | the index read as an index                                                                                                                                         | the index, the timing line and the next cue all the first cue's text                                                                                | the index read as an index, noted                                                                                                          |
 | A text line holding `-->`                                     | text                                                                                                                                                               | text                                                                                                                                                | text                                                                                                                                       |
 | End before start, or equal                                    | end before: the gap to the next start; equal: kept, of no length                                                                                                   | the cue skipped                                                                                                                                     | read as written; ffman drops it                                                                                                            |
@@ -115,14 +115,14 @@ in `<u>`. All write `HH:MM:SS,mmm`, no BOM, in text mode -- LF, but CRLF on Wind
 
 ## Reading one correctly
 
-As the players do: a UTF-8 BOM skipped; LF, CRLF or CR; lines skipped up to a timing line (an
-index is not needed); `,` or `.` before the fraction, its digits a count of milliseconds (`,5` 5
-ms, as ffmpeg and VLC); a timing line's text after the end time ignored; text on to the next
-timing line, an empty line skipped and a line of spaces ending it (ffmpeg, so mpv; MPC-HC and
-Subtitle Edit read on too, VLC and Kodi end it at an empty line), its last line, a number alone,
-the next cue's index (ffmpeg drops any line starting with a number there); the markup above, an
-unknown tag dropped. Sort by start. A file not UTF-8 is a code page's: ask, or guess as VLC
-does, rather than pass its bytes on.
+As the players do: a UTF-8 BOM skipped; LF, CRLF or CR; lines skipped up to a timing line (an index
+is not needed); `,` or `.` before the fraction, its digits a count of milliseconds (`,5` 5 ms, as
+ffmpeg and VLC); a timing line's text after the end time ignored; text on to the next timing line,
+an empty line and a line of spaces skipped (MPC-HC, Subtitle Edit; ffmpeg's demuxer skips the empty
+one, its decoder, so mpv, ending the text at the spaces; VLC ends it at an empty line, Kodi at
+either), its last line, a number alone, the next cue's index (ffmpeg drops any line starting with a
+number there); the markup above, an unknown tag dropped. Sort by start. A file not UTF-8 is a code
+page's: ask, or guess as VLC does, rather than pass its bytes on.
 
 ## Converting, muxing and burning with ffmpeg
 
@@ -170,7 +170,10 @@ FFmpeg n8.1.2 (`libavformat/srtdec.c`, `srtenc.c`, `subtitles.c`; `libavcodec/sr
 `srtenc.c`, `htmlsubtitles.c`, `ass_split.c`, `movtextdec.c`, `webvttenc.c`); VLC 3.0.24
 (`modules/demux/subtitle.c`, `modules/codec/subsdec.c`, `src/input/stream.c`); mpv 0.41.0
 (`demux/demux.c`, `demux/demux_lavf.c`, `misc/charset_conv.c`, `sub/lavc_conv.c`, `sub/sd_ass.c`);
-libass 0.17.1 (`ass_parse.c`); whisper.cpp's, OpenAI whisper's and WhisperX's writers (the
-`whisper-transcripts` skill); ffman's `subverter/readers/subrip.py`, `subverter/readers/cues.py`,
-`subs/normalize.py`, `subs/markup.py`, `subs/ass.py` and `subs/srt.py`.
+libass 0.17.1 (`ass_parse.c`); MPC-HC (`src/Subtitles/STS.cpp` at `48478c2`), Subtitle Edit
+(`src/libse/SubtitleFormats/SubRip.cs` at `638ec76`), Kodi
+(`xbmc/cores/VideoPlayer/DVDSubtitles/DVDSubtitleParserSubrip.cpp` at `a07b2bb`); whisper.cpp's,
+OpenAI whisper's and WhisperX's writers (the `whisper-transcripts` skill); ffman's
+`subverter/readers/subrip.py`, `subverter/readers/cues.py`, `subs/normalize.py`, `subs/markup.py`,
+`subs/ass.py` and `subs/srt.py`.
 Measurements: `scripts/measure.py`.

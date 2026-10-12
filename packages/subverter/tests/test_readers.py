@@ -589,10 +589,15 @@ def test_a_number_not_right_before_a_subrip_timing_line_is_text(text: str, first
 
 # SubRip, as ffmpeg 8.1.2 reads it (measured, its ASS): its demuxer skips an empty line, so a
 # cue's text runs on to the next timing line, its last line the next cue's index if a number
-# alone; its decoder ends the text at a line of spaces (htmlsubtitles.c); a tab, text
+# alone, only empty lines after it; a tab, text. Its decoder ends the text at a line of spaces
+# (htmlsubtitles.c), MPC-HC and Subtitle Edit reading on: read on here, as past an empty line
 _CONTINUED_NOTE: Final = (
     "{n} cues held text after an empty line, read as theirs, as ffmpeg reads them: the first,"
     " {text} on line {line}"
+)
+_SPACED_NOTE: Final = (
+    "{n} cues held text after a line of spaces, read as theirs, as MPC-HC and Subtitle Edit"
+    " read them (ffmpeg's decoder drops it): the first, {text} on line {line}"
 )
 
 
@@ -613,9 +618,37 @@ _CONTINUED_NOTE: Final = (
         ("first\n\n2\n", "first", ()),  # the index, empty lines either side of it
         ("first\n2\n", "first", (_INDEX_NOTE.format(n=1, number="2", line=4),)),
         ("the year\n2024\n", "the year", (_INDEX_NOTE.format(n=1, number="2024", line=4),)),
-        ("first\n   \nsecond line\n\n2", "first", ()),  # the text ended at the spaces
-        ("first\n\n   \nafter spaces\n\n2", "first", ()),
-        ("first\n2\n   ", "first 2", ()),  # the spaces after `2`: its text, no index
+        (  # ffmpeg: `first`, its decoder ending the text at the spaces (measured)
+            "first\n   \nsecond line\n\n2",
+            "first second line",
+            (_SPACED_NOTE.format(n=1, text="second line", line=5),),
+        ),
+        (
+            "first\n\n   \nafter spaces\n\n2",
+            "first after spaces",
+            (_SPACED_NOTE.format(n=1, text="after spaces", line=6),),
+        ),
+        ("   \nfirst", "first", (_SPACED_NOTE.format(n=1, text="first", line=4),)),  # ffmpeg: ``
+        (  # ffmpeg: `first\Nkept`; each kind noted
+            "first\n\nkept\n   \nlost\n\n2",
+            "first kept lost",
+            (
+                _CONTINUED_NOTE.format(n=1, text="kept", line=5),
+                _SPACED_NOTE.format(n=1, text="lost", line=7),
+            ),
+        ),
+        (  # after a line of spaces, an empty line noted no more: one note, the spaces'
+            "first\n   \nlost\n\nmore\n\n2",
+            "first lost more",
+            (_SPACED_NOTE.format(n=1, text="lost", line=5),),
+        ),
+        ("first\n   \n2", "first", ()),  # the index after spaces: a cue's end written loosely
+        ("first\n2\n   ", "first 2", ()),  # the spaces after `2`: its text, no index, as ffmpeg's
+        (  # the same after spaces: `2` text, not an index -- ffmpeg: `first`
+            "first\n   \n2\n   ",
+            "first 2",
+            (_SPACED_NOTE.format(n=1, text="2", line=5),),
+        ),
         (  # a timing line ffmpeg cannot read: its cue the one before's, as ffmpeg's (measured)
             "first\n\n2\n00:00:02,500 -> 00:00:02,800\ncut",
             "first 2 00:00:02,500 -> 00:00:02,800 cut",
@@ -625,7 +658,7 @@ _CONTINUED_NOTE: Final = (
         ("first\n \t \nsecond\n\n2", "first  \t  second", ()),
     ],
 )
-def test_a_subrip_cue_runs_on_past_an_empty_line_as_ffmpeg_reads_it(
+def test_a_subrip_cue_runs_on_past_a_blank_line(
     text: str, first: str, notes: tuple[str, ...]
 ) -> None:
     data = f"1\n{_T1}\n{text}\n{_T2}\nsecond\n"

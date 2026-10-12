@@ -205,6 +205,13 @@ HOSTILE: Final = {
         "1\n00:00:00,000 --> 00:00:00,200\nfirst\n\nkept\n\n2\n00:00:00,200 --> 00:00:00,400\n"
         "last\n\ncredits\n"
     ),
+    # a SubRip cue reads on past a line of spaces too, as MPC-HC and Subtitle Edit read it, noted
+    # (6.8.2); `2` after one an index. Before: the text after it dropped, silently, as ffmpeg's
+    # decoder drops it
+    "spaced.srt": (
+        "1\n00:00:00,000 --> 00:00:00,200\nfirst\n   \nlost\n\n2\n00:00:00,200 --> 00:00:00,400\n"
+        "last\n  \ncredits\n"
+    ),
     # a WebVTT cue's line of spaces its text, as the W3C reads it (6.8.2). Before: its end
     "whitespace.vtt": "WEBVTT\n\n00:00.000 --> 00:00.400\nfirst\n   \nsecond\n",
     # a WebVTT cue's text after an empty line, no cue's, dropped as the W3C drops it, noted

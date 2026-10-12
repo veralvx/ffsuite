@@ -192,7 +192,8 @@ camcorder:date=D,time=T`.
 - A transcript's lines end at an LF, a CRLF or a CR alone: a SubRip's and an LRC's CRs before
   an LF part of that end, as ffmpeg reads them; a WebVTT's each CR an end (W3C) (New).
 - A SubRip cue reads on past an empty line to the next timing line, as ffmpeg reads it, the
-  text after one noted; a line of spaces ends it. A WebVTT cue ends at an empty line alone, a
+  text after one noted; past a line of spaces too, as MPC-HC and Subtitle Edit read it (ffmpeg's
+  decoder ends the text there), noted. A WebVTT cue ends at an empty line alone, a
   line of spaces its text (W3C); text after it in no cue dropped, noted past the first cue:
   `1 text blocks dropped: after an empty line, in no cue (W3C), the first lost on line 6` (New).
 - A NUL in a transcript's text reads as U+FFFD, as the W3C reads one, noted: `1 NULs read as

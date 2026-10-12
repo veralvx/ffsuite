@@ -24,9 +24,10 @@ _END: Final = re.compile(rf"{NUMBER}(?::{NUMBER}){{0,{_PARTS - 1}}}")  # what fo
 # cue's index, as ffmpeg's srt demuxer reads it (which, after a cue's text, drops any line
 # starting with a number there)
 _INDEX: Final = re.compile(r"[ \t]*[0-9]+[ \t]*")
-# a line of spaces alone ends a cue's text, as ffmpeg's subrip decoder ends it (htmlsubtitles.c,
-# a line end at a line's start); an empty line, its demuxer skips (srtdec.c): the cue goes on
-_ENDS: Final = re.compile(" +")
+# an empty line, ffmpeg's demuxer skips (srtdec.c): the cue goes on; a line of spaces alone too,
+# as MPC-HC (STS.cpp) and Subtitle Edit (SubRip.cs) read it -- ffmpeg's decoder ends the text
+# there (htmlsubtitles.c, a line end at a line's start), its demuxer keeping what follows
+_BLANK: Final = re.compile(" *")
 
 
 def _timing(line: str) -> Timed | None:
@@ -83,9 +84,12 @@ def _seconds(text: str) -> tuple[Fraction | None, bool]:
 
 
 def _notes(found: Found) -> tuple[str, ...]:
-    """Odd times read as ms, indexes taken from cues' texts, texts kept after an empty line."""
+    """Odd times read as ms, indexes taken from cues' texts, texts kept after a blank line."""
     return (
-        _fraction_notes(found.odd) + _index_notes(found.indexes) + _continued_notes(found.continued)
+        _fraction_notes(found.odd)
+        + _index_notes(found.indexes)
+        + _continued_notes(found.continued)
+        + _spaced_notes(found.spaced)
     )
 
 
@@ -122,6 +126,16 @@ def _continued_notes(continued: list[tuple[int, str]]) -> tuple[str, ...]:
     return (f"{len(continued)} cues held text after an empty line, {how}: {first}",)
 
 
+def _spaced_notes(spaced: list[tuple[int, str]]) -> tuple[str, ...]:
+    """The cues read on past a line of spaces (ffmpeg's decoder ends them there): counted."""
+    if not spaced:
+        return ()
+    line, text = spaced[0]
+    how = "read as theirs, as MPC-HC and Subtitle Edit read them (ffmpeg's decoder drops it)"
+    first = f"the first, {text} on line {line}"
+    return (f"{len(spaced)} cues held text after a line of spaces, {how}: {first}",)
+
+
 def _in_seconds(value: int) -> str:
     """``value`` ms as seconds, its trailing zeros off: 1005 is ``1.005``, 6000 ``6``."""
     sign, size = "-" if value < 0 else "", abs(value)
@@ -134,7 +148,7 @@ def split_lines(text: str) -> list[str]:
     Each line holding text ffmpeg's (``ff_subtitles_read_line``, which takes CR CR LF as one end
     too): a CRLF file written again in text mode reads as written (VLC 3 alike). Its empty lines
     differ: ffmpeg skips the CRs and an LF after any end, so reads none; here each is kept for
-    the notes (an LF then a CR two ends), a cue reading on past it as ffmpeg's does (``_ENDS``).
+    the notes (an LF then a CR two ends), a cue reading on past it as ffmpeg's does (``_BLANK``).
     In linear time, as that pattern is not: at the LFs, each part's CRs before one off, then at
     the CRs left.
     """
@@ -152,7 +166,8 @@ def read(lines: list[str], name: str) -> Reading:
 _DIALECT: Final = Dialect(
     ".srt",
     _timing,
-    ends=_ENDS,
+    ends=None,
+    blank=_BLANK,
     arrow_ends=False,
     index=_INDEX,
     notes=_notes,

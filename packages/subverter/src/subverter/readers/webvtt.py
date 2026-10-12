@@ -109,6 +109,7 @@ _DIALECT: Final = Dialect(
     ".vtt",
     _timing,
     ends=_ENDS,
+    blank=_ENDS,  # an empty line: it ends the cue first
     arrow_ends=True,
     index=None,
     notes=_notes,

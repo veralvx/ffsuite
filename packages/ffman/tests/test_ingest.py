@@ -178,6 +178,15 @@ def test_a_subrip_cue_reads_on_past_an_empty_line_noted(tmp_path: Path) -> None:
     assert t.notes == (f"2 cues held text after an empty line, {how}: the first, kept on line 5",)
 
 
+def test_a_subrip_cue_reads_on_past_a_line_of_spaces_noted(tmp_path: Path) -> None:
+    t = ingested(put(tmp_path, "spaced.srt", HOSTILE["spaced.srt"]))
+    assert [c.text for c in t.chunks] == ["first lost", "last credits"]
+    how = "read as theirs, as MPC-HC and Subtitle Edit read them (ffmpeg's decoder drops it)"
+    assert t.notes == (
+        f"2 cues held text after a line of spaces, {how}: the first, lost on line 5",
+    )
+
+
 def test_a_webvtt_line_of_spaces_is_its_cues_text(tmp_path: Path) -> None:
     t = ingested(put(tmp_path, "whitespace.vtt", HOSTILE["whitespace.vtt"]))
     assert [c.text for c in t.chunks] == ["first second"]
