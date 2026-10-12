@@ -3476,7 +3476,42 @@ tests with 6.8.3's converters.*
       mappings record. Reviewed (the owner's request): converged, nothing changed --
       `_script` on 52 MB, typed in its first lines 0.001 s, typed last or untyped (refused)
       1.2-1.4 s, a line at a time; each entry git-cliff's, no changelog written by hand.*
-- [ ] `webvtt`: the same.
+- [x] `webvtt`: the same.
+      *Done: `.agents/skills/webvtt/` -- `SKILL.md` (180 lines: the format; its readers --
+      Chromium, the W3C's parser; ffmpeg's demuxer and decoder, which mpv goes through whole,
+      guessing no character set for WebVTT; VLC 3's own parser; ffman's subverter -- side by
+      side, 21 rows; ffmpeg's ASS and back; the writers in use; the rules for a file every
+      reader shows alike, the time rule as code; reading one; converting, muxing and burning;
+      an example; sources); `references/format.md` gains Chromium's and ffmpeg's new rows and
+      ffman's measured reading; `scripts/measure.py` new Chromium cases (a comma mid-file, no
+      blank line between cues, a byte not UTF-8, UTF-16, duplicates, a `<` as text);
+      `scripts/measure_ffmpeg.py` ffmpeg's new cases, ffman's reading with a PYTHON, and the
+      skill checked from its own text -- the example's readings by ffmpeg, its ASS and its
+      times, by ffman, the prose stating them, the time rule over 7231 times to 100 h read by
+      ffmpeg and ffman, the six commands' streams and the copies' settings -- exiting 1 on a
+      difference (four dosed mutations, each caught alone). VLC 3.0.24 and mpv 0.41.0 by
+      source. `quick_validate.py`: valid (description 982 of 1024); packaged, four files
+      byte-identical. Three evals (`evals/evals.json`, new instances, measured) answered cold
+      from the skill alone: a comma in a time losing every later cue to ffmpeg, `<3` taken
+      for a tag by Chromium and ffmpeg but not VLC, no blank line after `WEBVTT` losing the
+      first cue to ffmpeg. Reviewed by efficient-skill-review to convergence: the
+      description's colon, a YAML mapping, and its length (1071, then 982); two eval
+      instances in the skill's own text (`00:00:05,000`, `&lt;3`), replaced; rule 7 claiming
+      VLC honours settings alone; ASS's centiseconds told for every conversion (SubRip and
+      WebVTT keep milliseconds: measured, now checked); VLC's spaced arrow lost to formatting;
+      `.5000` read as 5 s, now 5000 ms. Measured anew: Chromium reads a UTF-16 file by its
+      BOM, against the specification's UTF-8. Found: the next three boxes.*
+- [ ] Found by the `webvtt` box: a WebVTT cue's text after an empty line is dropped unnoted
+      -- as the W3C, Chromium and VLC drop it, ffmpeg losing every later cue -- where a
+      SubRip's is read on and noted (measured). To decide: noted, as the cues dropped for
+      their timing line are; or as now.
+- [ ] Found by the `webvtt` box: in a WebVTT text ffman removes `{\...}` override blocks and
+      reads a typed `\n` or `\t` as a space -- SubRip's reading -- where Chromium, ffmpeg and
+      VLC show them as written (measured; VLC by source). To decide: as written in WebVTT;
+      or as now.
+- [ ] Found by the `webvtt` box: a WebVTT text's `<` with no `>` after it is kept by ffman
+      (`before <b ends`), where Chromium and ffmpeg lose the rest of the cue and VLC keeps it
+      (measured; VLC by source). To decide: as the W3C, the rest dropped, noted; or as now.
 - [ ] `ass`: the same, SSA (v4) through it.
 - [ ] `lrc`: the same.
 - [ ] `whisper-transcripts`: the same -- whisper-cli's and WhisperX's JSON, CSV, TSV and

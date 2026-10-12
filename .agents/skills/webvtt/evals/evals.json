@@ -1,0 +1,23 @@
+{
+  "skill_name": "webvtt",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "My captions file plays fine in Chrome, but mpv shows only the first line and nothing after it. Here it is:\n\nWEBVTT\n\n00:00:01.000 --> 00:00:03.000\nWhere were you?\n\n00:00:03.500 --> 00:00:05,000\nAt the station.\n\n00:00:05.500 --> 00:00:07.000\nWaiting.\n\nWhat's going on, and how do I fix it?",
+      "expected_output": "The second cue's end time has a comma (00:00:05,000): WebVTT needs a full stop before the milliseconds. Chrome runs the W3C parser, which drops only that cue and reads on, so it shows the first and third. mpv reads WebVTT through ffmpeg's webvtt demuxer, which stops reading at a timing line it cannot read: that cue and every later one are lost, leaving the first alone. Fix: 00:00:05.000. Run: Chromium 141 reads 1-3 s and 5.5-7 s as given, all three fixed; ffmpeg 8.1.2 reads the first cue alone as given, all three fixed.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "In my .vtt one cue is `Tom & Jerry <3 forever`. Chrome and mpv show just 'Tom & Jerry', VLC shows the whole line. Why the difference, and how should I write it?",
+      "expected_output": "In WebVTT a `<` opens a tag. The W3C parser (Chrome) reads `<3 forever` as a tag running to the cue's end and drops it; ffmpeg's decoder (mpv) drops it too, no `>` closing it. VLC 3 takes a `<` for a tag only when a `>` follows, so it shows the text. Write `&lt;` for the `<`, and `&amp;` for the `&` (the `&` alone happens to survive here, but the specification wants it escaped): `Tom &amp; Jerry &lt;3 forever` shows whole in all of them. Run: Chromium 141 and ffmpeg 8.1.2 read 'Tom & Jerry ' as given, 'Tom & Jerry <3 forever' escaped.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "This WebVTT works in the browser but ffmpeg drops my first subtitle when I convert it to .srt:\n\nWEBVTT\n00:00:01.000 --> 00:00:04.000\nHello there.\n\n00:00:05.000 --> 00:00:06.000\nBye.\n\nWhy?",
+      "expected_output": "There is no blank line after WEBVTT. ffmpeg's demuxer reads blocks between blank lines and skips the first one as the header, so the first cue, in that block, is lost; the W3C parser (the browser) starts a cue at the timing line anyway. Add a blank line after WEBVTT. Run: ffmpeg 8.1.2 reads only 'Bye.' (5-6 s) as given and both cues with the blank line; Chromium 141 reads both either way.",
+      "files": []
+    }
+  ]
+}

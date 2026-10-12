@@ -67,6 +67,16 @@ FILES: dict[str, str] = {
     "bad settings": HEAD + f"{T} line:abc position:130% size:x align:middle foo:bar\nbad\n",
     "duplicate setting": HEAD + f"{T} align:start align:end\ndup\n",
     "region and line": HEAD + "REGION\nid:r\n\n" + f"{T} region:r line:0\nline drops region\n",
+    "no blank line between cues": HEAD + f"{T}\none\n00:00:03.000 --> 00:00:04.000\ntwo\n",
+    "a comma time mid-file": HEAD
+    + f"{T}\nfirst\n\n00:00:03,000 --> 00:00:04,000\ncomma\n\n00:00:05.000 --> 00:00:06.000\nlast\n",
+}
+
+# a file's bytes each, not UTF-8: the text is decoded with replacement (the parser's step 1)
+BYTES: dict[str, bytes] = {
+    "Latin-1 é": (HEAD + f"{T}\ncaf").encode() + b"\xe9\n",
+    "UTF-16LE, its BOM": ("\ufeff" + HEAD + f"{T}\ncafé\n").encode("utf-16-le"),
+    "duplicate cue": (HEAD + f"{T}\nsame\n\n{T}\nsame\n").encode(),
 }
 
 # a cue's text each: the tag and reference grammar
@@ -95,11 +105,15 @@ TEXTS: dict[str, str] = {
     "less-than glued": "a<b",
     "tab and spaces": "a\tb  c",
     "trailing spaces": "trail   ",
+    "< then > later": "a < b and c > d",
+    "< never closed": "before <b ends",
+    "ASS's override and escapes": "{\\an8}up {x} one\\Ntwo \\n",
 }
 
 
-def page_for(vtt: str) -> str:
-    src = "data:text/vtt;base64," + base64.b64encode(vtt.encode("utf-8")).decode()
+def page_for(vtt: str | bytes) -> str:
+    data = vtt if isinstance(vtt, bytes) else vtt.encode("utf-8")
+    src = "data:text/vtt;base64," + base64.b64encode(data).decode()
     return f'<video id=v><track id=t kind=subtitles src="{src}" default></video>'
 
 
@@ -170,12 +184,12 @@ def main() -> None:
         print(f"Chromium {browser.version}")
         page = browser.new_page()
 
-        def parse(vtt: str) -> dict[str, Any]:
+        def parse(vtt: str | bytes) -> dict[str, Any]:
             page.set_content(page_for(vtt))
             return page.evaluate(JS)
 
         print("\n## Files: the cues parsed (settings shown where not the default)\n")
-        for name, vtt in FILES.items():
+        for name, vtt in {**FILES, **BYTES}.items():
             print(f"{name}: {show(parse(vtt))}")
         print("\n## Cue text: text and the DOM it builds\n")
         for name, text in TEXTS.items():

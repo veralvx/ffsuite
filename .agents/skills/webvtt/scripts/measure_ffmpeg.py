@@ -1,19 +1,26 @@
 """WebVTT through ffmpeg, measured: what its `webvtt` demuxer reads of a file, what its `webvtt`
-decoder makes of a cue's text (ASS), and what its `webvtt` encoder and muxer write.
+decoder makes of a cue's text (ASS), and what its `webvtt` encoder and muxer write; with PYTHON,
+what ffman reads of the same files; then the skill checked from its own text -- its example's
+readings and the prose stating them, its time rule, its commands -- exiting 1 on a difference.
 
-Usage: python3 measure_ffmpeg.py [FFMPEG]  (default: ffmpeg on PATH; ffprobe beside it). Prints
-what it found; references/format.md's "ffmpeg" tables are this output, at ffmpeg n8.1.2.
+Usage: python3 measure_ffmpeg.py [FFMPEG [PYTHON]]  (default: ffmpeg on PATH; ffprobe beside it;
+PYTHON an interpreter that imports subverter and ffman). Prints what it found;
+references/format.md's "ffmpeg" tables are this output, at ffmpeg n8.1.2.
 """
 
 import json
 import re
+import shlex
 import subprocess
 import sys
 import tempfile
+import textwrap
 from pathlib import Path
 
 FFMPEG = sys.argv[1] if len(sys.argv) > 1 else "ffmpeg"
 FFPROBE = str(Path(FFMPEG).with_name("ffprobe")) if "/" in FFMPEG else "ffprobe"
+PYTHON = sys.argv[2] if len(sys.argv) > 2 else None
+SKILL = Path(__file__).resolve().parent.parent / "SKILL.md"
 HEAD = "WEBVTT\n\n"
 NEXT = "\n\n00:05.000 --> 00:06.000\nnext\n"  # a following cue, to show the reading went on
 
@@ -49,10 +56,30 @@ READS: dict[str, str] = {
     "out of order": HEAD + "00:05.000 --> 00:06.000\nlater\n\n00:01.000 --> 00:02.000\nearlier\n",
     "overlap": HEAD + "00:01.000 --> 00:04.000\nlong\n\n00:02.000 --> 00:03.000\ninside\n",
     "duplicate cue": HEAD + "00:01.000 --> 00:02.000\nsame\n\n00:01.000 --> 00:02.000\nsame\n",
+    "no spaces round -->": HEAD + "00:01.000-->00:02.000\nglued\n" + NEXT,
+    "tabs round -->": HEAD + "00:01.000\t-->\t00:02.000\ntabs\n" + NEXT,
+    "an empty line in a cue": HEAD + "00:01.000 --> 00:02.000\none\n\ntwo\n" + NEXT,
+    "a line of spaces in a cue": HEAD + "00:01.000 --> 00:02.000\none\n   \ntwo\n" + NEXT,
+    "a text line holding -->": HEAD + "00:01.000 --> 00:02.000\none\nNote: 1 --> 2\ntwo\n" + NEXT,
+    "a NUL in a cue": HEAD + "00:01.000 --> 00:02.000\na\x00b\n" + NEXT,
+    "CR only": (HEAD + "00:01.000 --> 00:02.000\nmac\n" + NEXT).replace("\n", "\r"),
+    "CR CR LF": (HEAD + "00:01.000 --> 00:02.000\nx\n" + NEXT).replace("\n", "\r\r\n"),
+    "no signature (by its name)": "00:01.000 --> 00:02.000\nnone\n" + NEXT,
+    "webvtt, lower-cased": "webvtt\n\n00:01.000 --> 00:02.000\nlow\n" + NEXT,
+}
+
+# the demuxer's reading of bytes not UTF-8
+BYTES: dict[str, bytes] = {
+    "Latin-1 \u00e9": (HEAD + "00:01.000 --> 00:02.000\ncaf").encode() + b"\xe9" + NEXT.encode(),
+    "UTF-16LE, its BOM": ("\ufeff" + HEAD + "00:01.000 --> 00:02.000\ncaf\u00e9\n").encode(
+        "utf-16-le"
+    ),
 }
 
 # the cases also remuxed (-c copy): the demuxer's packets, their identifiers and settings
 REMUXED = {"identifier", "settings", "hours", "end before start", "header text"}
+# the cases also decoded into ASS: what the decoder keeps of what the demuxer read
+DECODED = {"a NUL in a cue", "CR CR LF", "Latin-1 \u00e9", "UTF-16LE, its BOM"}
 
 # the decoder's reading: a cue's text each, into ASS
 MARKUP: dict[str, str] = {
@@ -174,12 +201,15 @@ def main() -> None:
         vtt, ass, out_vtt, out_ass = (work / n for n in ("in.vtt", "in.ass", "out.vtt", "out.ass"))
 
         print("\n## The demuxer: start ms, duration ms, text (and the -c copy remux)\n")
-        for name, text in READS.items():
-            _ = vtt.write_bytes(text.encode("utf-8"))
+        for name, data in {**{k: v.encode() for k, v in READS.items()}, **BYTES}.items():
+            _ = vtt.write_bytes(data)
             fmt, found = packets(vtt)
             print(f"{name}: [{fmt}] {found!r}")
             if name in REMUXED:
                 print("    remux: " + shown(*converted(out_vtt, "-i", str(vtt), "-c", "copy")))
+            if name in DECODED:
+                script, warnings = converted(out_ass, "-i", str(vtt))
+                print("    decoded: " + shown(dialogue(script) or script[:60], warnings))
 
         print("\n## The decoder: cue text -> ASS event text\n")
         for name, text in MARKUP.items():
@@ -221,6 +251,164 @@ def main() -> None:
         written = out_vtt.read_bytes()
         crlf, bom = b"\r\n" in written, written.startswith(b"\xef\xbb\xbf")
         print(f"bytes: line ends {'CRLF' if crlf else 'LF'}, BOM {bom}")
+
+        ffman()
+
+        print("\n## The skill, from its own text\n")
+        if not skill(work):
+            sys.exit("the skill and its measurement disagree")
+
+
+# ffman's reading of each file, in PYTHON: subverter's cues through ffman's ingest -- the chunks
+# its burn draws and --add-subs writes -- and its notes, or its refusal
+FFMAN_PROBE = """
+import json, sys
+from ffman.errors import REFUSALS
+from ffman.subs.ingest import ingest
+for name, text in json.load(sys.stdin).items():
+    try:
+        t = ingest("in.vtt", text.encode("latin-1"))
+    except REFUSALS as refused:
+        print(f"{name}: refused: {refused}")
+    else:
+        print(f"{name}: {[(c.start, c.end, c.text) for c in t.chunks]!r} {list(t.notes)!r}")
+"""
+
+
+def ffman() -> None:
+    """READS, BYTES and the MARKUP texts through ffman's ingest, in PYTHON."""
+    if not PYTHON:
+        return
+    print("\n## ffman: the chunks its burn draws, its notes or refusal\n")
+    files = {k: v.encode() for k, v in READS.items()} | BYTES
+    files |= {k: f"{HEAD}00:01.000 --> 00:02.000\n{v}\n".encode() for k, v in MARKUP.items()}
+    cases = json.dumps({n: d.decode("latin-1") for n, d in files.items()})
+    r = subprocess.run([PYTHON, "-c", FFMAN_PROBE], input=cases,
+                       capture_output=True, text=True, check=True)  # fmt: skip
+    print(r.stdout, end="")
+
+
+def fenced(text: str, lang: str) -> list[str]:
+    """The skill's code blocks in ``lang``, as written (a list item's indentation off)."""
+    found = re.finditer(rf"^( *)```{lang}\n(.*?)^\1```$", text, re.MULTILINE | re.DOTALL)
+    return [textwrap.dedent(m[2]) for m in found]
+
+
+# what the skill states of its example and commands (SKILL.md, "Example" and "Converting")
+EXAMPLE_FFMPEG = [
+    (1000, 2500, "<i>Previously:</i> the road\nnorth, at night"),
+    (4000, 2250, "<v Ana><c.yellow>CLOSED</c></v>"),
+    (62005, 1995, "Fish &amp; chips &lt; 2 \u20ac"),
+]
+EXAMPLE_ASS = [
+    "{\\i1}Previously:{\\i0} the road\\Nnorth, at night",
+    "CLOSED",
+    "Fish & chips < 2 \u20ac",
+]
+EXAMPLE_FFMAN = [
+    [1000, 3500, "Previously: the road north, at night"],
+    [4000, 6250, "CLOSED"],
+    [62005, 64000, "Fish & chips < 2 \u20ac"],
+]
+ROUND_TRIP = "Fish & chips < 2 \u20ac"  # the third cue, into SubRip and back: unescaped
+ASS_TIMES = ["0:01:02.01", "0:01:04.01"]  # the third cue written as ASS: centiseconds
+STREAMS = {  # each command's output: its streams (the inputs' audio kept)
+    "out.srt": ["subrip,subtitle"],
+    "out.vtt": ["webvtt,subtitle"],
+    "out.mp4": ["mpeg4,video", "aac,audio", "mov_text,subtitle"],
+    "out.webm": ["vp9,video", "opus,audio", "webvtt,subtitle"],
+    "out.mkv": ["mpeg4,video", "aac,audio", "webvtt,subtitle"],
+    "out-burn.mp4": ["h264,video", "aac,audio"],  # the build's default encoder: libx264
+}
+KEPT = ("intro", "align:start", "line:0")  # what a stream copy keeps: the identifier, settings
+
+
+def checked(what: str, found: object, stated: object) -> bool:
+    """One of the skill's claims against its measurement, printed either way."""
+    print(f"{'ok' if found == stated else 'MISMATCH'}: {what}: {found!r}")
+    if found != stated:
+        print(f"    stated: {stated!r}")
+    return found == stated
+
+
+def ffman_chunks(data: bytes) -> list[list[int | str]]:
+    """ffman's chunks of a WebVTT file, in PYTHON: what it burns."""
+    read = (
+        "import json, sys; from ffman.errors import REFUSALS; from ffman.subs.ingest import ingest\n"
+        "try: t = ingest('in.vtt', sys.stdin.buffer.read())\n"
+        "except REFUSALS: print('[]')\n"  # no cue: an empty list, the check failing on it
+        "else: print(json.dumps([(c.start, c.end, c.text) for c in t.chunks]))"
+    )
+    r = subprocess.run([PYTHON or "", "-c", read], input=data, capture_output=True, check=True)
+    return json.loads(r.stdout)
+
+
+def skill(work: Path) -> bool:
+    """The skill's example read and its prose on it, its time rule, its commands run."""
+    text = SKILL.read_text(encoding="utf-8")
+    example = fenced(text, "vtt")[0]
+    _ = (work / "in.vtt").write_text(example, encoding="utf-8")
+    results = [checked("the example, ffmpeg", packets(work / "in.vtt")[1], EXAMPLE_FFMPEG)]
+    script, _w = converted(work / "example.ass", "-i", str(work / "in.vtt"))
+    results.append(checked("    its ASS", dialogue(script), EXAMPLE_ASS))
+    third = [line.split(",")[1:3] for line in script.splitlines() if line.startswith("Dialogue:")]
+    results.append(checked("    its third cue's ASS times", third[2], ASS_TIMES))
+    if PYTHON:
+        results.append(checked("    ffman", ffman_chunks(example.encode()), EXAMPLE_FFMAN))
+
+    space: dict[str, object] = {}
+    exec(fenced(text, "python")[0], space)  # noqa: S102 -- the skill's own rule, run as written
+    vtt_time = space["vtt_time"]
+    if not callable(vtt_time):
+        raise TypeError(vtt_time)
+    edges = [0, 1, 999, 1000, 59999, 60000, 3599999, 3600000, 359999999, 360000000]
+    times = sorted({*edges, *range(0, 7200000, 997)})
+    rule = HEAD + "".join(f"{vtt_time(t)} --> {vtt_time(t + 1)}\nt\n\n" for t in times)
+    _ = (work / "rule.vtt").write_text(rule, encoding="utf-8")
+    read = [start for start, _d, _t in packets(work / "rule.vtt")[1]]
+    what = f"the time rule: {len(times)} times to 2 h and the edges to 100 h, read by ffmpeg"
+    results.append(checked(what, found=read == times, stated=True))
+    if PYTHON:
+        starts = [chunk[0] for chunk in ffman_chunks(rule.encode())]
+        results.append(checked("    and by ffman", found=starts == times, stated=True))
+
+    for video, codecs in (("video.mp4", ("mpeg4", "aac")), ("video.mkv", ("mpeg4", "aac")),
+                          ("video.webm", ("libvpx-vp9", "libopus"))):  # fmt: skip
+        _ = run(FFMPEG, "-v", "error", "-y", "-f", "lavfi", "-i", "color=black:s=64x64:d=70",
+                "-f", "lavfi", "-i", "sine=d=70", "-c:v", codecs[0], "-c:a", codecs[1],
+                str(work / video))  # fmt: skip
+    for line in fenced(text, "sh")[0].splitlines():
+        args = shlex.split(line, comments=True)
+        if args[-1] == "out.vtt":  # its input, the SubRip the line before wrote
+            _ = (work / "in.srt").write_bytes((work / "out.srt").read_bytes())
+        r = subprocess.run([FFMPEG, "-v", "error", "-y", *args[1:]], cwd=work,
+                           capture_output=True, text=True, check=False)  # fmt: skip
+        probe = run(FFPROBE, "-v", "error", "-show_entries", "stream=codec_name,codec_type",
+                    "-of", "csv=p=0", str(work / args[-1]))  # fmt: skip
+        found = probe.stdout.split() if r.returncode == 0 else r.stderr.strip()
+        results.append(checked(" ".join(args), found, STREAMS[args[-1]]))
+        if args[-1] in ("out.webm", "out.mkv"):  # the WebVTT track, copied back out
+            back = run(FFMPEG, "-v", "error", "-i", str(work / args[-1]), "-map", "0:s",
+                       "-c", "copy", "-f", "webvtt", "-").stdout  # fmt: skip
+            kept = all(x in back for x in KEPT)
+            results.append(checked("    its identifier and settings kept", kept, stated=True))
+    third = (work / "out.vtt").read_text(encoding="utf-8").rstrip("\n").split("\n")[-1]
+    results.append(checked("    the third cue, into SubRip and back", third, ROUND_TRIP))
+    results.append(checked("missing from the prose", stated(text), []))
+    return all(results)
+
+
+def stated(text: str) -> list[str]:
+    """What the skill's prose must say of its example, from the measured values: those missing."""
+    prose = " ".join(text.split())
+    said = [f"{a / 1000:g} s for {d / 1000:g} s" for a, d, _ in EXAMPLE_FFMPEG]
+    said += [f"`{t}`" for t in EXAMPLE_ASS] + [f"`{EXAMPLE_FFMAN[0][2]}`", f"`{ROUND_TRIP}`"]
+    start, length, _ = EXAMPLE_FFMPEG[2]
+    cs = [int(t[-5:-3]) + int(t[-2:]) / 100 + 60 * int(t[-8:-6]) for t in ASS_TIMES]
+    said.append(f"{start / 1000:.3f}-{(start + length) / 1000:.3f} s became "
+                f"{cs[0]:.2f}-{cs[1]:.2f} s")  # fmt: skip
+    whole = r"(?<![\w.]){}(?![\w]|\.\d)"  # no digit nor word glued to it
+    return [x for x in said if not re.search(whole.format(re.escape(x)), prose)]
 
 
 if __name__ == "__main__":

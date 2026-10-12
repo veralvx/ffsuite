@@ -7,8 +7,9 @@ source: the editor's draft, `w3c/webvtt` `index.bs` at commit `0648025` of the s
 implements the specification's algorithm, its `VTTCue` the data model -- but not regions,
 `lineAlign` or `positionAlign` (absent from its `VTTCue`), so those rows are the
 specification's alone. ffmpeg's `webvtt` reader and writer: their section below, measured by
-`../scripts/measure_ffmpeg.py`; the writers in use (whisper.cpp, OpenAI whisper, WhisperX) the
-`whisper-transcripts` skill's.
+`../scripts/measure_ffmpeg.py`, which with a Python importing ffman measures ffman's reading too,
+closing the record (VLC's and mpv's, by source: the skill); the writers in use (whisper.cpp,
+OpenAI whisper, WhisperX) the `whisper-transcripts` skill's.
 
 ## The file
 
@@ -64,6 +65,12 @@ intro
 | `NOTE ...` block                                            | ignored                                                          |
 | `NOTE` directly over a timing line                          | a cue whose identifier is `NOTE`                                 |
 | `STYLE` after a cue                                         | ignored                                                          |
+| no blank line between two cues                              | two cues: the timing line ends the first                         |
+| a comma time mid-file                                       | that cue dropped, the rest read                                  |
+| two identical cues                                          | both kept                                                        |
+| a byte not UTF-8 (`caf\xe9`)                                | U+FFFD                                                           |
+| UTF-16LE with its BOM                                       | refused: "Invalid data found"                                    |
+| UTF-16LE with its BOM                                       | read: the BOM honoured (the syntax wants UTF-8)                  |
 
 ## Cue settings
 
@@ -111,6 +118,9 @@ Each `name:value`, separated by spaces or tabs, each at most once (the parser ta
 | `&bogus; &;`                               | kept as text                                     |
 | `a < b`                                    | `a `: `< b` read as a tag, the text lost         |
 | `a<b`                                      | `a`, then an empty `<b>`                         |
+| `a < b and c > d`                          | `a `, ` d`: `< b and c >` a tag                  |
+| `before <b ends`                           | `before `, then an empty `<b>`                   |
+| `{\an8}up {x} one\Ntwo \n`                 | as written                                       |
 | tabs, runs of spaces, trailing spaces      | kept                                             |
 
 A text holding `<` or `&` must write them `&lt;` and `&amp;`; `-->` cannot be held at all.
@@ -157,6 +167,12 @@ specification's parser. Every use but a stream copy decodes a cue into ASS and e
 | `00:01.000 --> 00:01.000`                               | 1000, 0: kept                                                                     |
 | end before start (`00:03 --> 00:01`)                    | 3000, 2000: the gap to the next start (Chromium keeps 3 -> 1)                     |
 | cues out of order; overlapping; two identical           | sorted; overlaps kept; one                                                        |
+| `-->` without spaces, or with tabs                      | read                                                                              |
+| an empty line in a cue's text                           | the cue ends; every later cue lost (Chromium: the text after it)                  |
+| a line of spaces; a text line holding `-->`             | text, both (Chromium: the cue ends at the `-->`)                                  |
+| no `WEBVTT`, a `.vtt` name                              | read, a low score (Chromium: refused)                                             |
+| `webvtt` lower-cased                                    | no cue: the block taken for a cue, its timing fails                               |
+| a byte not UTF-8 (`caf\xe9`)                            | read; the decoder drops that cue: "Invalid UTF-8"                                 |
 
 *Measured* -- the decoder, a cue's text into an ASS event's:
 
@@ -191,6 +207,36 @@ style (Arial 16, white, bottom centre, margins 10), as SubRip's.
 | a style bold, italic, underline, strike, red, Serif 24, top | `<b><i><u>styled</u></i></b>`: the rest dropped                     |
 | `0:00:01.23`; `1:00:00.00`; `100:00:00.00`                  | `00:01.230`; `01:00:00.000`; `100:00:00.000`                        |
 | overlapping events                                          | overlapping cues                                                    |
+
+## ffman's reading
+
+subverter's cues through ffman's `ingest` -- the chunks its burn draws and `--add-subs` writes:
+sorted, cleaned of their tags, their references decoded, each cut at the next start. *Measured*
+(`../scripts/measure_ffmpeg.py`, with its PYTHON):
+
+| File                                                                       | ffman burns                                                                                                               |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| no `WEBVTT`; `webvtt` lower-cased; UTF-16 with its BOM                     | refused: "not a WebVTT file: in.vtt (its first line is not WEBVTT)"                                                       |
+| no blank line after `WEBVTT`; `-->` without spaces, or with tabs           | read                                                                                                                      |
+| `00:01.5`; `00:01.5000`; `00:01,000`; `75:00.000`                          | its cue dropped, noted: "1 cues dropped: a line holding --> that is no WebVTT timing line (W3C), the first ... on line N" |
+| `one`, an empty line, `two`                                                | `one`; `two` dropped, unnoted                                                                                             |
+| `one`, a line of spaces, `two`                                             | `one two`                                                                                                                 |
+| `one`, `Note: 1 --> 2`, `two`                                              | `one`, noted: the cue ends at the line                                                                                    |
+| an identifier holding `-->` (`a --> b`)                                    | that line dropped, noted; the cue after it read                                                                           |
+| no blank line between two cues                                             | two cues                                                                                                                  |
+| `NOTE` as a cue's identifier                                               | the cue read                                                                                                              |
+| end before start; zero duration; a cue without text                        | dropped                                                                                                                   |
+| out of order; two identical; overlapping                                   | sorted; one; each cut at the next start                                                                                   |
+| `<b>b</b> <b.loud>`, `<bogus>x</bogus>`, `<c.yellow>`, `<v Bob>`, `<lang>` | the tags removed, their text kept                                                                                         |
+| `<ruby>kanji<rt>reading</rt></ruby>`; timestamp tags                       | `kanjireading`; removed                                                                                                   |
+| `&amp; &lt; &gt; &lrm;&rlm; &nbsp;`; `&copy; &#38; &#x26; &bogus;`         | decoded, HTML's: `& < >`, U+200E U+200F, U+00A0; `© & & &bogus;`                                                          |
+| `a < b and c > d`; `before <b ends`                                        | `a d`; `before <b ends`: a `<` without a `>` after it kept                                                                |
+| `{\an8}not an override {x}`; `one\Ntwo \h`                                 | `not an override {x}`; `one\Ntwo \h`: an override block removed                                                           |
+| two lines; CRLF; leading and trailing spaces                               | joined by a space; read; trimmed                                                                                          |
+| a byte not UTF-8 (`caf\xe9`)                                               | refused: "not UTF-8: in.vtt (line 4)"                                                                                     |
+| a NUL in a cue's text                                                      | U+FFFD there, noted                                                                                                       |
+| CR only; CR CR LF                                                          | read; each cue of no text, so "no timed text found"                                                                       |
+| an identifier; settings; `NOTE`, `STYLE`, `REGION`                         | ignored: ffman places its own                                                                                             |
 
 ## What WebVTT holds
 
