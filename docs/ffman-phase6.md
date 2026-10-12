@@ -3508,10 +3508,29 @@ tests with 6.8.3's converters.*
       VLC's entities counted, 124; the lrm, rlm and nbsp references named, as the saved
       skill had lost them, and the package handed over with it -- the card carries
       `SKILL.md` alone.*
-- [ ] Found by the `webvtt` box: a WebVTT cue's text after an empty line is dropped unnoted
+- [x] Found by the `webvtt` box: a WebVTT cue's text after an empty line is dropped unnoted
       -- as the W3C, Chromium and VLC drop it, ffmpeg losing every later cue -- where a
       SubRip's is read on and noted (measured). To decide: noted, as the cues dropped for
       their timing line are; or as now.
+      *Done (the owner's: noted): a block of text after an empty line holding no `-->` is no
+      cue's, dropped, noted past the first block holding one -- counted by block, the first
+      named (`2 text blocks dropped: after an empty line, in no cue (W3C), the first lost on
+      line 6`); not a line alone before a line holding `-->` (the next cue's identifier, the
+      W3C's line count 2), a comment, style sheet or region block as the syntax writes them,
+      nor blanks alone; nor text before any cue (a header's or a title's). `cues.py` records
+      the runs (`Found.strays`), `webvtt.py` words them. Failing first: 14 reader cases and
+      ffman's `stray.vtt`; nine mutations, each caught (one, the first `-->` a dropped cue's,
+      by a case added for it). Differential: 60000 generated files, the W3C's block
+      algorithm transcribed from `index.bs` -- 0 mismatches in the note and the cue count,
+      HEAD's code mismatching on every one of the 2492 with stray text; that transcription's
+      cue counts Chromium 141's on 1500 more. 200000 strays in 7 MB read in 4.3 s (HEAD 3.8
+      s). Suite 2230, 100%; matrix 770; outcome report: 475 identical, `stray.vtt` new, on
+      3.13 and 3.14; the `webvtt` skill's ffman column and record re-measured. Found: the
+      next box.*
+- [ ] Found by the stray-text box: a SubRip cue's text after a line of spaces is dropped
+      unnoted -- as ffmpeg's decoder drops it, the lines after one to the next timing line
+      no cue's (measured: `first`, then `   `, then `lost` -- ffmpeg 8.1.2 and ffman draw
+      `first` alone). To decide: noted, as WebVTT's text in no cue now is; or as now.
 - [ ] Found by the `webvtt` box: in a WebVTT text ffman removes `{\...}` override blocks and
       reads a typed `\n` or `\t` as a space -- SubRip's reading -- where Chromium, ffmpeg and
       VLC show them as written (measured; VLC by source). To decide: as written in WebVTT;

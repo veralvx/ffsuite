@@ -7,6 +7,7 @@ either, read back into words.
 import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from itertools import groupby
 from typing import Final, NamedTuple
 
 from subverter.markup import untagged
@@ -36,12 +37,16 @@ class Found:
     ``odd``: a timing line with an odd time. ``indexes``: a cue's line taken for the next
     cue's index, no empty line before it, its number. ``dropped``: a line holding ``-->`` that
     is no timing line, its block dropped. ``continued``: a cue's first text after an empty line.
+    ``strays``: a run of lines no cue holds, opening after an empty line past the first line
+    holding ``-->`` -- not a line alone before one (the next cue's identifier, as the W3C reads
+    it), nor blanks alone -- its first line of text, as written.
     """
 
     odd: list[tuple[int, Timed]] = field(default_factory=list)
     indexes: list[tuple[int, str]] = field(default_factory=list)
     dropped: list[tuple[int, str]] = field(default_factory=list)
     continued: list[tuple[int, str]] = field(default_factory=list)
+    strays: list[tuple[int, str]] = field(default_factory=list)
 
 
 @dataclass(frozen=True, slots=True)
@@ -102,9 +107,12 @@ def _rows(lines: list[str], name: str, dialect: Dialect) -> tuple[list[Cue], tup
     found, index = Found(), dialect.index
     is_open = emptied = False  # emptied: an empty line met in the open cue
     noted = -1  # the cue whose text after an empty line is noted
+    skipped: list[int] = []  # the lines no cue holds
+    arrow = len(lines)  # the first line holding -->, a timing line or dropped; none yet
     for i, line in enumerate(lines):
         timing = dialect.timing(line)
         if timing is not None:
+            arrow = min(arrow, i)
             if timing.odd:
                 found.odd.append((i + 1, timing))
             if index and is_open:
@@ -116,6 +124,7 @@ def _rows(lines: list[str], name: str, dialect: Dialect) -> tuple[list[Cue], tup
         elif not line:
             emptied = True  # skipped: the cue goes on
         elif dialect.arrow_ends and "-->" in line:
+            arrow = min(arrow, i)
             found.dropped.append((i + 1, line.strip()))
             is_open = False
         elif is_open:
@@ -124,8 +133,27 @@ def _rows(lines: list[str], name: str, dialect: Dialect) -> tuple[list[Cue], tup
                 found.continued.append((i + 1, line.strip()))
                 noted = cue
             texts.append((cue, i))
+        else:
+            skipped.append(i)
+    found.strays = _strays(lines, skipped, arrow)
     cues, nuls = _joined(lines, name, times, texts)
     return cues, dialect.notes(found) + nul_notes(nuls)
+
+
+def _strays(lines: list[str], skipped: list[int], arrow: int) -> list[tuple[int, str]]:
+    """``Found.strays``: the runs of ``skipped`` lines past line ``arrow`` (from 0)."""
+    strays: list[tuple[int, str]] = []
+    for _, group in groupby(enumerate(skipped), lambda pair: pair[1] - pair[0]):
+        run = [i for _, i in group]
+        first, last = run[0], run[-1]
+        if first < arrow or lines[first - 1]:
+            continue  # before any cue, or no empty line before it: a dropped block's
+        if len(run) == 1 and last + 1 < len(lines) and "-->" in lines[last + 1]:
+            continue  # an identifier
+        text = next((i for i in run if lines[i].strip()), None)
+        if text is not None:
+            strays.append((text + 1, lines[text]))
+    return strays
 
 
 def _take_index(

@@ -183,6 +183,13 @@ def test_a_webvtt_line_of_spaces_is_its_cues_text(tmp_path: Path) -> None:
     assert [c.text for c in t.chunks] == ["first second"]
 
 
+def test_a_webvtt_text_in_no_cue_is_dropped_noted(tmp_path: Path) -> None:
+    t = ingested(put(tmp_path, "stray.vtt", HOSTILE["stray.vtt"]))
+    assert [c.text for c in t.chunks] == ["first", "second"]
+    how = "after an empty line, in no cue (W3C)"
+    assert t.notes == (f"2 text blocks dropped: {how}, the first lost on line 6",)
+
+
 def test_a_nul_reads_as_u_fffd_noted(tmp_path: Path) -> None:
     t = ingested(put(tmp_path, "nul.srt", HOSTILE["nul.srt"]))
     assert [c.text for c in t.chunks] == ["fi\ufffdrst", "second"]

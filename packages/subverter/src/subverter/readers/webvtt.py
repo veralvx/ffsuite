@@ -5,7 +5,9 @@ A file not opening with its signature is refused, as the W3C's parser processes 
 ``WEBVTT``, ``NOTE``, ``STYLE`` or ``REGION``, or is a cue -- any other, no cue). A timing line
 is wholly "collect WebVTT cue timings and settings" -- else none, and a line holding ``-->``
 ends the cue, its block dropped, noted (Chromium alike; ffmpeg's demuxer and VLC 3 read some
-such lines, ffmpeg losing every cue after one it cannot).
+such lines, ffmpeg losing every cue after one it cannot). A cue ends at an empty line ("collect a
+WebVTT block"): a block of text after it, holding no ``-->``, is no cue's -- dropped (Chromium
+and VLC 3 alike; ffmpeg's demuxer loses every cue after it), noted past the first cue.
 """
 
 import re
@@ -33,6 +35,9 @@ _BLANKS: Final = "[ \t\f]*"  # "skip whitespace": a line's ASCII whitespace
 # a start, the arrow, an end; what remains, the cue's settings, ignored
 _TIMINGS: Final = re.compile(f"{_BLANKS}{_TIMESTAMP}{_BLANKS}-->{_BLANKS}{_TIMESTAMP}")
 _LAST: Final = 59  # a minute's and a second's largest
+# the syntax's blocks of no text: a comment (``NOTE``, then a space, a tab or its line's end), a
+# style sheet or a region (its keyword, then spaces or tabs alone)
+_NO_TEXT: Final = re.compile(r"NOTE(?:[ \t].*)?|(?:STYLE|REGION)[ \t]*")
 
 
 def _timing(line: str) -> Timed | None:
@@ -56,12 +61,27 @@ def _ms(hours: str | None, minutes: str, seconds: str, fraction: str) -> int | N
 
 
 def _notes(found: Found) -> tuple[str, ...]:
-    """The blocks dropped: counted, the first named by its line."""
-    if not found.dropped:
+    """The blocks dropped: a cue's for its timing line; text no cue holds."""
+    return _dropped_notes(found.dropped) + _stray_notes(found.strays)
+
+
+def _dropped_notes(dropped: list[tuple[int, str]]) -> tuple[str, ...]:
+    """The cues dropped for their timing line: counted, the first named by its line."""
+    if not dropped:
         return ()
-    line, text = found.dropped[0]
+    line, text = dropped[0]
     why = "a line holding --> that is no WebVTT timing line (W3C)"
-    return (f"{len(found.dropped)} cues dropped: {why}, the first {text} on line {line}",)
+    return (f"{len(dropped)} cues dropped: {why}, the first {text} on line {line}",)
+
+
+def _stray_notes(strays: list[tuple[int, str]]) -> tuple[str, ...]:
+    """The text no cue holds, but the syntax's blocks of none: counted, the first named."""
+    texts = [(line, text.strip()) for line, text in strays if not _NO_TEXT.fullmatch(text)]
+    if not texts:
+        return ()
+    line, text = texts[0]
+    why = "after an empty line, in no cue (W3C)"
+    return (f"{len(texts)} text blocks dropped: {why}, the first {text} on line {line}",)
 
 
 def split_lines(text: str) -> list[str]:

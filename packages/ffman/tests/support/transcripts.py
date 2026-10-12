@@ -207,6 +207,12 @@ HOSTILE: Final = {
     ),
     # a WebVTT cue's line of spaces its text, as the W3C reads it (6.8.2). Before: its end
     "whitespace.vtt": "WEBVTT\n\n00:00.000 --> 00:00.400\nfirst\n   \nsecond\n",
+    # a WebVTT cue's text after an empty line, no cue's, dropped as the W3C drops it, noted
+    # (6.8.2); `NOTE` a comment, `id` the next cue's identifier. Before: dropped, silently
+    "stray.vtt": (
+        "WEBVTT\n\n00:00.000 --> 00:00.200\nfirst\n\nlost\n\nNOTE a comment\n\nid\n"
+        "00:00.200 --> 00:00.400\nsecond\n\nalso lost\n"
+    ),
     # a NUL in a text (6.8.2): U+FFFD, as the W3C reads one, noted. Before: written into the
     # ASS, where libass ended the script -- `fi` drawn, every later cue lost (measured)
     "nul.srt": "1\n00:00:00,000 --> 00:00:00,200\nfi\x00rst\n\n2\n00:00:00,200 --> 00:00:00,400\nsecond\n",

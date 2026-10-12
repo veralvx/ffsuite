@@ -686,6 +686,68 @@ def test_a_webvtt_line_before_a_timing_line_is_text() -> None:
     )
 
 
+_STRAY: Final = (
+    "{n} text blocks dropped: after an empty line, in no cue (W3C), the first {text} on line {at}"
+)
+_HEAD: Final = "WEBVTT\n\n00:01.000 --> 00:02.000\nfirst\n\n"  # a cue, ended at line 5
+
+
+@pytest.mark.parametrize(
+    ("after", "cues", "notes"),
+    [
+        # "collect a WebVTT block": a block holding no --> line is no cue -- dropped (Chromium 141,
+        # measured), counted, the first named
+        ("second\n\n00:03.000 --> 00:04.000\nnext\n", 2, ((1, "second", 6),)),
+        ("second\nmore\n\nthird\n", 1, ((2, "second", 6),)),
+        ("credits\n", 1, ((1, "credits", 6),)),
+        ("   \n  second\n", 1, ((1, "second", 7),)),  # named by its first text
+        # a line alone before a line holding -->: the next cue's identifier (line count 2)
+        ("id\n00:03.000 --> 00:04.000\nnext\n", 2, ()),
+        ("id\nnot a time --> x\nlost\n", 1, ()),  # the cue dropped, noted alone (_DROPPED)
+        # two before it: no identifier (line count 3), dropped; the cue read
+        ("a\nb\n00:03.000 --> 00:04.000\nnext\n", 2, ((1, "a", 6),)),
+        # a comment, a style sheet, a region: no text (the syntax's blocks); a NOTE needs a
+        # space, a tab or its line's end after it, STYLE and REGION spaces or tabs alone
+        ("NOTE a comment\n\nNOTE\nlines\n\nSTYLE\n::cue {}\n\nREGION \t\nid:r\n", 1, ()),
+        ("NOTES\n\nSTYLE x\n", 1, ((2, "NOTES", 6),)),
+        ("   \n\t\n", 1, ()),  # blanks alone: nothing lost
+    ],
+)
+def test_webvtt_text_in_no_cue_is_dropped_noted(
+    after: str, cues: int, notes: tuple[tuple[int, str, int], ...]
+) -> None:
+    reading = subverter.read("vtt", (_HEAD + after).encode(), "a.vtt")
+    dropped = (_DROPPED.format(n=1, line="not a time --> x", at=7),) if "lost" in after else ()
+    stray = tuple(_STRAY.format(n=n, text=text, at=at) for n, text, at in notes)
+    assert (len(reading.cues), reading.notes) == (cues, dropped + stray)
+
+
+def test_webvtt_text_after_a_dropped_first_cue_is_noted() -> None:
+    # the first block holding --> is past the header and any title, its cue dropped or not
+    data = "WEBVTT\n\n00:01,000 --> 00:02,000\nx\n\nstray\n\n00:03.000 --> 00:04.000\nnext\n"
+    reading = subverter.read("vtt", data.encode(), "a.vtt")
+    assert (reading.cues, reading.notes) == (
+        (Cue(3000, 4000, "next"),),
+        (
+            _DROPPED.format(n=1, line="00:01,000 --> 00:02,000", at=3),
+            _STRAY.format(n=1, text="stray", at=6),
+        ),
+    )
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        "WEBVTT\nKind: captions\nLanguage: en\n\n00:01.000 --> 00:02.000\nx\n",  # its header
+        "WEBVTT\n\nA title\n\nmore\n\n00:01.000 --> 00:02.000\nx\n",  # before any cue
+        "WEBVTT\n\n00:01.000 --> 00:02.000\none\nNote: 1 --> 2\ntwo\n",  # the cue's end, noted
+    ],
+)
+def test_webvtt_text_before_any_cue_or_after_an_arrow_is_not_stray(data: str) -> None:
+    notes = subverter.read("vtt", data.encode(), "a.vtt").notes
+    assert not any("text blocks" in note for note in notes)
+
+
 # --- WhisperX --highlight_words: by structure, a run of one text a sentence, each <u> a word
 
 
