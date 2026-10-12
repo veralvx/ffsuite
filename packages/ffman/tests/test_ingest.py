@@ -14,6 +14,11 @@ from ffman.subs.srt import srt
 from tests.support.ingesting import ingested
 from tests.support.transcripts import HOSTILE, encoded
 
+DROPPED: Final = (
+    "{n} cues dropped: a line holding --> that is no WebVTT timing line (W3C), the first {line} "
+    "on line {at}"
+)
+
 
 def put(tmp_path: Path, name: str, text: str | bytes) -> str:
     path = tmp_path / name
@@ -147,6 +152,7 @@ def test_a_line_holding_an_arrow_is_subrips_text_and_ends_a_webvtt_cue(tmp_path:
     ]
     vtt = ingested(put(tmp_path, "arrows.vtt", HOSTILE["arrows.vtt"]))
     assert [(c.start, c.end, c.text) for c in vtt.chunks] == [(0, 200, "x"), (200, 400, "next")]
+    assert vtt.notes == (DROPPED.format(n=1, line="Note: 1 --> 2", at=5),)
 
 
 def test_an_lrc_offset_moves_every_time_noted(tmp_path: Path) -> None:
@@ -166,9 +172,13 @@ def test_a_fraction_not_of_three_digits_is_ms_in_subrip_no_time_in_webvtt(tmp_pa
     )
     vtt = ingested(put(tmp_path, "fraction.vtt", HOSTILE["fraction.vtt"]))
     assert [(c.start, c.end, c.text) for c in vtt.chunks] == [(0, 200, "ok")]
-    assert vtt.notes == (
-        "1 cues dropped: a time with a fraction not of three digits (W3C WebVTT), the first 00:00.2 on line 6",
-    )
+    assert vtt.notes == (DROPPED.format(n=1, line="00:00.2 --> 00:00.400", at=6),)
+
+
+def test_a_webvtt_timing_line_is_the_w3cs_else_its_cue_dropped_noted(tmp_path: Path) -> None:
+    t = ingested(put(tmp_path, "timestamps.vtt", HOSTILE["timestamps.vtt"]))
+    assert [(c.start, c.end, c.text) for c in t.chunks] == [(0, 100, "kept"), (300, 400, "last")]
+    assert t.notes == (DROPPED.format(n=3, line="5 --> 7", at=6),)
 
 
 def test_a_number_alone_before_a_timing_line_is_the_next_cues_index(tmp_path: Path) -> None:

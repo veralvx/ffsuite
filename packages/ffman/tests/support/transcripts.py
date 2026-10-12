@@ -150,6 +150,13 @@ HOSTILE: Final = {
     # decimal: `,5` 500 ms, `,25` 250, so `five` ended before it began, dropped; `00:00.2` 200
     "fraction.srt": "1\n00:00:00,5 --> 00:00:00,25\nfive\n\n2\n00:00:00,250 --> 00:00:00,400\nnext\n",
     "fraction.vtt": "WEBVTT\n\n00:00.000 --> 00:00.200\nok\n\n00:00.2 --> 00:00.400\ndropped\n",
+    # WebVTT's timing lines wholly the W3C's (6.8.2): bash's lenient forms dropped, noted.
+    # Before, as bash: `5 --> 7` 5 to 7 minutes, the sign and the one digit read
+    "timestamps.vtt": (
+        "WEBVTT\n\n00:00.000 --> 00:00.100\nkept\n\n5 --> 7\nminutes\n\n"
+        + "-00:00.100 --> 00:00.200\nsigned\n\n0:00.200 --> 0:00.300\none digit\n\n"
+        + "00:00.300 --> 00:00.400\nlast\n"
+    ),
     # the next cue's index with no blank line before it (6.8.2): a number alone right before a
     # timing line, the index, as ffmpeg reads it -- noted; `2.` text. Before, as bash, the first
     # cue's text: `first 2`

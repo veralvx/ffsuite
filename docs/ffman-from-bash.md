@@ -165,6 +165,9 @@ which git-cliff writes at each release from the commits (`packages/ffman/CHANGEL
 - **A SubRip's `{text}` is hidden.** bash kept it as text; once ffmpeg's decoder drops ASS's
   tags, libass reads any `{...}` left as an override block, ASS's comment form among them, so
   ffmpeg and mpv hide it -- now ffman too, noted.
+- **WebVTT's timing lines are the W3C's.** bash read each side of a `-->` as a number: `5 --> 7`
+  was 5 to 7 minutes, `00:01.0e1` 10 s, a sign or a one-digit field read. Now a timing line is
+  the W3C's, else its cue is dropped, noted.
 - **An attached track holds its text exactly.** bash wrote each text raw into the SRT ffmpeg
   converts into the track: a `{text}` was hidden, a typed `\N` a line break, a WebVTT's
   `&lt;b&gt;` bold, WebM's `<` and `&` misread, a text like a timing line a lost cue; now each

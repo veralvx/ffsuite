@@ -43,7 +43,8 @@ libavcodec, `htmlsubtitles.c`), turning each cue into ASS for every use but a st
 libavcodec into ASS, which libass draws (`demux/demux_lavf.c`, `sub/lavc_conv.c`) -- ffmpeg's
 reading, but for a file's character set, which mpv guesses itself. **VLC 3** parses it itself
 (`modules/demux/subtitle.c`) and renders the markup itself (`modules/codec/subsdec.c`).
-**ffman** reads it with subverter (`readers/subrip.py`) and burns its own ASS.
+**ffman** reads it with subverter (`readers/subrip.py`, its cue blocks `readers/cues.py`) and
+burns its own ASS.
 
 | Where                                                         | ffmpeg, mpv                                                                                                                                                        | VLC 3                                                                                                                                               | ffman (subverter)                                                                                         |
 | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
@@ -167,6 +168,6 @@ FFmpeg n8.1.2 (`libavformat/srtdec.c`, `srtenc.c`, `subtitles.c`; `libavcodec/sr
 (`modules/demux/subtitle.c`, `modules/codec/subsdec.c`, `src/input/stream.c`); mpv 0.41.0
 (`demux/demux.c`, `demux/demux_lavf.c`, `misc/charset_conv.c`, `sub/lavc_conv.c`, `sub/sd_ass.c`);
 libass 0.17.1 (`ass_parse.c`); whisper.cpp's, OpenAI whisper's and WhisperX's writers (the
-`whisper-transcripts` skill); ffman's `subverter/readers/subrip.py`, `subs/normalize.py`,
-`subs/markup.py`, `subs/ass.py` and `subs/srt.py`.
+`whisper-transcripts` skill); ffman's `subverter/readers/subrip.py`, `subverter/readers/cues.py`,
+`subs/normalize.py`, `subs/markup.py`, `subs/ass.py` and `subs/srt.py`.
 Measurements: `scripts/measure.py`.

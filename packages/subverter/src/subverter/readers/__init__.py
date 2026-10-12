@@ -4,7 +4,7 @@ import csv
 from typing import Final
 
 from subverter._errors import refuse
-from subverter.readers import lrc, subrip, table, whisper
+from subverter.readers import cues, lrc, subrip, table, webvtt, whisper
 from subverter.transcript import Reading
 
 __all__ = ["FORMATS", "read"]
@@ -20,16 +20,18 @@ def read(fmt: str, data: bytes, name: str) -> Reading:
     if fmt not in FORMATS:
         refuse(f"unsupported subtitle format '.{fmt}' ({', '.join(FORMATS)})")
     match fmt:
-        case "srt" | "vtt":
-            return subrip.read(_lines(data), name, webvtt=fmt == "vtt")
+        case "srt":
+            return cues.read(_lines(data), name, subrip.DIALECT)
+        case "vtt":
+            return cues.read(_lines(data), name, webvtt.DIALECT)
         case "lrc":
             return lrc.read(_lines(data), name)
         case "csv" | "tsv":
             try:
-                cues = table.rows(fmt, _text(data), name)
+                rows = table.rows(fmt, _text(data), name)
             except csv.Error as error:  # a field past csv's limit (128 KiB): no subtitle's text
                 refuse(f"unreadable .{fmt}: {name}: {error}")
-            return Reading(f".{fmt}", has_words=False, cues=tuple(cues))
+            return Reading(f".{fmt}", has_words=False, cues=tuple(rows))
         case _:
             return whisper.read(data, name)
 

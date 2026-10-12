@@ -11,6 +11,8 @@ from typing import Final
 
 import pytest
 import subverter
+from hypothesis import given
+from hypothesis import strategies as st
 from subverter import Cue, Reading, Timing
 
 # --- the dispatcher: a .txt and an unknown format refused, in the words ffman's tests record
@@ -56,6 +58,12 @@ def test_a_subrip_part_past_a_double_is_no_time() -> None:
     huge = "9" * 400  # its first digit past 10**308: no number, so no time
     data = f"1\n00:00:01,000 --> {huge}:00:02,000\nx\n"
     assert subverter.read("srt", data.encode(), "a.srt").cues == (Cue(1000, None, "x"),)
+
+
+def test_a_webvtt_hour_past_a_double_is_no_time() -> None:
+    huge = "9" * 400  # the W3C reads hours of any digits; past 10**308, no time
+    data = f"WEBVTT\n\n00:01.000 --> {huge}:00:02.000\nx\n"
+    assert subverter.read("vtt", data.encode(), "a.vtt").cues == (Cue(1000, None, "x"),)
 
 
 @pytest.mark.parametrize(
@@ -166,6 +174,12 @@ def test_subrip_odd_fractions_counted_the_first_named() -> None:
     assert reading.notes == (_ODD_SUBRIP.format(n=4, time="00:00:01,5", said="1.005 s"),)
 
 
+_DROPPED: Final = (
+    "{n} cues dropped: a line holding --> that is no WebVTT timing line (W3C), the first {line} "
+    "on line {at}"
+)
+
+
 def test_a_webvtt_fraction_not_of_three_digits_drops_its_cue_noted() -> None:
     # W3C WebVTT, "collect a WebVTT timestamp": not exactly three digits, an error -- the
     # timings do not parse, the block dropped (Chromium 141 alike); ffmpeg reads them as ms
@@ -175,9 +189,144 @@ def test_a_webvtt_fraction_not_of_three_digits_drops_its_cue_noted() -> None:
     )
     reading = subverter.read("vtt", data.encode(), "a.vtt")
     assert reading.cues == (Cue(0, 1000, "ok"), Cue(5000, 6000, "c"))
-    assert reading.notes == (
-        "2 cues dropped: a time with a fraction not of three digits (W3C WebVTT), the first 00:02.5 on line 5",
-    )
+    assert reading.notes == (_DROPPED.format(n=2, line="00:01.000 --> 00:02.5 align:start", at=5),)
+
+
+# each timing line as Chromium 141 reads it (W3C WebVTT, "collect WebVTT cue timings and
+# settings"): its cue's start and end, or none -- the block dropped. Lenient: ffmpeg 8.1.2's
+# webvtt demuxer reads it (VLC 3 too, but a sign and 100:00.000); at the other forms ffmpeg
+# loses the rest of the file. VLC also needs a space each side of the arrow
+_TIMINGS: Final = {
+    "00:01.000 --> 00:02.000": (1000, 2000),
+    "0:00:01.000 --> 0:00:02.000": (1000, 2000),  # hours of any digits
+    "100:00:00.000 --> 100:00:01.000": (360_000_000, 360_001_000),
+    "00:01.000-->00:02.000": (1000, 2000),  # whitespace optional
+    " 00:01.000\t-->\t00:02.000": (1000, 2000),
+    "\f00:01.000\f-->\f00:02.000": (1000, 2000),  # a form feed: ASCII whitespace
+    "01:02:03.004 --> 01:02:03.005": (3_723_004, 3_723_005),
+    "59:59.998 --> 59:59.999": (3_599_998, 3_599_999),
+    "00:01.000 --> 00:02.000garbage": (1000, 2000),  # the remainder: settings, ignored
+    "00:01.000 --> 00:02.000.500": (1000, 2000),
+    "5 --> 7": None,  # bash's minutes
+    "1.5 --> 2.5": None,
+    "-00:01.000 --> 00:02.000": None,  # lenient: a sign
+    "+00:01.000 --> 00:02.000": None,  # lenient
+    "0:01.000 --> 0:02.000": None,  # lenient: one digit, hours needing their seconds
+    "00:1.000 --> 00:2.000": None,  # lenient
+    "00:75.000 --> 00:76.000": None,  # lenient: past 59
+    "00:60:00.000 --> 00:60:01.000": None,  # lenient
+    "75:00.000 --> 75:01.000": None,  # lenient as minutes: hours, needing their seconds
+    "100:00.000 --> 100:01.000": None,  # lenient
+    "00:01 --> 00:02": None,  # no fraction
+    "00:01. --> 00:02.": None,
+    "00:01.5 --> 00:02.5": None,  # lenient: a short fraction (as ms)
+    "00:01.0000 --> 00:02.0000": None,  # lenient: three digits read, the rest ignored
+    "00:01.0e1 --> 00:02.000": None,  # lenient: the exponent ignored (bash's: 10 s)
+    "00:01,000 --> 00:02,000": None,
+    "\u0660\u0660:\u0660\u0661.\u0660\u0660\u0660 --> 00:02.000": None,  # ASCII digits alone
+    "\uff10\uff10:\uff10\uff11.\uff10\uff10\uff10 --> 00:02.000": None,
+    "00:0_1.000 --> 00:02.000": None,
+    "00:01 .000 --> 00:02.000": None,
+}
+
+
+@pytest.mark.parametrize(("line", "times"), list(_TIMINGS.items()))
+def test_a_webvtt_timing_line_is_the_w3cs_else_its_block_dropped_noted(
+    line: str, times: tuple[int, int] | None
+) -> None:
+    data = f"WEBVTT\n\n{line}\nfirst\n\n00:05.000 --> 00:06.000\nsecond\n"
+    reading = subverter.read("vtt", data.encode(), "a.vtt")
+    kept = (Cue(*times, "first"),) if times else ()
+    assert reading.cues == (*kept, Cue(5000, 6000, "second"))
+    dropped = () if times else (_DROPPED.format(n=1, line=line.strip(), at=3),)
+    assert reading.notes == dropped
+
+
+class _TimestampError(Exception):
+    """W3C WebVTT's "return an error"."""
+
+
+def _digits(line: str, at: int, width: int = 0) -> tuple[int, int]:
+    """ASCII digits from ``at``, at least one -- exactly ``width``, if given: value, end."""
+    end = at
+    while end < len(line) and line[end] in "0123456789":
+        end += 1
+    if end == at or (width and end - at != width):
+        raise _TimestampError
+    return int(line[at:end]), end
+
+
+def _mark(line: str, at: int, mark: str) -> int:
+    """Past ``mark`` at ``at``, or an error."""
+    if line[at : at + len(mark)] != mark:
+        raise _TimestampError
+    return at + len(mark)
+
+
+def _blanks(line: str, at: int) -> int:
+    """W3C's "skip whitespace", in a line."""
+    while at < len(line) and line[at] in " \t\f":
+        at += 1
+    return at
+
+
+def _timestamp(line: str, at: int) -> tuple[int, int]:
+    """W3C WebVTT's "collect a WebVTT timestamp", step by step: the time in ms, where it ends."""
+    value1, end = _digits(line, at)
+    hours = end - at != 2 or value1 > 59
+    value2, end = _digits(line, _mark(line, end, ":"), 2)
+    if hours or line[end : end + 1] == ":":
+        value3, end = _digits(line, _mark(line, end, ":"), 2)
+    else:
+        value1, value2, value3 = 0, value1, value2
+    fraction, end = _digits(line, _mark(line, end, "."), 3)
+    if value2 > 59 or value3 > 59:
+        raise _TimestampError
+    return ((value1 * 60 + value2) * 60 + value3) * 1000 + fraction, end
+
+
+def _w3c_timings(line: str) -> tuple[int, int] | None:
+    """W3C WebVTT's "collect WebVTT cue timings and settings", step by step: start and end."""
+    try:
+        start, at = _timestamp(line, _blanks(line, 0))
+        end, _ = _timestamp(line, _blanks(line, _mark(line, _blanks(line, at), "-->")))
+    except _TimestampError:
+        return None
+    return start, end
+
+
+# what a timing line is made of, well and badly: digits of every length, its marks, blanks
+_TIMING_PARTS: Final = (
+    "0",
+    "5",
+    "00",
+    "59",
+    "60",
+    "100",
+    ":",
+    ".",
+    "000",
+    "-",
+    "+",
+    ",",
+    "e1",
+    " ",
+)
+
+
+@given(
+    st.lists(st.sampled_from(_TIMING_PARTS), max_size=8).map("".join),
+    st.sampled_from(("-->", " --> ", "\t-->", "-- >")),
+    st.lists(st.sampled_from((*_TIMING_PARTS, "\f", "x")), max_size=8).map("".join),
+)
+def test_a_webvtt_timing_line_is_read_as_the_w3c_reads_it(
+    left: str, arrow: str, right: str
+) -> None:
+    line = left + arrow + right
+    reading = subverter.read("vtt", f"WEBVTT\n\n{line}\nx\n".encode(), "a.vtt")
+    times = _w3c_timings(line)
+    assert reading.cues == ((Cue(*times, "x"),) if times else ())
+    assert len(reading.notes) == (0 if times or "-->" not in line else 1)
 
 
 # --- SubRip: a number alone right before a timing line, in a cue, is the next cue's index

@@ -3229,12 +3229,47 @@ tests with 6.8.3's converters.*
       planted mutants survived `untagged` (a `<` with no `>`, a `-->`), each WebVTT escape then
       caught; `measure.py` reading a track's stored text and libass's in one function;
       `ATTACHED`'s comment. Suite 2024.*
-- [ ] Found by the short-fraction box: WebVTT's timestamps wholly the W3C's ("collect a
+- [x] Found by the short-fraction box: WebVTT's timestamps wholly the W3C's ("collect a
       WebVTT timestamp"), where subverter still takes bash's lenient forms -- a bare
       number as minutes (`5 --> 7`), a sign, minutes or seconds not of two digits or past
       59, a first field of other digits or past 59 with no field after the seconds
       (`100:00.000`: hours needed), no fraction or an empty one, an exponent, `,` for `.`.
-      To decide, each: the standard (no timing line, its block dropped, noted), or as now.
+      To decide, each: the standard (no timing line, its block dropped, noted), or as now. *Done:
+      the owner's, each group: the standard -- the forms every player refuses (a bare number,
+      no fraction or an empty one, `,`), those ffmpeg, mpv and VLC read (a sign, one digit, past
+      59, `75:00.000` as minutes), the exponent; the layout assessed and chosen: `readers/cues.py`
+      the cue blocks SubRip and WebVTT share, each grammar a `Dialect` -- `subrip.py`,
+      `webvtt.py` (one module a format, as AGENTS.md says; WebVTT's writer and skill next).
+      `webvtt._timing` is the W3C's "collect WebVTT cue timings and settings" and "collect a
+      WebVTT timestamp" (a regex, its 59s checked); every other line holding `-->` drops its
+      block, noted once ("3 cues dropped: a line holding --> that is no WebVTT timing line
+      (W3C), the first 5 --> 7 on line 6") -- the short fraction's note folded in, a cue's
+      text line holding `-->` and other scripts' digits noted where they were silent. Measured:
+      Chromium 141 on 31 forms; ffmpeg 8.1.2's demuxer (`webvttdec.c`) reads the lenient ones
+      and, at a line it cannot read, loses every cue after it (`break`); VLC 3's `webvtt_scan_time` (run as written) reads most of them, not a sign or
+      `100:00.000`, and needs `-->` spaced; bash read `00:01.0e1` as 10 s. A correction on
+      the way: my first reading of the spec missed its line 3318 (minutes and seconds to 59),
+      corrected before building. Tests first: Chromium's 30 forms in a table (21 failing on the
+      old code), a property test against the W3C's steps transcribed (the oracle equal to
+      Chromium on 31 forms and 1,200 random lines), hours past a double's range no time;
+      ffman's `timestamps.vtt` (burned: 457 cases), `arrows.vtt` and `fraction.vtt` notes. 22
+      planted mutations, each caught -- two survivors first (a form feed, a minute's weight),
+      each made a Chromium-measured case. Bounded: 400,000 digits read in 4 ms. Suite 2058,
+      coverage 100%; matrix 770; `compare HEAD` on 3.13 and 3.14: 454 identical, 3 changed --
+      `timestamps.vtt`'s lenient cues dropped, noted; `arrows.vtt` noted; `fraction.vtt`'s note
+      reworded. `decisions.md` "WebVTT timing lines" (Timing lines, Short fractions, Index
+      lines, WebVTT references, Transcripts not UTF-8 pointed at the modules); from-bash;
+      subverter's README; AGENTS.md's layout; the `subrip` skill's and the mappings record's
+      pointers. Reviewed (the owner's request): VLC 3's scanner run as written (glibc's
+      `sscanf`) -- it refuses a sign and `100:00.000` and needs `-->` spaced, which the decision
+      row, the test table and this note had overstated; each lenient mark in the table proven
+      against ffmpeg and VLC (20 forms); ten block structures (a header without its blank line,
+      identifiers, NOTE, STYLE, an arrow in a cue's text) equal to Chromium's; `Found` a
+      documented dataclass; the commit in both packages' changelogs.*
+- [ ] Found by the timestamps box: a WebVTT not opening with its `WEBVTT` line (`WEBVTTX`,
+      none, `webvtt`): the W3C's parser reads no cue (Chromium 141 none), ffmpeg 8.1.2's
+      demuxer reads them all but for `webvtt`, ffman all. To decide: the standard (refused:
+      no timed text), or as now.
 - [ ] `webvtt`: the same.
 - [ ] `ass`: the same, SSA (v4) through it.
 - [ ] `lrc`: the same.
