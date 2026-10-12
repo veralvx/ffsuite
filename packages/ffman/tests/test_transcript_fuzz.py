@@ -21,7 +21,7 @@ from subverter.transcript import Transcript
 from ffman.errors import FfmanError
 from ffman.subs.ass import Style, script
 from tests.support.ingesting import ingested
-from tests.support.subtitles import POS
+from tests.support.subtitles import POS, libass_reads
 
 NASTY: Final = ["hi", "5-Minute", "{\\b1}x", "a\\Nb", "tab\there", "new\nline", "<i>it</i>", "ção", "日本", "}", "{", "\\", "  ", "--> x", "'quote'", '"dq"', "%d", "$(x)", "a,b", "ok."]  # fmt: skip
 PLAIN: Final = ["alpha", "be", "c", "delta", "echo", "fox", "g"]
@@ -227,9 +227,10 @@ def broken(t: Transcript, text: str, mode: str) -> list[str]:  # noqa: C901, PLR
             break
     if any(re.search(r"(^|})null($|{)", body) for *_, body in events):
         errs.append("a missing text rendered as the word null")
-    for *_, body in events:  # the text must not smuggle ASS syntax
-        bare = re.sub(r"\{[^}]*\}", "", body)
-        if "{" in bare or "}" in bare or "\\" in bare.replace("\\N", ""):
+    for *_, body in events:  # the text makes no ASS syntax: every block and escape ffman's own
+        _, blocks = libass_reads(body)  # a block of ffman's opens with a tag
+        bare = re.sub(r"(?<!\\)\{[^}]*\}", "", body)  # a backslash: \N, \{, \}, or before U+2060
+        if any(not b.startswith("\\") for b in blocks) or re.search(r"\\(?![N{}\u2060])", bare):
             errs.append(f"unescaped ASS syntax in {body[:60]!r}")
             break
     return errs

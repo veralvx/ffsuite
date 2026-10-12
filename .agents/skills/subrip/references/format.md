@@ -118,7 +118,7 @@ overlapping cues. The `text` encoder (`-c:s text`) writes the text without marku
 ## ffman's reading
 
 subverter's cues, and the chunks ffman's burn draws (its `ingest`: sorted, cleaned, each cut at
-the next start; a backslash drawn as `/`). *Measured*:
+the next start; braces and backslashes drawn as written). *Measured*:
 
 | File                                                        | subverter                            | ffman burns                                     |
 | ----------------------------------------------------------- | ------------------------------------ | ----------------------------------------------- |
@@ -135,6 +135,7 @@ the next start; a backslash drawn as `/`). *Measured*:
 | `x<3 and y>2`; `a < b and c > d`; `heart <3`                | as written                           | `x2`; `a d`; `heart <3`                         |
 | `{\an8}top`                                                 | as written                           | `top`                                           |
 | `one\Ntwo a\nb hard\hspace`                                 | as written                           | `one two a b hard space`: `\h` a no-break space |
+| `a {b} c\x \{d\}`                                           | as written                           | `a {b} c\x {d}`: drawn as written               |
 | `A &amp; B`                                                 | as written                           | the same                                        |
 | `  lead and trail  `                                        | as written                           | `lead and trail`                                |
 | `caf` and the byte E9                                       | refused: "not UTF-8: x.srt (line 3)" | the same                                        |

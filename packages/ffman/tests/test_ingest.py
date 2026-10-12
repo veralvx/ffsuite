@@ -189,6 +189,15 @@ def test_a_subrips_ass_escapes_read_as_libass_draws_them(tmp_path: Path) -> None
     assert t.notes == ()
 
 
+def test_braces_and_backslashes_are_drawn_as_written(tmp_path: Path) -> None:
+    t = ingested(put(tmp_path, "braces.srt", HOSTILE["braces.srt"]))
+    assert [c.text for c in t.chunks] == ["a{b} c\\x {d}"]  # a SubRip's \{ \}: its braces
+    (event,) = [
+        line for line in script(t, 1920, 1080, Style())[0].splitlines() if "Dialogue" in line
+    ]
+    assert event.endswith(",a\\{b\\} c\\\u2060x \\{d\\}")
+
+
 def test_a_highlighted_subrips_words_read_its_escapes_too(tmp_path: Path) -> None:
     cues = "".join(
         f"{i}\n00:00:0{i},000 --> 00:00:0{i + 1},000\n{text}\n\n"
@@ -377,13 +386,13 @@ BACKSLASHED: Final = {  # one text with a backslash, in every format a transcrip
 
 @pytest.mark.parametrize("name", list(BACKSLASHED))
 def test_a_backslash_is_one_in_every_format(tmp_path: Path, name: str) -> None:
-    """Read once, burned as one / (no override from the text), attached as itself."""
+    """Read once, burned as one, before a word joiner (no escape from the text), attached as itself."""
     t = ingested(put(tmp_path, name, BACKSLASHED[name]))
     assert [c.text for c in t.chunks] == ["a\\b"]
     assert all(w.text == "a\\b" for w in t.words)
     burned = script(t, 1920, 1080, Style())[0]
-    assert "a/b" in burned
-    assert "a//b" not in burned
+    assert "a\\\u2060b" in burned
+    assert "a\\\\" not in burned
     assert "\na\\b\n" in srt(t.chunks, None)
 
 

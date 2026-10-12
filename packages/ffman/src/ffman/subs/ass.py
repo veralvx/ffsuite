@@ -31,7 +31,7 @@ from ffman.subs.colorize import (
 )
 from ffman.subs.layout import CANVAS, font_size
 from ffman.subs.metrics import UNKNOWN, Metrics, counts, estimate
-from ffman.subs.paint import Painter, solid
+from ffman.subs.paint import Painter, drawn, solid
 from ffman.values import decimal, div_half_up, finite_decimal, round_half_up
 
 # the text box's bottom above the frame's, of its height (the owner's)
@@ -165,11 +165,6 @@ def _cs10(ms: int) -> int:
 def _ts(ms: int) -> str:
     cs = _cs10(ms)
     return f"{cs // 360000}:{cs % 360000 // 6000:02d}:{cs % 6000 // 100:02d}.{cs % 100:02d}"
-
-
-def _esc(text: str) -> str:
-    """No override tags from the text: a backslash to /, braces to parentheses."""
-    return text.replace("\\", "/").replace("{", "(").replace("}", ")")
 
 
 @dataclass(slots=True)
@@ -388,7 +383,7 @@ class _Events:
                 continue
             sp = lines.gaps[m] if out else ""  # each word after its gap, but the line's first
             if m == k and not top:
-                out += f"{sp}{{\\alpha&HFF&}}{word}{{\\alpha&H00&}}"
+                out += f"{sp}{{\\alpha&HFF&}}{drawn(word)}{{\\alpha&H00&}}"
             elif m == k:
                 last = m + 1 == len(lines.words) or lines.line_of[m + 1] != n
                 # space, or the line's edge, on each side
@@ -401,7 +396,7 @@ class _Events:
                     f"{sp}{{\\alpha&H00&{tags}}}{shown}{{\\r\\alpha&HFF&}}"  # \r: the scale stops
                 )
             elif top:  # hidden on layer 1: no colours to move
-                out += f"{sp}{word}"
+                out += f"{sp}{drawn(word)}"
             else:
                 out += f"{sp}{self.paint.text_of(word, lines.first[m], lines.letters, s, e, end)}"
         return out
@@ -418,7 +413,7 @@ class _Events:
     # -- the modes
     def _plain(self) -> None:
         for c in self.t.chunks:
-            units = segments(_esc(c.text))
+            units = segments(c.text)
             if self.bary is None:  # libass places the block at the margin; its lines broken here
                 texts = self._breaks(*units).texts()
                 if CANVAS - self.mv - len(texts) * self.lh < 0:
@@ -448,24 +443,23 @@ class _Events:
             after = queue[i + 1][0] if i + 1 < len(queue) else None
             # no flicker in a short gap: held to the next when it follows within 400 ms
             end = after if after is not None and e < after < e + 400 else e
-            shown = _esc(text)
-            letters = len(segments(shown)[0])
+            letters = len(segments(text)[0])
             tags, look = "", "Default"
             if self.style.mode == "word-highlight" and lit:
                 tags = self._hl_tags(end - s, 0)
-                shown = self.paint.letters(shown, s, end - s, self._in(end - s), 0, letters)
+                shown = self.paint.letters(text, s, end - s, self._in(end - s), 0, letters)
                 look = "Box" if self.paint.boxed else look
             else:
-                shown = self.paint.text_of(shown, 0, letters, s, end)
+                shown = self.paint.text_of(text, 0, letters, s, end)
             self._ev(0, s, end, f"{{{self._at(self._base(1))}{tags}}}{shown}", look)
 
     def _chunk_word(self) -> None:
         for c in self.t.chunks:
             timed = self.words.get(c.segment, []) if c.segment != "" else []
             if not timed:  # laid out like the others, never highlighted
-                self._block(self._wrap(*segments(_esc(c.text))), c.start, c.end)
+                self._block(self._wrap(*segments(c.text)), c.start, c.end)
                 continue
-            words = [_esc(w.text) for w in timed]
+            words = [w.text for w in timed]
             # unspaced text: its timed words abut
             sep = "" if len(words) > 1 and " " not in c.text else " "
             lines = self._wrap(words, ["", *[sep] * (len(words) - 1)])

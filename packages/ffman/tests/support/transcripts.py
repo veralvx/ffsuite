@@ -140,4 +140,8 @@ HOSTILE: Final = {
     # override opening with `\t` dropped as any. Before: burned `one/Ntwo a/hb`, the override
     # `( (0,100,/fs20))` -- its `\t` a space before overrides were removed (bash's order)
     "escapes.srt": "1\n00:00:00,000 --> 00:00:00,400\n{\\t(0,100,\\fs20)}one\\Ntwo a\\hb\n",
+    # braces and backslashes drawn as written (6.8.2): libass's \{ and \}, a backslash before a
+    # word joiner; a SubRip's own \{ \} its braces, a {d} with no backslash text still. Before:
+    # burned `a/(b/) c/x (d)`
+    "braces.srt": "1\n00:00:00,000 --> 00:00:00,400\na\\{b\\} c\\x {d}\n",
 }

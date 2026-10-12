@@ -14,7 +14,8 @@ from ffman.subs.ass import Style
 _NUMBER: Final = r"-?[0-9]+(?:\.[0-9]+)?(?:e[-+]?[0-9]+)?"  # as _number writes one (repr: 1e+16)
 POS: Final = re.compile(rf"\\pos\(({_NUMBER}),({_NUMBER})\)")
 
-TEXT = st.text(alphabet="ab xyz{}\\日本語 é", min_size=1, max_size=40).map(str.strip).filter(bool)
+# a brace, a backslash, and what makes an escape after one (N, h)
+TEXT = st.text(alphabet="ab xyz{}\\Nh日本語 é", min_size=1, max_size=40).map(str.strip).filter(bool)
 
 
 @st.composite
@@ -50,3 +51,28 @@ STYLES = st.builds(
     bar_y=st.one_of(st.none(), st.sampled_from([Fraction(n) for n in ("1040.5", "1000", "900")])),
 )
 FRAMES = st.sampled_from([(1920, 1080), (1080, 1920), (321, 181), (640, 480)])
+
+
+def libass_reads(event: str) -> tuple[str, list[str]]:
+    r"""What libass draws of an event's text, and its override blocks' contents.
+
+    libass 0.17.1's reading: a ``{`` with a ``}`` after it opens a block to it, else it is a
+    character (``ass_render.c``); ``\N``,
+    ``\n`` (a break under ffman's ``WrapStyle: 2``), ``\h``, ``\{``, ``\}`` its escapes
+    (``ass_get_next_char``); a word joiner, U+2060, drawn as nothing (HarfBuzz's default
+    ignorable).
+    """
+    shown, k = "", 0
+    blocks: list[str] = []
+    while k < len(event):
+        c = event[k]
+        if c == "\\" and event[k + 1 : k + 2] in ("N", "n", "h", "{", "}"):
+            shown += {"N": "\n", "n": "\n", "h": "\u00a0"}.get(event[k + 1], event[k + 1])
+            k += 2
+        elif c == "{" and (end := event.find("}", k)) >= 0:
+            blocks.append(event[k + 1 : end])
+            k = end + 1
+        else:
+            shown += "" if c == "\u2060" else c
+            k += 1
+    return shown, blocks

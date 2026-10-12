@@ -1,10 +1,11 @@
 import re
+from itertools import groupby
 
 from hypothesis import given, settings
 from subverter.transcript import Transcript
 
 from ffman.subs.ass import Style, script
-from tests.support.subtitles import FRAMES, POS, STYLES, transcripts
+from tests.support.subtitles import FRAMES, POS, STYLES, libass_reads, transcripts
 
 EVENT = re.compile(
     r"Dialogue: ([01]),(\d+):(\d\d):(\d\d)\.(\d\d),(\d+):(\d\d):(\d\d)\.(\d\d),Default,,0,0,0,,(.*)"
@@ -38,3 +39,24 @@ def test_what_holds_of_any_script(t: Transcript, style: Style, frame: tuple[int,
             assert -2000 < float(y) < 3000
     # every line centred: one x, half the canvas
     assert len(xs) <= 1
+
+
+@settings(max_examples=300, deadline=None)
+@given(transcripts(), STYLES, FRAMES)
+def test_libass_draws_each_text_as_written(
+    t: Transcript, style: Style, frame: tuple[int, int]
+) -> None:
+    """A brace or backslash in a text is drawn as itself, and makes no override block."""
+    text, _ = script(t, *frame, style)
+    events = [EVENT.fullmatch(line) for line in text.splitlines() if line.startswith("Dialogue:")]
+    for m in events:
+        assert m
+        _, blocks = libass_reads(m[10])
+        assert all(block.startswith("\\") for block in blocks), blocks  # ffman's own tags alone
+    if style.mode != "plain":
+        return  # the highlight's layers hide and show words: plain draws each chunk whole once
+    texts = ["".join(c.text.split()) for c in t.chunks]
+    shown: list[str] = []  # each chunk's lines, its events in a row: one time span
+    for _, run in groupby((m for m in events if m), key=lambda m: m.group(2, 3, 4, 5, 6, 7, 8, 9)):
+        shown.append("".join("".join(libass_reads(m[10])[0].split()) for m in run))
+    assert shown == texts

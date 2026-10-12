@@ -10,6 +10,7 @@ from ffman.options import CONVERT, parse
 from ffman.subs.ass import Style, script
 from ffman.subs.colorize import GOLD, MOTIONS, RECTANGLE, WHITE, Colour, colour_at
 from ffman.subs.metrics import Metrics
+from tests.support.subtitles import libass_reads
 
 ONE = Transcript(
     "srt", ".srt", has_words=False, chunks=(Chunk(1000, 2000, "a {b} \\c", ""),), words=(), notes=()
@@ -45,8 +46,8 @@ def test_the_plain_header_follows_mpv() -> None:
         in text
     )
     assert events(text) == [
-        "Dialogue: 0,0:00:01.00,0:00:02.00,Default,,0,0,0,,a (b) /c"
-    ]  # no override tags from text
+        "Dialogue: 0,0:00:01.00,0:00:02.00,Default,,0,0,0,,a \\{b\\} \\\u2060c"
+    ]  # drawn as written: libass's escapes, a backslash before a word joiner (ffmpeg's)
     assert notes == ()
 
 
@@ -87,7 +88,7 @@ def test_chunk_word_draws_the_word_on_its_own_layer() -> None:
 def test_in_a_bar_and_without_spaces() -> None:
     lines = events(script(ONE, 1920, 1080, Style(bar_y=Fraction(1040)))[0])
     assert lines == [
-        "Dialogue: 0,0:00:01.00,0:00:02.00,Default,,0,0,0,,{\\an5\\pos(960,1040)}a (b) /c"
+        "Dialogue: 0,0:00:01.00,0:00:02.00,Default,,0,0,0,,{\\an5\\pos(960,1040)}a \\{b\\} \\\u2060c"
     ]
     ja_words = (Word("0", 0, 300, "日本"), Word("0", 300, 900, "語"))
     ja = Transcript(
@@ -505,6 +506,27 @@ def test_a_font_in_motion_paints_every_letter() -> None:
     expected = [colour_at(MOTIONS["rainbow"], k, 4, 500).ass() for k in range(4)]
     assert first_colours(event, "1c") == expected
     assert event.count("\\t(") >= 4
+
+
+@pytest.mark.parametrize(
+    "style",
+    [Style(text=MOTIONS["rainbow"]), Style("word-highlight", colorize=MOTIONS["lsd"])],
+    ids=["a font in motion", "a highlight in motion"],
+)
+def test_a_letter_painted_its_own_is_drawn_as_written(style: Style) -> None:
+    """Each letter its own colour block: a brace or backslash still drawn as itself."""
+    t = Transcript(
+        "srt",
+        ".srt",
+        has_words=False,
+        chunks=(Chunk(500, 3000, "a{b}\\N", ""),),
+        words=(),
+        notes=(),
+    )
+    for _, _, event in dialogues(script(t, 1920, 1080, style)[0]):
+        shown, blocks = libass_reads(event)
+        assert shown == "a{b}\\N"
+        assert all(block.startswith("\\") for block in blocks)
 
 
 def test_what_libass_skips_is_no_letter() -> None:

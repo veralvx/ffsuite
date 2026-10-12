@@ -159,6 +159,9 @@ which git-cliff writes at each release from the commits (`packages/ffman/CHANGEL
 - **A SubRip's `\N` and `\h` are ASS's escapes.** bash burned them as `/N` and `/h` and wrote
   them raw into `--add-subs`' SRT; now `\N` is a line break (a space, ffman wrapping, as every
   break in a cue) and `\h` a no-break space, as ffmpeg, mpv and VLC read them.
+- **Braces and backslashes are drawn as written.** bash burned `\` as `/` and braces as
+  parentheses, so no text could make an override; now ffman writes libass's own escapes for them
+  (a backslash before a word joiner, as ffmpeg does), and a SubRip's `\{` and `\}` are braces.
 - **An override block is removed before breaks become spaces.** bash broke `{\t(...)}`, ASS's
   animation, by its `\t` first and showed it; now it is dropped whole, as the players drop it.
 - **An LRC's `[offset:]` is applied.** bash read no ID tag; now every time moves by it,

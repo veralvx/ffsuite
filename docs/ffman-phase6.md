@@ -3131,10 +3131,40 @@ tests with 6.8.3's converters.*
       "ASS escapes", "Override order", and "WebVTT references" pointed at `subrip.py`, where
       the 6.8.2 short-fraction box moved its flag; from-bash; subverter's README; the `subrip`
       skill's rows (measured again: `one two a b hard\u00a0space`); the next box found.*
-- [ ] Found by the `\N` and `\h` box: libass also reads `\{` and `\}` as braces, which ffman
+- [x] Found by the `\N` and `\h` box: libass also reads `\{` and `\}` as braces, which ffman
       burns as `/(` and `/)`; and ffman draws every `{`, `}` and backslash as `(`, `)` and
       `/` (`_esc`), where libass can draw each as written (`\{`, `\}`, a backslash before
-      no escape letter). To decide: drawn as written, or as now.
+      no escape letter). To decide: drawn as written, or as now. *Done: the owner's -- as written; a
+      SubRip's `\{` and `\}` braces. The burn writes libass's own escapes: `\{`, `\}`, and a
+      backslash before a word joiner, U+2060 -- ffmpeg's (`libavcodec/ass.c`), libass drawing
+      it as nothing -- so neither a text nor a backslash before ffman's tag blocks makes an
+      escape or an override. `paint.drawn` escapes each letter where it is written (each
+      painted letter, a whole word, `_line`'s layers); lines are laid out and measured on the
+      text as written (`ass._esc` gone). `subverter.unescaped` reads `\{` and `\}` too, as
+      libass's `ass_get_next_char`. Measured, libass through ffmpeg 8.1.2: `\{b\}` rendered
+      identical to ffmpeg's WebVTT `{b}`; a backslash before U+2060 identical to one alone; a
+      SubRip's `a{text}b` as `ab` -- an empty block, hidden (VLC shows it: a box below). Tests
+      first: a property test reading every burn back as libass does (its blocks, escapes and
+      word joiners: `tests.support.subtitles.libass_reads`) -- each plain burn's text the
+      transcript's, every block ffman's, 300 examples, the alphabet now with `N` and `h`; the
+      painted letters' (a font, a highlight in motion); `braces.srt` (HOSTILE, an ingest test);
+      `unescaped`'s braces; the fuzz test's invariant restated (its blocks ffman's, a backslash
+      an escape ffman writes). 10 planted mutations, each caught, one -- the painted letters
+      unescaped -- after its test was added. Suite 1980, coverage 100%; matrix 770;
+      `compare HEAD` on 3.13 and 3.14: 449 identical, 3 changed -- `braces.srt` new,
+      `settings.vtt`'s `\N` drawn `\N` (was `/N`), `texts.json`'s backslash itself (was
+      `/`). `decisions.md` "Text drawn as written", "ASS escapes", "Rendering"; from-bash;
+      subverter's README; the `subrip` skill: a row for braces (ffmpeg hides `{b}`, VLC shows
+      `\{d\}`), its description, ffman's table and probe (measured again: `a {b} c\x {d}`).
+      Found: the next two boxes.*
+- [ ] Found by the drawing box: a SubRip's `{text}` with no backslash is an empty override
+      block to libass -- ffmpeg and mpv hide it (`a{text}b` renders `ab`; ASS's comment
+      form) -- where VLC shows it and ffman keeps it as text. To decide: hidden, as libass,
+      or text, as now.
+- [ ] Found by the drawing box: `--add-subs` writes each chunk's text into the SRT as it is,
+      where SubRip has no escape: a `{text}` from any source hidden by ffmpeg and mpv, a
+      WebVTT's or a JSON's literal `\N` a break. To decide: a look-alike character, dropped,
+      or as now.
 - [ ] Found by the short-fraction box: WebVTT's timestamps wholly the W3C's ("collect a
       WebVTT timestamp"), where subverter still takes bash's lenient forms -- a bare
       number as minutes (`5 --> 7`), a sign, minutes or seconds not of two digits or past

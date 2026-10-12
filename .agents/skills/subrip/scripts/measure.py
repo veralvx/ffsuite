@@ -137,6 +137,7 @@ FFMAN: dict[str, bytes] = {
     "< and no >": b"1\n00:00:01,000 --> 00:00:02,000\nheart <3\n",
     "an8": b"1\n00:00:01,000 --> 00:00:02,000\n{\\an8}top\n",
     "typed \\N \\n \\h": b"1\n00:00:01,000 --> 00:00:02,000\none\\Ntwo a\\nb hard\\hspace\n",
+    "braces, backslashes": b"1\n00:00:01,000 --> 00:00:02,000\na {b} c\\x \\{d\\}\n",
     "entity": b"1\n00:00:01,000 --> 00:00:02,000\nA &amp; B\n",
     "spaces around lines": READS["spaces around lines"],
     "Latin-1 byte": READS["Latin-1 byte"],
@@ -148,7 +149,6 @@ FFMAN: dict[str, bytes] = {
 FFMAN_PROBE = """
 import json, sys
 import subverter
-from ffman.subs.ass import _esc
 from ffman.subs.ingest import ingest
 for name, text in json.load(sys.stdin).items():
     data = text.encode("latin-1")
@@ -157,7 +157,7 @@ for name, text in json.load(sys.stdin).items():
     except Exception as e:
         cues = f"refused: {e}"
     try:
-        chunks = [(c.start, c.end, _esc(c.text)) for c in ingest("x.srt", data).chunks]
+        chunks = [(c.start, c.end, c.text) for c in ingest("x.srt", data).chunks]
     except Exception as e:
         chunks = f"refused: {e}"
     print(f"{name}: subverter {cues!r}; ffman burns {chunks!r}")
