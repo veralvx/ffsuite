@@ -50,6 +50,8 @@ def test_decoded_is_html_unescape_wherever_that_reads_the_text(text: str) -> Non
         ("a\\nb \\t", "a\\nb \\t"),  # libass's soft break and others: as written
         ("a\\\\Nb", "a\\\nb"),  # a backslash, then the escape: as libass reads them
         ("\\N\\h\\N", "\n\u00a0\n"),
+        ("a\\{b\\}", "a{b}"),  # braces
+        ("a\\\\{b", "a\\{b"),
     ],
 )
 def test_unescaped_reads_a_subrips_ass_escapes_as_libass_draws_them(text: str, drawn: str) -> None:

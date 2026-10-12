@@ -9,7 +9,9 @@ __all__ = ["decoded", "unescaped", "untagged"]
 _TAG: Final = re.compile(r"<[^>]*>")  # <u>, <i>, <font ...>: SubRip's and WebVTT's
 _DECIMAL: Final = re.compile(r"&#([0-9]+);?")  # a decimal reference
 _DIGITS_MAX: Final = 7  # a decimal reference's: 10**7 is past U+10FFFF
-_NBSP: Final = "\u00a0"  # libass's \h (ass_parse.c, NBSP)
+# libass's escapes but \n (ass_get_next_char): no escape's output holds a backslash, so each
+# is read alone, in any order
+_ESCAPES: Final = (("\\N", "\n"), ("\\h", "\u00a0"), ("\\{", "{"), ("\\}", "}"))
 
 
 def decoded(text: str) -> str:
@@ -29,14 +31,17 @@ def _bounded(match: re.Match[str]) -> str:
 
 
 def unescaped(text: str) -> str:
-    r"""A SubRip text's ASS escapes as libass draws them: ``\N`` a break, ``\h`` a no-break space.
+    r"""A SubRip text's ASS escapes as libass draws them: a break, a no-break space, braces.
 
-    ffmpeg's subrip decoder passes the text to ASS as written, so libass reads them
-    (``ass_get_next_char``, 0.17.1) -- mpv and an ffmpeg burn; VLC's subsdec alike. A backslash
-    before either is a character of its own, as libass reads it; ``\n``, libass's break only
-    under ``WrapStyle: 2``, is left as written.
+    ``\N`` a line break, ``\h`` U+00A0, ``\{`` and ``\}`` braces. ffmpeg's subrip decoder
+    passes the text to ASS as written, so libass reads them (``ass_get_next_char``, 0.17.1) --
+    mpv and an ffmpeg burn; VLC's subsdec reads ``\N`` and ``\h`` alike, and shows ``\{`` as
+    written. A backslash before one is a character of its own, as libass reads it; ``\n``,
+    libass's break only under ``WrapStyle: 2``, is left as written.
     """
-    return text.replace("\\N", "\n").replace("\\h", _NBSP)
+    for escape, character in _ESCAPES:
+        text = text.replace(escape, character)
+    return text
 
 
 def untagged(text: str, *, into: str = "") -> str:
