@@ -18,7 +18,7 @@ from ffman.errors import refuse
 from ffman.media.paths import ext_of
 from ffman.subs import markup, normalize
 
-# the formats ffman reads none of: burned and attached as they are, from its copy (``passed``)
+# the formats ffman parses none of: burned and attached as they are, from its copy (``passed``)
 PASSED_THROUGH: Final = ("ass", "ssa")
 _UTF16: Final = (codecs.BOM_UTF16_LE, codecs.BOM_UTF16_BE)
 _LINE_END: Final = re.compile(rb"\r\n|\r|\n")  # an editor's: the line a note or refusal names
@@ -39,8 +39,7 @@ def passed(data: bytes, name: str) -> Passed:
     8.1.2): U+FFFD, as in the transcripts ffman reads (``utf8.nul_notes``). A UTF-16 file
     (its BOM) is recoded first, so its U+0000s are NULs then.
     """
-    if data.startswith(_UTF16):
-        data = _utf8(data, name)
+    data = _utf8(data, name)
     first = data.find(b"\0")
     if first < 0:
         return Passed(data, ())
@@ -49,17 +48,23 @@ def passed(data: bytes, name: str) -> Passed:
 
 
 def _utf8(data: bytes, name: str) -> bytes:
-    """A UTF-16 file as UTF-8, as ffmpeg's reader recodes it; refused at the line it is not.
+    """``data`` as UTF-8: a UTF-16 file (its BOM) recoded, as ffmpeg's reader recodes it.
 
-    ffmpeg's ``ass`` filter gives libass no codepage, whose script then ends at its first NUL
-    byte: no track, the burn failed (measured). ffmpeg's reader takes a unit not UTF-16 -- a
-    lone surrogate, an odd last byte -- for a NUL (``ff_text_r8``): its line cut there.
+    Refused at the line where it is neither, as subverter refuses a transcript not UTF-8:
+    ``not UTF-8: NAME (line N)``, or ``not UTF-16``. ffmpeg's ``ass`` filter gives libass no
+    codepage, which then reads a byte not UTF-8 as its Latin-1 character
+    (``ass_utf8_get_char``: CP1252's quotes become controls) and a UTF-16 script up to its
+    first NUL byte -- no track, the burn failed; ffmpeg's decoder drops an event not UTF-8
+    from the attached track, and its reader takes a unit not UTF-16 for a NUL
+    (``ff_text_r8``) -- each measured.
     """
+    codec = "utf-16" if data.startswith(_UTF16) else "utf-8"
     try:
-        return data.decode("utf-16").encode()
-    except UnicodeDecodeError as e:  # its start a unit's: what is before it is UTF-16
-        read = data[: e.start].decode("utf-16").encode()
-        refuse(f"not UTF-16: {name} (line {_line(read, len(read))})")
+        text = data.decode(codec)
+    except UnicodeDecodeError as e:  # its start a character's: what is before it is whole
+        read = data[: e.start].decode(codec).encode()
+        refuse(f"not {codec.upper()}: {name} (line {_line(read, len(read))})")
+    return data if codec == "utf-8" else text.encode()  # UTF-8 already: no second copy
 
 
 def _line(data: bytes, at: int) -> int:

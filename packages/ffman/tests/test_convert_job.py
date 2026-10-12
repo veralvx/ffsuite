@@ -486,6 +486,17 @@ def test_an_ass_nul_is_attached_as_u_fffd(
     assert texts == ["fi\ufffdrst", "second"]  # kept, ffmpeg's reader cut its line there: fi
 
 
+@pytest.mark.parametrize("flag", ["--burn-subs", "--add-subs"])
+def test_an_ass_not_utf_8_is_refused_burned_or_attached(
+    clip: Path, capsys: pytest.CaptureFixture[str], flag: str
+) -> None:
+    own = clip.with_name("cp1252.ass")
+    _ = own.write_bytes(cast("bytes", HOSTILE["cp1252.ass"]))
+    out = clip.with_name("o.mkv")
+    assert main(["convert", "-i", str(clip), flag, str(own), "-o", str(out), "--dry-run"]) == 1
+    assert f"ffman: error: not UTF-8: {own} (line 12)" in capsys.readouterr().err
+
+
 def test_a_tracks_notes_are_passed_on(clip: Path, capsys: pytest.CaptureFixture[str]) -> None:
     out = clip.with_name("t.mkv")
     assert main(["convert", "-i", str(clip), "--add-subs", GAPS, "-o", str(out), "--dry-run"]) == 0

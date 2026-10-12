@@ -3428,9 +3428,33 @@ tests with 6.8.3's converters.*
       files, none raising but a refusal; `measure_ffmpeg.py`'s failure line without its
       temporary path; the burn's and attach's name to `passed` cannot be refused there,
       ingest refusing first (an equivalent mutant, kept: one signature).*
-- [ ] Found by the ASS NUL box: a CP1252 ASS attached loses each event not UTF-8 -- ffmpeg's
+- [x] Found by the ASS NUL box: a CP1252 ASS attached loses each event not UTF-8 -- ffmpeg's
       ASS decoder drops it ("Invalid data found"); burned, libass draws it (measured). To
       decide: refused by its line, as the other formats' bytes; recoded; or as now.
+      *Done: refused by its line, `not UTF-8: FILE (line N)`, the whole file -- header,
+      styles, comments -- in `_utf8` (the owner's, each): without a UTF-16 BOM, UTF-8 or
+      refused, no encoding guessed. Researched: libass draws a byte not UTF-8 as its Latin-1
+      character (`ass_utf8_get_char`) -- `é` right, CP1252's quotes and `€` controls
+      (measured: the frame Latin-1's, not UTF-8's); ffmpeg's decoder drops an event not UTF-8
+      (`utf8_check`), its style's name included, while a stream copy keeps its bytes and the
+      header passes as it is (measured). Tests first: refusals by line (a header's byte, CR
+      lines, a cut character, a lone continuation, a surrogate), a UTF-8 file copied as it
+      is, its BOM kept, the property now over any bytes with or without a BOM, ffman's
+      `cp1252.ass`, burned and attached (9 failing on the old code). End to end: refused,
+      burned or attached; a UTF-8 file burned as before. 14 planted mutations, each caught.
+      Suite 2190, coverage 100%; matrix 770; `compare HEAD` on 3.13 and 3.14: 471
+      identical, 1 changed (`burn/hostile/cp1252.ass`, new). `decisions.md` "ASS not UTF-8"
+      (and "ASS UTF-16" brought up to date); spec 3.4; AGENTS.md's count; the `ass` record
+      (libass's and ffmpeg's rules, the readings, the drawing, `measure_ffmpeg.py`'s cases)
+      and the mappings record. Reviewed (the owner's request): a UTF-8 file is now returned
+      as it is, not decoded and encoded again -- on 54 MB, 0.157 s to 0.088 s, its peak
+      255 MB to 162 MB, `compare HEAD` 472 identical; `PASSED_THROUGH`'s comment says
+      ffman parses none of them, now it reads each; 15 mutations, each caught.*
+- [ ] Found by the CP1252 box: an .ass or .ssa that is no script -- empty, or text without
+      `[Script Info]` -- fails in ffmpeg, burned ("Error initializing filters") or attached
+      ("Invalid data found"), as `ffmpeg failed`, the message naming ffman's work copy
+      (measured). To decide: refused, named, before any work, as a WebVTT without its
+      signature; or as now.
 - [ ] `webvtt`: the same.
 - [ ] `ass`: the same, SSA (v4) through it.
 - [ ] `lrc`: the same.

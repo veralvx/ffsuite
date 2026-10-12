@@ -250,12 +250,16 @@ def test_a_utf_16_ass_is_passed_as_its_utf_8(text: str, codec: str) -> None:
     assert passed(("\ufeff" + text).encode(codec), "a.ass") == passed(text.encode(), "a.ass")
 
 
-@given(st.sampled_from([codecs.BOM_UTF16_LE, codecs.BOM_UTF16_BE]), st.binary())
-def test_any_utf_16_ass_is_passed_or_refused_by_its_line(bom: bytes, rest: bytes) -> None:
+@given(
+    st.sampled_from([b"", codecs.BOM_UTF8, codecs.BOM_UTF16_LE, codecs.BOM_UTF16_BE]), st.binary()
+)
+def test_any_ass_is_passed_or_refused_by_its_line(bom: bytes, rest: bytes) -> None:
+    codec = "utf-16" if bom in (codecs.BOM_UTF16_LE, codecs.BOM_UTF16_BE) else "utf-8"
     try:
-        _ = (bom + rest).decode("utf-16")
+        _ = (bom + rest).decode(codec)
     except UnicodeDecodeError:
-        with pytest.raises(REFUSALS, match=r"^not UTF-16: a\.ass \(line [1-9][0-9]*\)$"):
+        refused = rf"^not {codec.upper()}: a\.ass \(line [1-9][0-9]*\)$"
+        with pytest.raises(REFUSALS, match=refused):
             _ = passed(bom + rest, "a.ass")
     else:
         found = passed(bom + rest, "a.ass").data
@@ -263,10 +267,37 @@ def test_any_utf_16_ass_is_passed_or_refused_by_its_line(bom: bytes, rest: bytes
         _ = found.decode()  # UTF-8 whole, or this raises
 
 
+@pytest.mark.parametrize(
+    ("data", "line"),
+    [
+        ("[Script Info]\nTitle: Café\n".encode("cp1252"), 2),  # a header's byte too
+        ("a\r\nb\rcafé".encode("cp1252"), 3),
+        (b"a\n\xc3", 2),  # a character cut off
+        (b"a\n\xc3\xa9\x80", 2),  # a continuation alone, after a whole one
+        (b"\xef\xbb\xbfa\n\xed\xa0\x80", 2),  # a surrogate, after a UTF-8 BOM
+    ],
+)
+def test_an_ass_not_utf_8_is_refused_by_its_line(tmp_path: Path, data: bytes, line: int) -> None:
+    path = put(tmp_path, "a.ass", data)
+    with pytest.raises(REFUSALS, match=f"^{re.escape(f'not UTF-8: {path} (line {line})')}$"):
+        _ = ingested(path)
+
+
+def test_an_ass_in_utf_8_is_copied_as_it_is() -> None:
+    data = codecs.BOM_UTF8 + "[Script Info]\r\ncafé \u2019x\u2019\n".encode()  # its BOM kept
+    assert passed(data, "a.ass") == (data, ())
+
+
 def test_the_hostile_utf_16_ass_files(tmp_path: Path) -> None:
     assert ingested(put(tmp_path, "utf-16.ass", HOSTILE["utf-16.ass"])).notes == ()
     path = put(tmp_path, "utf-16-bad.ass", HOSTILE["utf-16-bad.ass"])
     with pytest.raises(REFUSALS, match=f"^{re.escape(f'not UTF-16: {path} (line 12)')}$"):
+        _ = ingested(path)
+
+
+def test_the_hostile_cp1252_ass_is_refused(tmp_path: Path) -> None:
+    path = put(tmp_path, "cp1252.ass", HOSTILE["cp1252.ass"])
+    with pytest.raises(REFUSALS, match=f"^{re.escape(f'not UTF-8: {path} (line 12)')}$"):
         _ = ingested(path)
 
 

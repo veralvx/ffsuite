@@ -1,7 +1,7 @@
 """ASS and SSA through ffmpeg, measured: what its `ass` demuxer reads of a script, and what its
 `ass` muxer writes back -- by a stream copy, and through the `ass` decoder and encoder; and
 whether libass (through ffmpeg's `ass` filter) draws `\\{` and `\\}` as braces, what of a
-script after a NUL, and whether it draws a UTF-16 one.
+script after a NUL, whether it draws a UTF-16 one, and how a CP1252 one.
 
 Usage: python3 measure_ffmpeg.py [FFMPEG]  (default: ffmpeg on PATH; ffprobe beside it). Prints
 what it found; references/format.md's "ffmpeg" tables are this output, at ffmpeg n8.1.2.
@@ -82,12 +82,19 @@ SCRIPTS: dict[str, str] = {
 CAFE = HEAD + dialogue("café", "0:00:00.00", "0:00:01.00")
 UTF16 = "\ufeff" + CAFE  # its BOM first
 LONE = "\ufeff" + HEAD + dialogue("fi\ud800rst") + dialogue("next", "0:00:03.00", "0:00:04.00")
-# a script each, as bytes: UTF-16, valid or not
+QUOTED = "café \u2019x\u2019"  # CP1252's 0x92 its right quote
+# a script each, as bytes: UTF-16, valid or not; CP1252
 ENCODED: dict[str, bytes] = {
     "UTF-16LE (its BOM)": UTF16.encode("utf-16-le"),
     "UTF-16BE (its BOM)": UTF16.encode("utf-16-be"),
     "UTF-16LE, a lone surrogate": LONE.encode("utf-16-le", "surrogatepass"),
     "UTF-16LE, an odd byte last": UTF16.encode("utf-16-le") + b"x",
+    "CP1252, an event's text": (
+        HEAD + dialogue(QUOTED) + dialogue("next", "0:00:03.00", "0:00:04.00")
+    ).encode("cp1252"),
+    "CP1252, a header's comment": (
+        HEAD.replace("[Script Info]\n", "[Script Info]\n; é\n") + dialogue("plain")
+    ).encode("cp1252"),
 }
 
 
@@ -203,6 +210,10 @@ def main() -> None:
             print(
                 f"'café' in {codec} (its BOM): {shown}" + (" -- as UTF-8" if digest == utf8 else "")
             )
+        events = HEAD + dialogue(QUOTED, "0:00:00.00", "0:00:01.00")
+        cp1252, latin1 = drawn(work, events.encode("cp1252")), frame(work, "café \x92x\x92")
+        same = " -- as Latin-1's (U+0092)" if cp1252 == latin1 else ""
+        print(f"{QUOTED!r} in CP1252: {cp1252[:12]}{same}; UTF-8's {frame(work, QUOTED)[:12]}")
 
 
 if __name__ == "__main__":

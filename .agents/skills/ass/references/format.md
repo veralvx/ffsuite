@@ -37,6 +37,7 @@ Dialogue: 0,0:00:01.00,0:00:02.50,Default,Bob,0,0,0,,{\an8}Hello,\Nworld
 | Lines end at CR or LF; a UTF-8 BOM is skipped; leading spaces of a line ignored                                                                                                                                                                    | `process_text`, `process_line`               |
 | A NUL ends the script: its line cut there, nothing after it read (measured below: an event after one not drawn)                                                                                                                                    | `process_text`                               |
 | Bytes read as UTF-8 unless a codepage is given (iconv); ffmpeg's `ass` filter gives none, so a UTF-16 script ends at its first NUL byte: no track (measured below)                                                                                 | `read_file_recode`, `vf_subtitles.c`         |
+| A byte not UTF-8 is its Latin-1 character (U+0080-U+00FF): CP1252's `é` drawn right, its quotes (0x91-0x94) and `€` controls (measured below)                                                                                                      | `ass_utf8_get_char`                          |
 | Sections, by a case-insensitive prefix: `[Script Info]`, `[V4+ Styles]` (ASS), `[V4 Styles]` (SSA), `[Events]`, `[Fonts]`. Any other header -- `[V4++ Styles]`, `[Aegisub Project Garbage]`, `[Graphics]` -- leaves the previous section in force  | `process_line`                               |
 | The type: the styles section's, else `ScriptType` (`4.00` with a trailing `+` is ASS, without SSA; `v4.00++` neither). No type, no track: the file is refused                                                                                      | `parse_script_type`, `parse_memory`          |
 | `[Script Info]` keys are case-sensitive, `Key:` exactly; a repeated key warns, the last wins                                                                                                                                                       | `process_info_line`                          |
@@ -160,6 +161,7 @@ everything else is the header, written back verbatim.
 | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
 | Detection: `[Script Info]` after any blank lines                                                                                                                                                                                                                                         | `ass_probe`                    |
 | A UTF-16 BOM (LE or BE): the text recoded to UTF-8 as it is read; a unit not UTF-16 -- a lone surrogate, an odd last byte -- read as a NUL                                                                                                                                               | `ff_text_r8` (`subtitles.c`)   |
+| The decoder drops an event not UTF-8, its style's name included ("Invalid UTF-8 in decoded subtitles text"): a transcoding loses it, a stream copy keeps its bytes; the header passes as it is                                                                                           | `utf8_check` (`decode.c`)      |
 | An event: a line `Dialogue: <layer>,%d:%d:%d<any>%d,%d:%d:%d<any>%d,` -- the fraction an integer of **centiseconds**, any width; the packet `ReadOrder,Layer,` and the rest of the line. Every other line -- `Comment:`, a `Dialogue:` it cannot read, every section -- joins the header | `read_dialogue`                |
 | Times in centiseconds (time base 1/100); sorted by start, a negative duration becomes the gap to the next start; duplicates kept                                                                                                                                                         | `ff_subtitles_queue_finalize`  |
 | The decoder and encoder pass each event's text through untouched: the header is the decoder's script, the encoder's too                                                                                                                                                                  | `ass_decode_frame`             |
@@ -188,6 +190,8 @@ everything else is the header, written back verbatim.
 | UTF-16, LE or BE (its BOM), `café`                            | read as UTF-8; written UTF-8                                                                                        |
 | UTF-16, a lone surrogate (`fi` U+D800 `rst`, then `next`)     | the surrogate and the unit after it a NUL: the event `fi`, `st` a header line; `next` kept                          |
 | UTF-16, an odd byte (`x`) last                                | the events read; `x` a header line                                                                                  |
+| CP1252, an event's text (`café ’x’`, then `next`)             | copied as read; transcoded, the event dropped, `next` kept                                                          |
+| CP1252, a header's comment (`; é`)                            | kept as read, its bytes                                                                                             |
 
 The header -- `[Script Info]`, the styles -- is written back as it was read, ffmpeg's comment
 not added. From SubRip, WebVTT or LRC, ffmpeg's default script instead (their records):
@@ -198,6 +202,7 @@ not added. From SubRip, WebVTT or LRC, ffmpeg's default script instead (their re
 block); `a\{x\}b` draws otherwise -- its braces and `x` shown. `a` NUL `b`, an event after it,
 draws as `a` alone: the script ends at the NUL. A UTF-16 script (its BOM, LE or BE) draws
 nothing: "Could not create a libass track", the filter not initialized -- the job fails.
+`café ’x’` in CP1252 draws as its Latin-1 reading, `café` and two U+0092s, not as UTF-8's.
 
 ## Aegisub's writing (3.4.2)
 

@@ -227,6 +227,12 @@ HOSTILE: Final = {
     "utf-16-bad.ass": (
         "\ufeff" + ASS_HEAD + "Dialogue: 0,0:00:00.00,0:00:00.40,Default,,0,0,0,,fi\ud800rst\n"
     ).encode("utf-16-le", "surrogatepass"),
+    # a CP1252 ASS (6.8.2): refused by its line, as a SubRip not UTF-8. Before: burned as libass
+    # reads a byte not UTF-8, its Latin-1 character -- the quote's 0x92 a control -- and each
+    # event holding one dropped from --add-subs' track by ffmpeg's decoder (measured)
+    "cp1252.ass": (
+        ASS_HEAD + "Dialogue: 0,0:00:00.00,0:00:00.40,Default,,0,0,0,,café \u2019x\u2019\n"
+    ).encode("cp1252"),
     # each text attached exactly into every container (6.8.2), burned as written. Before: an
     # attached `{text}` hidden, `\N` a break, `<b>` bold, a cue lost to its timing line
     "attached.vtt": _ATTACHED_VTT,
