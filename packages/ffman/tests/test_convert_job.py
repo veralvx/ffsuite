@@ -497,6 +497,18 @@ def test_an_ass_not_utf_8_is_refused_burned_or_attached(
     assert f"ffman: error: not UTF-8: {own} (line 12)" in capsys.readouterr().err
 
 
+@pytest.mark.parametrize("flag", ["--burn-subs", "--add-subs"])
+def test_an_ass_that_is_no_script_is_refused_burned_or_attached(
+    clip: Path, capsys: pytest.CaptureFixture[str], flag: str
+) -> None:
+    own = clip.with_name("lower.ass")
+    _ = own.write_text(cast("str", HOSTILE["lower.ass"]))
+    out = clip.with_name("o.mkv")
+    assert main(["convert", "-i", str(clip), flag, str(own), "-o", str(out), "--dry-run"]) == 1
+    why = "its first line is not [Script Info]"
+    assert f"ffman: error: not an ASS file: {own} ({why})" in capsys.readouterr().err
+
+
 def test_a_tracks_notes_are_passed_on(clip: Path, capsys: pytest.CaptureFixture[str]) -> None:
     out = clip.with_name("t.mkv")
     assert main(["convert", "-i", str(clip), "--add-subs", GAPS, "-o", str(out), "--dry-run"]) == 0

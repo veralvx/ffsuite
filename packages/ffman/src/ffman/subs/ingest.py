@@ -3,7 +3,7 @@
 The format's reader (``readers``) gives cues; the normalisers (``normalize``)
 make them chunks and, where the source times words, words. ASS and SSA pass
 through: burned and attached as they are, from ffman's copy -- UTF-8, each NUL
-in it U+FFFD (``passed``).
+in it U+FFFD (``passed``) -- if both ffmpeg's reader and libass take it (``_script``).
 """
 
 import codecs
@@ -22,6 +22,13 @@ from ffman.subs import markup, normalize
 PASSED_THROUGH: Final = ("ass", "ssa")
 _UTF16: Final = (codecs.BOM_UTF16_LE, codecs.BOM_UTF16_BE)
 _LINE_END: Final = re.compile(rb"\r\n|\r|\n")  # an editor's: the line a note or refusal names
+_SIGNATURE: Final = b"[Script Info]"  # ffmpeg's ``ass_probe``: its 13 bytes, after blank lines
+# libass's ``process_text`` and ``process_line``: a line, its BOMs and then spaces skipped
+_LIBASS_LINE: Final = re.compile(rb"(?:\xef\xbb\xbf)*[ \t]*([^\r\n]*)")
+_INFO: Final = _SIGNATURE.lower()  # libass's sections, by any case (``ass_strncasecmp``)
+_STYLES: Final = (b"[v4+ styles]", b"[v4 styles]")  # each a type
+_SECTIONS: Final = (_INFO, *_STYLES, b"[events]", b"[fonts]")  # any other leaves the last one
+_SCRIPT_TYPE: Final = re.compile(rb"ScriptType:.*4\.00\+?[ \t]*")  # ``parse_script_type``
 
 
 class Passed(NamedTuple):
@@ -72,11 +79,37 @@ def _line(data: bytes, at: int) -> int:
     return len(_LINE_END.findall(data, 0, at)) + 1
 
 
+def _script(data: bytes, fmt: str, name: str) -> None:
+    """Refused unless ``data`` is a script both ffmpeg's reader and libass take.
+
+    ffmpeg's reader (``ass_probe``) wants ``[Script Info]`` first, after a UTF-8 BOM and blank
+    lines -- else no reader, or the LRC one, taking a ``[`` first: an empty track, unnoted
+    (measured); libass a type, a styles section or ``[Script Info]``'s ``ScriptType`` of
+    ``4.00+`` or ``4.00`` -- else no track, the burn failed (measured).
+    """
+    kind = "an SSA" if fmt == "ssa" else "an ASS"
+    if not data.removeprefix(codecs.BOM_UTF8).lstrip(b"\r\n").startswith(_SIGNATURE):
+        refuse(f"not {kind} file: {name} (its first line is not [Script Info])")
+    info = False
+    for found in _LIBASS_LINE.finditer(data):
+        line = found[1]
+        section = line[: len(_INFO)].lower()  # as long as the longest section's name
+        if section.startswith(_STYLES):
+            return
+        if section.startswith(_SECTIONS):
+            info = section.startswith(_INFO)
+        elif info and _SCRIPT_TYPE.fullmatch(line):
+            return
+    why = "no [V4+ Styles] or [V4 Styles] section, nor ScriptType v4.00+ or v4.00"
+    refuse(f"not {kind} file: {name} ({why})")
+
+
 def ingest(name: str, data: bytes) -> Transcript:
     """A transcript from its bytes, as bash's ingest_subs read it: its refusals, its notes."""
     fmt = ext_of(name)
     if fmt in PASSED_THROUGH:
-        notes = passed(data, name).notes
+        copy, notes = passed(data, name)
+        _script(copy, fmt, name)
         return Transcript(fmt, f".{fmt}", has_words=False, chunks=(), words=(), notes=notes)
     found = readers.read(fmt, data, name)
     references, escapes = found.has_references, found.has_ass_escapes

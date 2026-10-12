@@ -233,6 +233,12 @@ HOSTILE: Final = {
     "cp1252.ass": (
         ASS_HEAD + "Dialogue: 0,0:00:00.00,0:00:00.40,Default,,0,0,0,,café \u2019x\u2019\n"
     ).encode("cp1252"),
+    # an .ass that is no script (6.8.2), refused, named, as ffmpeg's reader and libass read it.
+    # Before: burned or attached, ffmpeg failed; `[script info]`, its signature lower-cased,
+    # burned (libass takes any case) but attached as an LRC -- an empty track, unnoted
+    "no-script.ass": "hello\n",
+    "lower.ass": ASS_HEAD.replace("[Script Info]", "[script info]")
+    + "Dialogue: 0,0:00:00.00,0:00:00.40,Default,,0,0,0,,lower\n",
     # each text attached exactly into every container (6.8.2), burned as written. Before: an
     # attached `{text}` hidden, `\N` a break, `<b>` bold, a cue lost to its timing line
     "attached.vtt": _ATTACHED_VTT,

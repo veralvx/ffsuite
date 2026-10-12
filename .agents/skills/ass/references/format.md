@@ -159,7 +159,7 @@ everything else is the header, written back verbatim.
 
 | Rule                                                                                                                                                                                                                                                                                     | Source                         |
 | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
-| Detection: `[Script Info]` after any blank lines                                                                                                                                                                                                                                         | `ass_probe`                    |
+| Detection: `[Script Info]`, its 13 bytes, in its case, after a UTF-8 BOM and CRs and LFs alone -- else not ASS: a space or a comment first, no reader; `[script info]`, the LRC one (measured)                                                                                           | `ass_probe`                    |
 | A UTF-16 BOM (LE or BE): the text recoded to UTF-8 as it is read; a unit not UTF-16 -- a lone surrogate, an odd last byte -- read as a NUL                                                                                                                                               | `ff_text_r8` (`subtitles.c`)   |
 | The decoder drops an event not UTF-8, its style's name included ("Invalid UTF-8 in decoded subtitles text"): a transcoding loses it, a stream copy keeps its bytes; the header passes as it is                                                                                           | `utf8_check` (`decode.c`)      |
 | An event: a line `Dialogue: <layer>,%d:%d:%d<any>%d,%d:%d:%d<any>%d,` -- the fraction an integer of **centiseconds**, any width; the packet `ReadOrder,Layer,` and the rest of the line. Every other line -- `Comment:`, a `Dialogue:` it cannot read, every section -- joins the header | `read_dialogue`                |
@@ -192,6 +192,8 @@ everything else is the header, written back verbatim.
 | UTF-16, an odd byte (`x`) last                                | the events read; `x` a header line                                                                                  |
 | CP1252, an event's text (`café ’x’`, then `next`)             | copied as read; transcoded, the event dropped, `next` kept                                                          |
 | CP1252, a header's comment (`; é`)                            | kept as read, its bytes                                                                                             |
+| `[script info]`, lower-cased                                  | no ASS: the LRC reader takes it (a `[` first), no event; an empty track                                             |
+| a comment, or spaces, before `[Script Info]`                  | no reader: "Invalid data found when processing input"                                                               |
 
 The header -- `[Script Info]`, the styles -- is written back as it was read, ffmpeg's comment
 not added. From SubRip, WebVTT or LRC, ffmpeg's default script instead (their records):
@@ -202,7 +204,9 @@ not added. From SubRip, WebVTT or LRC, ffmpeg's default script instead (their re
 block); `a\{x\}b` draws otherwise -- its braces and `x` shown. `a` NUL `b`, an event after it,
 draws as `a` alone: the script ends at the NUL. A UTF-16 script (its BOM, LE or BE) draws
 nothing: "Could not create a libass track", the filter not initialized -- the job fails.
-`café ’x’` in CP1252 draws as its Latin-1 reading, `café` and two U+0092s, not as UTF-8's.
+`café ’x’` in CP1252 draws as its Latin-1 reading, `café` and two U+0092s, not as UTF-8's. A
+script of no type (no `ScriptType`, no styles section) draws nothing: "Could not create a libass
+track".
 
 ## Aegisub's writing (3.4.2)
 

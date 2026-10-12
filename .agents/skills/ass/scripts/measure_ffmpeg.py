@@ -1,7 +1,7 @@
 """ASS and SSA through ffmpeg, measured: what its `ass` demuxer reads of a script, and what its
 `ass` muxer writes back -- by a stream copy, and through the `ass` decoder and encoder; and
 whether libass (through ffmpeg's `ass` filter) draws `\\{` and `\\}` as braces, what of a
-script after a NUL, whether it draws a UTF-16 one, and how a CP1252 one.
+script after a NUL, whether it draws a UTF-16 one, how a CP1252 one, and one of no type.
 
 Usage: python3 measure_ffmpeg.py [FFMPEG]  (default: ffmpeg on PATH; ffprobe beside it). Prints
 what it found; references/format.md's "ffmpeg" tables are this output, at ffmpeg n8.1.2.
@@ -78,6 +78,9 @@ SCRIPTS: dict[str, str] = {
     "v4.00++": HEAD.replace("v4.00+", "v4.00++").replace("[V4+ Styles]", "[V4++ Styles]")
     + dialogue("plus plus"),
     "a NUL in a text": HEAD + dialogue("fi\0rst") + dialogue("next", "0:00:03.00", "0:00:04.00"),
+    "[script info], lower-cased": HEAD.replace("[Script Info]", "[script info]") + dialogue("lo"),
+    "a comment first": "; by hand\n" + HEAD + dialogue("commented"),
+    "spaces first": "  " + HEAD + dialogue("spaced"),
 }
 CAFE = HEAD + dialogue("café", "0:00:00.00", "0:00:01.00")
 UTF16 = "\ufeff" + CAFE  # its BOM first
@@ -119,7 +122,7 @@ def converted(out: Path, *args: str) -> tuple[str, str]:
     _ = out.unlink(missing_ok=True)
     r = run(FFMPEG, "-v", "warning", "-y", *args, str(out))
     if r.returncode or not out.exists():
-        return f"[failed: {logged(r.stderr)}]", ""
+        return f"[failed: {logged(r.stderr).replace(f'{out.parent}/', '')}]", ""
     return out.read_text(encoding="utf-8", errors="backslashreplace"), logged(r.stderr)
 
 
@@ -210,6 +213,8 @@ def main() -> None:
             print(
                 f"'café' in {codec} (its BOM): {shown}" + (" -- as UTF-8" if digest == utf8 else "")
             )
+        untyped = INFO.replace("ScriptType: v4.00+\n", "") + EVENTS + dialogue("x", "0:00:00.00")
+        print(f"no type (no ScriptType, no styles section): {drawn(work, untyped.encode())}")
         events = HEAD + dialogue(QUOTED, "0:00:00.00", "0:00:01.00")
         cp1252, latin1 = drawn(work, events.encode("cp1252")), frame(work, "café \x92x\x92")
         same = " -- as Latin-1's (U+0092)" if cp1252 == latin1 else ""

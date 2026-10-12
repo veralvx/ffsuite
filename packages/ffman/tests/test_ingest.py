@@ -295,6 +295,53 @@ def test_the_hostile_utf_16_ass_files(tmp_path: Path) -> None:
         _ = ingested(path)
 
 
+SIGNATURE: Final = "its first line is not [Script Info]"
+TYPE: Final = "no [V4+ Styles] or [V4 Styles] section, nor ScriptType v4.00+ or v4.00"
+
+
+@pytest.mark.parametrize(
+    ("name", "text", "why"),
+    [
+        ("a.ass", "", SIGNATURE),
+        ("a.ass", "hello\n", SIGNATURE),
+        ("a.ass", "; by hand\n[Script Info]\nScriptType: v4.00+\n", SIGNATURE),
+        ("a.ass", "  [Script Info]\nScriptType: v4.00+\n", SIGNATURE),  # ffmpeg's: no space
+        ("a.ass", "[script info]\nScriptType: v4.00+\n", SIGNATURE),  # ffmpeg's: its case
+        ("a.ass", "[Script Info\n[V4+ Styles]\n", SIGNATURE),  # its 13 bytes, `]` the last
+        ("a.ass", "[V4+ Styles]\n[Script Info]\nScriptType: v4.00+\n", SIGNATURE),
+        ("a.ssa", "hello\n", SIGNATURE),
+        ("a.ass", "[Script Info]\nPlayResX: 384\n", TYPE),
+        ("a.ass", "[Script Info]\nScriptType: v4.00++\n", TYPE),  # libass's: neither
+        ("a.ass", "[Script Info]\nscripttype: v4.00+\n", TYPE),  # libass's: its case
+        ("a.ass", "[Script Info]\n[Events]\nScriptType: v4.00+\n", TYPE),  # not Info's
+    ],
+)
+def test_an_ass_that_is_no_script_is_refused(
+    tmp_path: Path, name: str, text: str, why: str
+) -> None:
+    path = put(tmp_path, name, text)
+    kind = "an SSA" if name.endswith(".ssa") else "an ASS"
+    with pytest.raises(REFUSALS, match=f"^{re.escape(f'not {kind} file: {path} ({why})')}$"):
+        _ = ingested(path)
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        "[Script Info]\nScriptType: v4.00+\n",
+        "[Script Info]\r\nScriptType: 4.00\t \r\n",  # SSA's, VSFilter's form
+        "\ufeff\r\n\n[Script Info]\n[V4+ Styles]\n",  # a BOM, blank lines first
+        "[Script Info]\n  [v4 styles]\n",  # libass's: any case, spaces first
+        "[Script Info]\n[Aegisub Project Garbage]\nScriptType: v4.00+\n",
+        "[Script Info] x\n\t ScriptType: v4.00+\n",  # ffmpeg reads 13 bytes
+        "[Script Info]\n\ufeffScriptType: v4.00+\n",  # libass's: a BOM first skipped
+        "\ufeff[Script Info]\nScriptType: v4.00+\n".encode("utf-16-le"),  # recoded first
+    ],
+)
+def test_an_ass_script_is_passed(tmp_path: Path, data: str | bytes) -> None:
+    assert ingested(put(tmp_path, "a.ass", data)).notes == ()
+
+
 def test_the_hostile_cp1252_ass_is_refused(tmp_path: Path) -> None:
     path = put(tmp_path, "cp1252.ass", HOSTILE["cp1252.ass"])
     with pytest.raises(REFUSALS, match=f"^{re.escape(f'not UTF-8: {path} (line 12)')}$"):
@@ -505,7 +552,7 @@ def test_refusals(tmp_path: Path, name: str, text: str, message: str) -> None:
 
 @pytest.mark.parametrize("fmt", ["ass", "ssa"])
 def test_ass_and_ssa_pass_through(tmp_path: Path, fmt: str) -> None:
-    t = ingested(put(tmp_path, f"a.{fmt}", "[Script Info]\n"))
+    t = ingested(put(tmp_path, f"a.{fmt}", "[Script Info]\nScriptType: v4.00+\n"))
     assert (t.fmt, t.chunks, t.has_words) == (fmt, (), False)
 
 

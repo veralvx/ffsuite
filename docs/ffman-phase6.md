@@ -3450,11 +3450,32 @@ tests with 6.8.3's converters.*
       as it is, not decoded and encoded again -- on 54 MB, 0.157 s to 0.088 s, its peak
       255 MB to 162 MB, `compare HEAD` 472 identical; `PASSED_THROUGH`'s comment says
       ffman parses none of them, now it reads each; 15 mutations, each caught.*
-- [ ] Found by the CP1252 box: an .ass or .ssa that is no script -- empty, or text without
+- [x] Found by the CP1252 box: an .ass or .ssa that is no script -- empty, or text without
       `[Script Info]` -- fails in ffmpeg, burned ("Error initializing filters") or attached
       ("Invalid data found"), as `ffmpeg failed`, the message naming ffman's work copy
       (measured). To decide: refused, named, before any work, as a WebVTT without its
       signature; or as now.
+      *Done: refused, named, before any work, burned or attached alike (the owner's, each;
+      `_script` in `ingest`): `[Script Info]` first, as ffmpeg's reader (`ass_probe`: its 13
+      bytes, in its case, after a UTF-8 BOM and blank lines), else `not an ASS file: FILE (its
+      first line is not [Script Info])`; and a type, as libass (`process_line`,
+      `parse_script_type`: a styles section, by any case, or `[Script Info]`'s `ScriptType` of
+      `4.00+` or `4.00`), else `(no [V4+ Styles] or [V4 Styles] section, nor ScriptType
+      v4.00+ or v4.00)`; `an SSA` for one. Found: `[script info]` -- which libass burns --
+      ffmpeg reads as an LRC, so `--add-subs` wrote an empty track, unnoted (measured, exit
+      0, 0 events). Tests first: 12 refusals, 8 scripts passed (a BOM, blank lines, any case,
+      SSA's `4.00`, an unknown section, a BOM before `ScriptType`, UTF-16), burned and
+      attached (14 failing on the old code). 800 generated scripts, ffman's verdict each as
+      ffmpeg's probe and libass's burn (0 apart). 19 planted mutations, each caught -- one,
+      after a case added (`[Script Info` without its `]`, which ffmpeg too reads as an LRC).
+      Suite 2214, coverage 100%; matrix 770; `compare HEAD` on 3.13 and 3.14: 472
+      identical, 3 changed (`burn/hostile/no-script.ass`, `burn/hostile/lower.ass`,
+      `attach/lower-ass`, new). `decisions.md` "ASS script"; spec 3.4; AGENTS.md's count; the
+      `ass` record (ffmpeg's detection, its readings, libass's untyped script,
+      `measure_ffmpeg.py`'s cases, its failures without their temporary paths) and the
+      mappings record. Reviewed (the owner's request): converged, nothing changed --
+      `_script` on 52 MB, typed in its first lines 0.001 s, typed last or untyped (refused)
+      1.2-1.4 s, a line at a time; each entry git-cliff's, no changelog written by hand.*
 - [ ] `webvtt`: the same.
 - [ ] `ass`: the same, SSA (v4) through it.
 - [ ] `lrc`: the same.

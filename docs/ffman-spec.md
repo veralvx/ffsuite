@@ -200,6 +200,11 @@ camcorder:date=D,time=T`.
 - An ASS or SSA in UTF-16 (its BOM) is UTF-8 in that copy, as ffmpeg's reader recodes it; a
   unit not UTF-16 is refused by its line: `not UTF-16: FILE (line N)`. Without that BOM, the
   file is UTF-8, else refused by its line: `not UTF-8: FILE (line N)` (New).
+- An ASS or SSA opens with `[Script Info]` and has a type (a `[V4+ Styles]` or `[V4 Styles]`
+  section, or `ScriptType: v4.00+` or `v4.00`), as ffmpeg's reader and libass need. Else:
+  `not an ASS file: FILE (its first line is not [Script Info])`, or
+  `not an ASS file: FILE (no [V4+ Styles] or [V4 Styles] section, nor ScriptType v4.00+ or v4.00)`
+  (New).
 
 ### 3.5 Soft subtitles (A; from `attach`)
 
