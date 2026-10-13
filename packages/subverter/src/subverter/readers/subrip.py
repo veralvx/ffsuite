@@ -19,7 +19,6 @@ __all__ = ["read", "split_lines"]
 
 _PARTS: Final = 3  # a time's most: hours, minutes, seconds
 _MS_DIGITS: Final = 3  # a fraction of seconds, as SubRip writes one: milliseconds
-_ARROW: Final = re.compile(r"[ \t]*-->[ \t]*")  # a cue's times, either side
 _END: Final = re.compile(rf"{NUMBER}(?::{NUMBER}){{0,{_PARTS - 1}}}")  # what follows, ignored
 # a cue's last line, a number alone, only empty lines between it and a timing line: the next
 # cue's index, as ffmpeg's srt demuxer reads it (which, after a cue's text, drops any line
@@ -39,7 +38,10 @@ def _timing(line: str) -> Timed | None:
     """
     if "-->" not in line:
         return None
-    left, right = _ARROW.split(line, maxsplit=1)
+    # at its first arrow, the blanks after it off (``is_decimal`` takes those before) -- not by
+    # ``[ \t]*-->``, which scans a run of blanks again from each of them
+    left, _, right = line.partition("-->")
+    right = right.lstrip(" \t")
     start = left.replace(",", ".").split(":")
     end = _END.match(right.replace(",", "."))  # "," to ".": the same length, so ``right``'s spans
     if end is None or len(start) > _PARTS or not all(map(is_decimal, start)):

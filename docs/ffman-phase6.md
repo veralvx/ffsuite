@@ -3597,7 +3597,11 @@ tests with 6.8.3's converters.*
       second review found `clean`'s overrides alike, in LRC, CSV, TSV and JSON -- an LRC line of
       200,000 `{\` read in 34 s, now 0.01 s -- fixed apart: none sought past the last `}`, equal
       to its regexes (a property test), bounded in every format (6 cases, 4 failing first); four
-      mutations, each caught.*
+      mutations, each caught. The same probe found SubRip's timing line split by `[ \t]*-->`,
+      scanning a run of blanks again from each -- 200,000 before an arrow, 36 s -- now split at
+      its first arrow by `str.partition`: read as HEAD reads 60000 generated files, 0 differ;
+      bounded (2 cases failing first), its tabs and first arrow pinned (2 guards); four
+      mutations, three caught, the fourth (`lstrip()`) caught by the next fix.*
 - [ ] Found by the `<` box: a note quotes its text whole -- a cut rest, a stray block's first
       line, a dropped line -- so a 400,000-character line is that much on stderr. To decide:
       cut at a length, marked; or as now.

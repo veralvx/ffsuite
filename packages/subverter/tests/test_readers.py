@@ -247,6 +247,30 @@ def test_a_run_of_crs_is_read_in_linear_time(fmt: str) -> None:
     assert time.monotonic() - began < 1
 
 
+@pytest.mark.parametrize("blank", [" ", "\t"])
+def test_a_subrip_arrows_blanks_are_read_in_linear_time(blank: str) -> None:
+    # a run of blanks, then no arrow: ``[ \t]*-->`` scans the run again at each blank (36 s here)
+    line = f"{blank * 200_000}x --> y"
+    data = f"1\n00:00:01,000 --> 00:00:02,000\na\n{line}\n"
+    began = time.monotonic()
+    assert subverter.read("srt", data.encode(), "a.srt").cues == (Cue(1000, 2000, f"a {line}"),)
+    assert time.monotonic() - began < 1
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "00:00:03,000\t-->\t00:00:04,000",  # tabs round the arrow
+        "00:00:03,000 --> 00:00:04,000 --> 00:00:05,000",  # its first arrow
+    ],
+)
+def test_a_subrip_timing_lines_arrow_is_its_first_blanks_round_it(line: str) -> None:
+    # as ffmpeg 8.1.2 reads them (measured)
+    data = f"1\n00:00:01,000 --> 00:00:02,000\na\n\n2\n{line}\nb\n"
+    cues = (Cue(1000, 2000, "a"), Cue(3000, 4000, "b"))
+    assert subverter.read("srt", data.encode(), "a.srt").cues == cues
+
+
 @pytest.mark.parametrize(
     "head",
     ["WEBVTT a --> b\n", "WEBVTT 00:00.000 --> 00:00.500\nheader?\n"],
