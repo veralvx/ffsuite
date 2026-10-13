@@ -18,14 +18,14 @@ def clean(text: str, *, references: bool, escapes: bool) -> str:
     Overrides first: one opening with an escape (``{\t(...)}``) is dropped whole, as ffmpeg's
     subrip decoder and VLC drop it -- bash broke it first, showing it. ``references``
     (WebVTT's): no override, no escape -- a ``{\...}`` and a typed ``\n`` or ``\t`` text, as
-    every reader shows them -- and each run between tags decoded, a decoded ``<`` or ``{``
-    text, a break, written or decoded, a space. ``escapes`` (SubRip's, never with references):
-    the text as ffmpeg and libass read it (``unescaped``) -- every block off, ``{text}`` too, as
-    ffmpeg and mpv hide it; ``\N`` a line break, so a space, ffman wrapping; ``\h`` a no-break
-    space.
+    every reader shows them -- a tag no ``>`` closes run to the text's end (``untagged``), and
+    each run between tags decoded, a decoded ``<`` or ``{`` text, a break, written or decoded, a
+    space. ``escapes`` (SubRip's, never with references): the text as ffmpeg and libass read it
+    (``unescaped``) -- every block off, ``{text}`` too, as ffmpeg and mpv hide it; ``\N`` a line
+    break, so a space, ffman wrapping; ``\h`` a no-break space.
     """
     if references:
-        runs = untagged(text, into=_TAG_MARK).split(_TAG_MARK)
+        runs = untagged(text, into=_TAG_MARK, webvtt=True).split(_TAG_MARK)
         text = _VTT_BREAK.sub(" ", "".join(decoded(run) for run in runs))
     elif escapes:
         text = _BREAK.sub(" ", unescaped(untagged(text)).text)

@@ -3572,9 +3572,24 @@ tests with 6.8.3's converters.*
       100%; outcome report: 476 identical, `burn/hostile/settings.vtt` changed (`{\an8}`
       drawn), `typed.vtt` and `attach/typed-vtt` new, on 3.13 and 3.14; matrix 770; the
       `webvtt` skill's ffman column, rule 6 and record re-measured.*
-- [ ] Found by the `webvtt` box: a WebVTT text's `<` with no `>` after it is kept by ffman
+- [x] Found by the `webvtt` box: a WebVTT text's `<` with no `>` after it is kept by ffman
       (`before <b ends`), where Chromium and ffmpeg lose the rest of the cue and VLC keeps it
       (measured; VLC by source). To decide: as the W3C, the rest dropped, noted; or as now.
+      *Done (as the W3C, the owner's standing rule: better by proof, so not asked): a `<` no
+      `>` closes opens a tag to the text's end, as Chromium 141 and ffmpeg 8.1.2 show it, the
+      rest dropped, noted: `1 texts cut at a < with no > after it, a tag to their end (W3C):
+      the first, <3 you`. The proof: a `<` before a `>` was already a tag and one with none
+      text -- VLC's rule alone, one character read two ways; Chromium and ffmpeg (so mpv) lose
+      the rest. A SubRip's stays text, as ffmpeg's subrip decoder shows it (measured).
+      whisper.cpp, OpenAI whisper and WhisperX escape no `<`: their `I <3 you` is now cut,
+      noted, as a browser cuts it. `subverter/markup.py`: `untagged(..., webvtt=True)`
+      (`_VTT_TAG`) and `unclosed`; `clean` reads WebVTT's tags so, `ingest` notes the cut.
+      Tests: 9 failing first, 2 guards; eleven mutations, each caught (the note's trim once
+      survived: `unclosed.vtt`'s first cue now ends in blanks). Differentials, 9000 generated
+      texts each against Chromium 141 (`getCueAsHTML`) and ffmpeg 8.1.2's decoder: 0 differ --
+      HEAD's code, 1305 of the first 3000 against Chromium. Suite 2255, 100%; matrix 770;
+      outcome report: 479 identical, `unclosed.vtt` new, on 3.13 and 3.14; the `webvtt`
+      skill's ffman column, reading rule and record re-measured; a `subtitle-mappings` row.*
 - [ ] `ass`: the same, SSA (v4) through it.
 - [ ] `lrc`: the same.
 - [ ] `whisper-transcripts`: the same -- whisper-cli's and WhisperX's JSON, CSV, TSV and

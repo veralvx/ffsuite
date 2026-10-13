@@ -4,9 +4,10 @@ import html
 import re
 from typing import Final, NamedTuple
 
-__all__ = ["Unescaped", "decoded", "unescaped", "untagged"]
+__all__ = ["Unescaped", "decoded", "unclosed", "unescaped", "untagged"]
 
 _TAG: Final = re.compile(r"<[^>]*>")  # <u>, <i>, <font ...>: SubRip's and WebVTT's
+_VTT_TAG: Final = re.compile(r"<[^>]*>?")  # WebVTT's: one no > closes, to the text's end (W3C)
 _DECIMAL: Final = re.compile(r"&#([0-9]+);?")  # a decimal reference
 _DIGITS_MAX: Final = 7  # a decimal reference's: 10**7 is past U+10FFFF
 # ffmpeg 8.1's subrip decoder, at a "{" (htmlsubtitles.c, handle_open_brace): MicroDVD's style,
@@ -92,6 +93,20 @@ def _passed(text: str) -> str:
     return "".join(kept) + text[k:]
 
 
-def untagged(text: str, *, into: str = "") -> str:
-    """``text`` without its tags: each ``into``."""
-    return _TAG.sub(into, text)
+def untagged(text: str, *, into: str = "", webvtt: bool = False) -> str:
+    """``text`` without its tags: each ``into``.
+
+    ``webvtt``: its tags as the W3C's cue text tokenizer reads them -- one no ``>`` closes runs
+    to the text's end (``unclosed``), as Chromium 141 and ffmpeg 8.1.2 show it; else that
+    ``<`` is text, as ffmpeg's subrip decoder shows it.
+    """
+    return (_VTT_TAG if webvtt else _TAG).sub(into, text)
+
+
+def unclosed(text: str) -> str:
+    """A WebVTT text's tag no ``>`` closes, to the text's end (``untagged``); else empty.
+
+    It opens at the first ``<`` after the last ``>``.
+    """
+    start = text.find("<", text.rfind(">") + 1)
+    return text[start:] if start >= 0 else ""

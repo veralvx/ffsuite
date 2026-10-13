@@ -17,6 +17,38 @@ def test_untagged_puts_what_it_is_given_where_each_tag_was() -> None:
 
 
 @pytest.mark.parametrize(
+    ("text", "shown", "rest"),
+    [  # each as Chromium 141 and ffmpeg 8.1.2's webvtt decoder show it (measured)
+        ("before <b ends more", "before ", "<b ends more"),
+        ("x <", "x ", "<"),
+        ("a <> b", "a  b", ""),
+        ("a <3 b > c <d", "a  c ", "<d"),
+        ("a > <x <y", "a > ", "<x <y"),  # its first < after the last >
+        ("<3 alone", "", "<3 alone"),
+        ("a <b>c</b>", "a c", ""),  # closed: as ``untagged``
+    ],
+)
+def test_a_webvtt_tag_no_gt_closes_runs_to_the_texts_end(text: str, shown: str, rest: str) -> None:
+    assert subverter.untagged(text, webvtt=True) == shown
+    assert subverter.unclosed(text) == rest
+
+
+def test_a_subrip_lt_with_no_gt_is_text() -> None:
+    assert subverter.untagged("I <3 you") == "I <3 you"
+
+
+@given(st.lists(st.sampled_from(("<", ">", "a", " ", "<b>", "\n")), max_size=12).map("".join))
+def test_untagged_as_webvtt_is_untagged_up_to_its_unclosed_tag(text: str) -> None:
+    rest = subverter.unclosed(text)
+    head = text[: len(text) - len(rest)]
+    assert subverter.untagged(text, webvtt=True, into="|") == (
+        subverter.untagged(head, into="|") + ("|" if rest else "")
+    )
+    assert ">" not in rest
+    assert rest == "" or rest.startswith("<")
+
+
+@pytest.mark.parametrize(
     ("text", "shown"),
     [
         ("A &amp; B &lt;b&gt; &#x263A; &#9786; &copy;", "A & B <b> \u263a \u263a \u00a9"),

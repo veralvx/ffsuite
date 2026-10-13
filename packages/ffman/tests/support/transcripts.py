@@ -223,6 +223,13 @@ HOSTILE: Final = {
     # a WebVTT's backslashes and braces: text, as every reader shows them (6.8.2). Before: SubRip's
     # reading -- the override gone, a typed \n or \t a space: `C: ew able`
     "typed.vtt": "WEBVTT\n\n00:00.000 --> 00:00.400\nC:\\new \\table {\\an8}\n",
+    # a WebVTT's < with no > after it (6.8.2): a tag to the text's end, as the W3C, Chromium and
+    # ffmpeg read it, noted -- a decoded &lt; text. Before: text, VLC's reading alone. The note
+    # names the rest, its trailing blanks off
+    "unclosed.vtt": (
+        "WEBVTT\n\n00:00.000 --> 00:00.100\nI <3 you  \n\n00:00.100 --> 00:00.200\nbefore <b\n"
+        "ends\n\n00:00.200 --> 00:00.300\nTom &amp; Jerry &lt;3\n"
+    ),
     # a NUL in a text (6.8.2): U+FFFD, as the W3C reads one, noted. Before: written into the
     # ASS, where libass ended the script -- `fi` drawn, every later cue lost (measured)
     "nul.srt": "1\n00:00:00,000 --> 00:00:00,200\nfi\x00rst\n\n2\n00:00:00,200 --> 00:00:00,400\nsecond\n",

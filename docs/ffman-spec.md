@@ -198,6 +198,9 @@ camcorder:date=D,time=T`.
   dropped: after an empty line, in no cue (W3C), the first lost on line 6` (New).
 - A WebVTT text's `{\...}` and typed `\n` or `\t` are text, as every reader shows them; a
   SubRip's read as ffmpeg and libass read them (New).
+- A WebVTT text's `<` with no `>` after it opens a tag to the text's end (W3C), as Chromium and
+  ffmpeg show it, noted: `1 texts cut at a < with no > after it, a tag to their end (W3C): the
+  first, <3 you`; a SubRip's is text (New).
 - A NUL in a transcript's text reads as U+FFFD, as the W3C reads one, noted: `1 NULs read as
   U+FFFD, as the W3C reads them: the first in line 3`; an ASS's or SSA's alike, in the copy
   ffman gives ffmpeg, burned or attached (New).
