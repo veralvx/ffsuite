@@ -1,16 +1,16 @@
 # ASS and SSA: the formats as libass reads them and Aegisub writes them
 
-Advanced SubStation Alpha (ASS, `ScriptType: v4.00+`) and its predecessor SubStation Alpha v4
-(SSA, `v4.00`) have no maintained specification: the 1990s "Sub Station Alpha v4.00+ Script
-Format" document is the origin, and practice is what libass (the renderer of mpv, ffmpeg's
-`subtitles` and `ass` filters, and ffman's burn) reads and what Aegisub (the editor) writes.
-Researched at libass 0.17.4 (`libass/ass.c`, `ass_parse.c`, `ass_utils.c`, `ass_types.h`;
-nixpkgs' pin), Aegisub 3.4.2 (`src/subtitle_format_ass.cpp`, `ass_style.cpp`, `ass_dialogue.cpp`,
-`ass_parser.cpp`, `libaegisub/ass/time.cpp`; nixpkgs' pin), libass's "ASS File Format Guide"
-(wiki) and Aegisub's "ASS Override Tags" page. Measured by `../scripts/measure.py` with
-`../scripts/assdump.c` built against libass 0.17.4 (its output is the tables marked
-*measured*). ffmpeg's `ass` reader and writer: their section below, measured by
-`../scripts/measure_ffmpeg.py`.
+Advanced SubStation Alpha (ASS, `ScriptType: v4.00+`) and its predecessor SubStation Alpha v4 (SSA,
+`v4.00`) have no maintained specification: the 1990s "Sub Station Alpha v4.00+ Script Format"
+document is the origin, and practice is what libass (the renderer of mpv, ffmpeg's `subtitles` and
+`ass` filters, and ffman's burn) reads and what Aegisub (the editor) writes. Researched at libass
+0.17.4 (`libass/ass.c`, `ass_parse.c`, `ass_utils.c`, `ass_types.h`; nixpkgs' pin), Aegisub 3.4.2
+(`src/subtitle_format_ass.cpp`, `ass_style.cpp`, `ass_dialogue.cpp`, `ass_parser.cpp`,
+`libaegisub/ass/time.cpp`; nixpkgs' pin), libass's "ASS File Format Guide" (wiki) and Aegisub's "ASS
+Override Tags" page; VLC 3.0.24 (`modules/demux/subtitle.c`, `modules/codec/libass.c`) and mpv
+0.41.0 (`demux/demux_lavf.c`, `sub/sd_ass.c`) by source. Measured by `../scripts/measure.py` with
+`../scripts/assdump.c` built against libass 0.17.4 (its output is the tables marked *measured*).
+ffmpeg's `ass` reader and writer: their section below, measured by `../scripts/measure_ffmpeg.py`.
 
 ## The file
 
@@ -157,15 +157,15 @@ FFmpeg n8.1.2's `ass` demuxer and muxer (`libavformat/assdec.c`, `assenc.c`) and
 decoder and encoder (`libavcodec/assdec.c`, `assenc.c`): a script's events pass as they are;
 everything else is the header, written back verbatim.
 
-| Rule                                                                                                                                                                                                                                                                                     | Source                         |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
-| Detection: `[Script Info]`, its 13 bytes, in its case, after a UTF-8 BOM and CRs and LFs alone -- else not ASS: a space or a comment first, no reader; `[script info]`, the LRC one (measured)                                                                                           | `ass_probe`                    |
-| A UTF-16 BOM (LE or BE): the text recoded to UTF-8 as it is read; a unit not UTF-16 -- a lone surrogate, an odd last byte -- read as a NUL                                                                                                                                               | `ff_text_r8` (`subtitles.c`)   |
-| The decoder drops an event not UTF-8, its style's name included ("Invalid UTF-8 in decoded subtitles text"): a transcoding loses it, a stream copy keeps its bytes; the header passes as it is                                                                                           | `utf8_check` (`decode.c`)      |
-| An event: a line `Dialogue: <layer>,%d:%d:%d<any>%d,%d:%d:%d<any>%d,` -- the fraction an integer of **centiseconds**, any width; the packet `ReadOrder,Layer,` and the rest of the line. Every other line -- `Comment:`, a `Dialogue:` it cannot read, every section -- joins the header | `read_dialogue`                |
-| Times in centiseconds (time base 1/100); sorted by start, a negative duration becomes the gap to the next start; duplicates kept                                                                                                                                                         | `ff_subtitles_queue_finalize`  |
-| The decoder and encoder pass each event's text through untouched: the header is the decoder's script, the encoder's too                                                                                                                                                                  | `ass_decode_frame`             |
-| The muxer: the header up to the `[Events]` `Format:` line, then the events in their ReadOrder (the file's order), then the rest of the header; times `h:mm:ss.cc`, **9:59:59.99 at most**; SSA (no `[V4+ Styles]` line) gets `Marked=`                                                   | `write_packet`, `write_header` |
+| Rule                                                                                                                                                                                                                                                                                                                                                              | Source                         |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| Detection: `[Script Info]`, its 13 bytes, in its case, after a UTF-8 BOM and CRs and LFs alone -- else not ASS: a space or a comment first, no reader; `[script info]`, the LRC one (measured)                                                                                                                                                                    | `ass_probe`                    |
+| A UTF-16 BOM (LE or BE): the text recoded to UTF-8 as it is read; a unit not UTF-16 -- a lone surrogate, an odd last byte -- read as a NUL                                                                                                                                                                                                                        | `ff_text_r8` (`subtitles.c`)   |
+| The decoder drops an event not UTF-8, its style's name included ("Invalid UTF-8 in decoded subtitles text"): a transcoding loses it, a stream copy keeps its bytes; the header passes as it is                                                                                                                                                                    | `utf8_check` (`decode.c`)      |
+| An event: a line `Dialogue: <layer>,%d:%d:%d<any>%d,%d:%d:%d<any>%d,` -- the standard order whatever the `Format:` line, the fraction an integer of **centiseconds**, any width, after any one character; the packet `ReadOrder,Layer,` and the rest of the line. Every other line -- `Comment:`, a `Dialogue:` it cannot read, every section -- joins the header | `read_dialogue`                |
+| Times in centiseconds (time base 1/100); sorted by start, a negative duration becomes the gap to the next start; duplicates kept                                                                                                                                                                                                                                  | `ff_subtitles_queue_finalize`  |
+| The decoder and encoder pass each event's text through untouched: the header is the decoder's script, the encoder's too                                                                                                                                                                                                                                           | `ass_decode_frame`             |
+| The muxer: the header up to the `[Events]` `Format:` line, then the events in their ReadOrder (the file's order), then the rest of the header; times `h:mm:ss.cc`, **9:59:59.99 at most**; SSA (no `[V4+ Styles]` line) gets `Marked=`                                                                                                                            | `write_packet`, `write_header` |
 
 *Measured* -- read, then written back by a stream copy and by a transcoding (alike unless said):
 
@@ -193,7 +193,33 @@ everything else is the header, written back verbatim.
 | CP1252, an event's text (`café ’x’`, then `next`)             | copied as read; transcoded, the event dropped, `next` kept                                                          |
 | CP1252, a header's comment (`; é`)                            | kept as read, its bytes                                                                                             |
 | `[script info]`, lower-cased                                  | no ASS: the LRC reader takes it (a `[` first), no event; an empty track                                             |
+| `Format: Start, End, Style, Text` (another order)             | no event: each `Dialogue:` line a header line ("Output file is empty"): converted, no cue                           |
+| a comma before a fraction (`0:00:01,00`)                      | read: 1.00 s, any one character before the fraction                                                                 |
+| CR line ends alone                                            | no event: the script one line, the header ("Output file is empty"): converted, no cue                               |
 | a comment, or spaces, before `[Script Info]`                  | no reader: "Invalid data found when processing input"                                                               |
+
+*Measured* -- libass alone (ffmpeg's `ass` filter: `ass_read_file`; ffman's burn) against
+libass given ffmpeg's reading (the `subtitles` filter: the demuxer's header to
+`ass_process_codec_private`, each event to `ass_process_chunk`; mpv's path, `sub/sd_ass.c`):
+what each draws at each time, `x` something, `.` nothing (libass 0.17.1 and 0.17.4 alike). The
+header libass is given is read as a script, so a `Dialogue:` line the demuxer could not read is
+still drawn when libass can read it:
+
+| Script, its event at 1-2 s unless said               | `ass` (libass alone)                       | `subtitles` (ffmpeg, then libass)                              |
+| ---------------------------------------------------- | ------------------------------------------ | -------------------------------------------------------------- |
+| canonical (0.5, 1.5, 2.5 s)                          | `.x.`                                      | `.x.`                                                          |
+| `[script info]`, lower-cased                         | `.x.`                                      | `...`: the LRC reader's, no event                              |
+| a comment before `[Script Info]`                     | `.x.`                                      | failed: "Invalid data found when processing input"             |
+| `Format: Start, End, Style, Text`                    | `.x.`                                      | `.x.`: no event read, libass reads the header's line           |
+| a comma before the start's fraction                  | `...`: "Bad timestamp", the fields shifted | `.x.`                                                          |
+| 3 s to 1 s, then 5 s to 6 s (2, 3.5, 4.5, 5.5 s)     | `...x`: never drawn                        | `.xxx`: drawn to the next start                                |
+| 3 s to 1 s, the last (2, 3.5, 5.5 s)                 | `...`                                      | `.xx`: drawn to the end                                        |
+| CR line ends alone                                   | `.x.`                                      | `.x.`: no event read, libass reads the header                  |
+| no type (no `ScriptType`, no styles section)         | failed: "Could not create a libass track"  | `.x.`                                                          |
+| `v4.00++`, `[V4++ Styles]`                           | failed: "Could not create a libass track"  | `.x.`                                                          |
+| a NUL in a text, another event at 3-4 s (1.5, 3.5 s) | `x.`: the script ends at the NUL           | `xx`: the event cut at it                                      |
+| UTF-16LE, its BOM                                    | failed: "Could not create a libass track"  | `.x`                                                           |
+| CP1252, an event's text                              | `.x`: its Latin-1 characters               | failed: "Invalid UTF-8 in decoded subtitles text" -- no output |
 
 The header -- `[Script Info]`, the styles -- is written back as it was read, ffmpeg's comment
 not added. From SubRip, WebVTT or LRC, ffmpeg's default script instead (their records):
@@ -207,6 +233,51 @@ nothing: "Could not create a libass track", the filter not initialized -- the jo
 `café ’x’` in CP1252 draws as its Latin-1 reading, `café` and two U+0092s, not as UTF-8's. A
 script of no type (no `ScriptType`, no styles section) draws nothing: "Could not create a libass
 track".
+
+## VLC 3's reading
+
+VLC 3.0.24, by source: its own subtitle demuxer (`modules/demux/subtitle.c`) splits the script
+into a header and events, and its libass decoder (`modules/codec/libass.c`, preferred over
+`subsdec`) draws them -- the header by `ass_process_codec_private`, so a `Dialogue:` line it
+could not read is libass's to read, as through ffmpeg.
+
+| Rule                                                                                                                                                                                 | Source                        |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------- |
+| Recognised by a line, any case, among the first 256 of the first 4 KiB: `ScriptType: v4.00+` or `Dialogue:` ASS; `ScriptType: v4.00` or `Dialogue: Marked` SSA v4; 16 bytes at least | `Open`                        |
+| A UTF-8 BOM skipped; UTF-16 by its BOM converted to UTF-8; other bytes passed unchanged (libass reads one not UTF-8 as its Latin-1 character)                                        | `Open`, `vlc_stream_ReadLine` |
+| Lines end at an LF, or at a CR in a stretch with none                                                                                                                                | `vlc_stream_ReadLine`         |
+| An event: `Dialogue: %15[^,],%d:%d:%d.%d,%d:%d:%d.%d,` -- the standard order, a `.` before the fraction, read as centiseconds whatever its width; every other line the header        | `ParseSSA`                    |
+| Events sorted by start; one ending before it starts given a negative length: never drawn                                                                                             | `Fix`, `Demux`                |
+
+## Aegisub's reading (3.4.2)
+
+By source (`src/ass_parser.cpp`, `src/ass_dialogue.cpp`, `libaegisub/ass/time.cpp`): sections
+by their whole name, any case, an unknown one skipped (libass reads its lines as the section's
+before); `ScriptType` other than `v4.00+` or `v4.00` refused ("Unknown SSA file format
+version"); an event's fields by position, whatever the `Format:` line -- so `Format: Start, End,
+Style, Text` fails ("Failed parsing line"); a time's fraction a decimal, `.` or `,` before it:
+`0:00:01.5` 1.5 s, `0:00:01,50` 1.5 s, three digits at most read (libass: 1.05 s; "Bad
+timestamp"); a time kept within 0 and 9:59:59.994.
+
+## ffman's reading
+
+ffman passes an ASS or SSA through, unread: its burn draws ffman's copy with the `ass` filter
+(libass alone), `--add-subs` gives the copy to ffmpeg (its reading). The copy: UTF-8, a UTF-16
+script (its BOM) recoded, each NUL U+FFFD, noted; refused unless `[Script Info]` is first
+(ffmpeg's detection) and the script has a type (libass's) -- `subs/ingest.py`. *Measured*
+(`../scripts/measure_ffmpeg.py` with a PYTHON), the scripts of the table above:
+
+| Script                                                | ffman                                                                                   |
+| ----------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| canonical                                             | burned; attached, 1 cue                                                                 |
+| `[script info]`, lower-cased; a comment first         | refused: "not an ASS file: x.ass (its first line is not [Script Info])"                 |
+| no type; `v4.00++`                                    | refused: "... (no [V4+ Styles] or [V4 Styles] section, nor ScriptType v4.00+ or v4.00)" |
+| `Format: Start, End, Style, Text`; CR line ends alone | burned; attached, no cue -- unnoted                                                     |
+| a comma before the start's fraction                   | not burned; attached, 1 cue -- unnoted                                                  |
+| 3 s to 1 s, then 5 s to 6 s                           | burned, the second alone; attached, both (the first to the next start) -- unnoted       |
+| a NUL in a text, another event                        | U+FFFD, noted; burned and attached, both                                                |
+| UTF-16LE, its BOM                                     | recoded: burned; attached, 1 cue                                                        |
+| CP1252, an event's text                               | refused: "not UTF-8: x.ass (line 12)"                                                   |
 
 ## Aegisub's writing (3.4.2)
 

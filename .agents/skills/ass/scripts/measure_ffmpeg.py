@@ -3,8 +3,9 @@
 whether libass (through ffmpeg's `ass` filter) draws `\\{` and `\\}` as braces, what of a
 script after a NUL, whether it draws a UTF-16 one, how a CP1252 one, and one of no type.
 
-Usage: python3 measure_ffmpeg.py [FFMPEG]  (default: ffmpeg on PATH; ffprobe beside it). Prints
-what it found; references/format.md's "ffmpeg" tables are this output, at ffmpeg n8.1.2.
+Usage: python3 measure_ffmpeg.py [FFMPEG [PYTHON]]  (default: ffmpeg on PATH; ffprobe beside it;
+PYTHON an interpreter that imports ffman, for its reading). Prints what it found;
+references/format.md's "ffmpeg" and "ffman" tables are this output, at ffmpeg n8.1.2.
 """
 
 import hashlib
@@ -17,6 +18,7 @@ from pathlib import Path
 
 FFMPEG = sys.argv[1] if len(sys.argv) > 1 else "ffmpeg"
 FFPROBE = str(Path(FFMPEG).with_name("ffprobe")) if "/" in FFMPEG else "ffprobe"
+PYTHON = sys.argv[2] if len(sys.argv) > 2 else None  # noqa: PLR2004 -- FFMPEG, then PYTHON
 
 INFO = "[Script Info]\nScriptType: v4.00+\nPlayResX: 384\nPlayResY: 288\n\n"
 STYLES = (
@@ -44,6 +46,12 @@ SSA = (
     "Style: Default,Arial,16,16777215,65535,0,0,0,0,1,1,0,2,10,10,10,0,1\n\n[Events]\n"
     "Format: Marked, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
     "Dialogue: Marked=0,0:00:01.00,0:00:02.00,Default,,0000,0000,0000,,ssa\n"
+)
+
+# the Events' fields in another order
+CUSTOM = HEAD.replace(
+    "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
+    "Format: Start, End, Style, Text",
 )
 
 # a script each: what the demuxer reads of it, and what the muxer writes back
@@ -81,6 +89,9 @@ SCRIPTS: dict[str, str] = {
     "[script info], lower-cased": HEAD.replace("[Script Info]", "[script info]") + dialogue("lo"),
     "a comment first": "; by hand\n" + HEAD + dialogue("commented"),
     "spaces first": "  " + HEAD + dialogue("spaced"),
+    "Format: Start, End, Style, Text": CUSTOM + "Dialogue: 0:00:01.00,0:00:02.00,Default,custom\n",
+    "a comma before a time's fraction": HEAD + dialogue("comma", "0:00:01,00"),
+    "CR line ends": (HEAD + dialogue("mac")).replace("\n", "\r"),
 }
 CAFE = HEAD + dialogue("café", "0:00:00.00", "0:00:01.00")
 UTF16 = "\ufeff" + CAFE  # its BOM first
@@ -99,6 +110,75 @@ ENCODED: dict[str, bytes] = {
         HEAD.replace("[Script Info]\n", "[Script Info]\n; é\n") + dialogue("plain")
     ).encode("cp1252"),
 }
+
+
+# a script each, and the times (s) to look at it: what libass alone draws of it (the `ass` filter,
+# ffman's burn) against what it draws of ffmpeg's reading (the `subtitles` filter, mpv's path)
+CR = "\r"
+READERS: dict[str, tuple[bytes, tuple[float, ...]]] = {
+    "canonical": ((HEAD + dialogue("x")).encode(), (0.5, 1.5, 2.5)),
+    "[script info], lower-cased": (
+        (HEAD.replace("[Script Info]", "[script info]") + dialogue("x")).encode(),
+        (0.5, 1.5, 2.5),
+    ),
+    "a comment first": (("; by hand\n" + HEAD + dialogue("x")).encode(), (0.5, 1.5, 2.5)),
+    "Format: Start, End, Style, Text": (
+        (CUSTOM + "Dialogue: 0:00:01.00,0:00:02.00,Default,x\n").encode(),
+        (0.5, 1.5, 2.5),
+    ),
+    "a comma before a time's fraction (start)": (
+        (HEAD + dialogue("x", "0:00:01,00")).encode(),
+        (0.5, 1.5, 2.5),
+    ),
+    "end before start, then another": (
+        (
+            HEAD
+            + dialogue("x", "0:00:03.00", "0:00:01.00")
+            + dialogue("y", "0:00:05.00", "0:00:06.00")
+        ).encode(),
+        (2.0, 3.5, 4.5, 5.5),
+    ),
+    "the last ending before it starts": (
+        (HEAD + dialogue("x", "0:00:03.00", "0:00:01.00")).encode(),
+        (2.0, 3.5, 5.5),
+    ),
+    "CR line ends": ((HEAD + dialogue("x")).replace("\n", CR).encode(), (0.5, 1.5, 2.5)),
+    "no type": (
+        (INFO.replace("ScriptType: v4.00+\n", "") + EVENTS + dialogue("x")).encode(),
+        (0.5, 1.5, 2.5),
+    ),
+    "v4.00++": (
+        (
+            HEAD.replace("v4.00+", "v4.00++").replace("[V4+ Styles]", "[V4++ Styles]")
+            + dialogue("x")
+        ).encode(),
+        (0.5, 1.5, 2.5),
+    ),
+    "a NUL in a text, then an event": (
+        (HEAD + dialogue("x\0y") + dialogue("z", "0:00:03.00", "0:00:04.00")).encode(),
+        (1.5, 3.5),
+    ),
+    "UTF-16LE (its BOM)": (("\ufeff" + HEAD + dialogue("x")).encode("utf-16-le"), (0.5, 1.5)),
+    "CP1252, an event's text": ((HEAD + dialogue(QUOTED)).encode("cp1252"), (0.5, 1.5)),
+}
+FPS = 10  # the frames looked at, a second
+INK = 100  # a frame's grey above it: something drawn on its black
+# ffman's reading of each READERS script, in PYTHON: refused (its message), or its notes and the
+# copy it burns and attaches (``passed``), as latin-1 text
+FFMAN_PROBE = """
+import json, sys
+from ffman.errors import REFUSALS
+from ffman.subs.ingest import ingest, passed
+out = {}
+for name, text in json.load(sys.stdin).items():
+    data = text.encode("latin-1")
+    try:
+        notes = list(ingest("x.ass", data).notes)
+        out[name] = {"notes": notes, "copy": passed(data, "x.ass").data.decode("latin-1")}
+    except REFUSALS as e:
+        out[name] = {"refused": str(e)}
+print(json.dumps(out))
+"""
 
 
 def logged(stderr: str) -> str:
@@ -165,6 +245,23 @@ def drawn(work: Path, script: bytes) -> str:
     return hashlib.sha256(r.stdout).hexdigest()
 
 
+def drawn_at(work: Path, script: bytes, times: tuple[float, ...], how: str) -> str:
+    """What ``how`` (``ass`` or ``subtitles``) draws of ``script`` at each time: ``x`` something,
+    ``.`` nothing -- or why it drew no frame."""
+    path = work / "shown.ass"
+    _ = path.write_bytes(script)
+    size, last = 160 * 90, max(times) + 1
+    r = subprocess.run(
+        [FFMPEG, "-v", "error", "-f", "lavfi", "-i", f"color=c=black:s=160x90:r={FPS}:d={last}",
+         "-vf", f"{how}={path}", "-f", "rawvideo", "-pix_fmt", "gray", "-"],
+        capture_output=True, check=False,
+    )  # fmt: skip
+    if r.returncode or not r.stdout:
+        return f"[failed: {logged(r.stderr.decode()).replace(str(path), path.name)}]"
+    frames = [r.stdout[k : k + size] for k in range(0, len(r.stdout), size)]
+    return "".join("x" if max(frames[round(t * FPS)]) > INK else "." for t in times)
+
+
 def frame(work: Path, *texts: str) -> str:
     """The digest of the frame libass draws for an event of each text at once."""
     events = "".join(dialogue(text, "0:00:00.00", "0:00:01.00") for text in texts)
@@ -219,6 +316,46 @@ def main() -> None:
         cp1252, latin1 = drawn(work, events.encode("cp1252")), frame(work, "café \x92x\x92")
         same = " -- as Latin-1's (U+0092)" if cp1252 == latin1 else ""
         print(f"{QUOTED!r} in CP1252: {cp1252[:12]}{same}; UTF-8's {frame(work, QUOTED)[:12]}")
+
+        print("\n## libass alone (the ass filter, ffman's burn) against ffmpeg's reading, then")
+        print("## libass (the subtitles filter, mpv's path): x drawn, . not, at each time\n")
+        for name, (script, times) in READERS.items():
+            alone, read = (
+                drawn_at(work, script, times, "ass"),
+                drawn_at(work, script, times, "subtitles"),
+            )
+            print(
+                f"{name} at {', '.join(f'{t:g}' for t in times)} s: ass {alone}; subtitles {read}"
+            )
+
+        ffman(work)
+
+
+def cues(work: Path, script: bytes) -> int:
+    """How many cues ffmpeg makes of ``script`` as text (its subrip encoder: what a track holds)."""
+    path, out = work / "cues.ass", work / "cues.srt"
+    _ = path.write_bytes(script)
+    written, _warnings = converted(out, "-i", str(path), "-f", "srt")
+    return 0 if written.startswith("[failed") else written.count(" --> ")
+
+
+def ffman(work: Path) -> None:
+    """Each READERS script through ffman, in PYTHON: refused, or its notes; what its burn draws
+    of its copy (the ass filter), and how many cues ffmpeg makes of it for --add-subs."""
+    if not PYTHON:
+        return
+    print("\n## ffman: refused, or its notes; its burn (x drawn, . not); --add-subs' cues\n")
+    given = json.dumps({n: script.decode("latin-1") for n, (script, _) in READERS.items()})
+    r = subprocess.run([PYTHON, "-c", FFMAN_PROBE], input=given,
+                       capture_output=True, text=True, check=True)  # fmt: skip
+    for name, found in json.loads(r.stdout).items():
+        if "refused" in found:
+            print(f"{name}: refused: {found['refused']}")
+            continue
+        copy, times = found["copy"].encode("latin-1"), READERS[name][1]
+        said = f" ({'; '.join(found['notes'])})" if found["notes"] else ""
+        burned = drawn_at(work, copy, times, "ass")
+        print(f"{name}{said}: burned {burned}; attached, {cues(work, copy)} cues")
 
 
 if __name__ == "__main__":
