@@ -3809,8 +3809,13 @@ tests with 6.8.3's converters.*
       burned `x2` (`0ad33d8`, `cf9ac7b`; "LRC texts"), the markup one value in ffman, `Markup`
       (`07d90e3`, `4388c8d`). Its tests: `test_lrc.py`, the same 15 (`06b5891`). Tests: 5 and 2
       failing first (UTF-16), 13 and 3 (the text); suite 2405, coverage 100%; the outcome report,
-      `burn/hostile/utf-16.lrc`, `utf-16-bad.lrc` and `markup.lrc` new, the rest identical. Found:
-      the next box.*
+      `burn/hostile/utf-16.lrc`, `utf-16-bad.lrc` and `markup.lrc` new, the rest identical.
+      Reviewed by an independent reviewer, two rounds, every claim against the sources and
+      binaries: Navidrome drops the text before a line's first word stamp; a SubRip reader shows
+      word stamps, a WebVTT one drops them; mpv takes a first stamp with a fraction alone; a file
+      for every reader holds no `{` (`e92e17f`). The owner's review: ingest names the markup
+      `markup`; 11 planted mutations of the box's code, each caught by its tests (`54ad39b`).
+      Found: the next box.*
 - [ ] Found by the `lrc` box: an LRC line ffman drops is unnoted -- one with blanks before its
       stamp (` [00:02.00]two`), which Navidrome and Jellyfin read and ffmpeg 8.1.2 drops only
       because `read_ts` skips the blanks but hands `sscanf` the line from its start; one of hours

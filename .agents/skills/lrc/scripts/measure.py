@@ -62,10 +62,11 @@ READS: dict[str, str] = {
 }
 # the same, as bytes: UTF-16 by its BOM; CP1252
 SONG = "\ufeff[00:01.00]café\n[00:02.00]next\n"
+CP1252 = "CP1252 (café ’x’)"
 ENCODED: dict[str, bytes] = {
     "UTF-16LE (its BOM)": SONG.encode("utf-16-le"),
     "UTF-16BE (its BOM)": SONG.encode("utf-16-be"),
-    "CP1252 (café ’x’)": "[00:01.00]café ’x’\n[00:02.00]next\n".encode("cp1252"),
+    CP1252: "[00:01.00]café ’x’\n[00:02.00]next\n".encode("cp1252"),
 }
 
 # SubRip cues, into LRC: the muxer's writing
@@ -239,7 +240,7 @@ def decoded(work: Path) -> None:
     print(
         f"metadata into ASS, its [Script Info]: {ass.split('[V4+ Styles]')[0].splitlines()[1:]!r}"
     )
-    _ = src.write_bytes(ENCODED["CP1252 (café ’x’)"])
+    _ = src.write_bytes(ENCODED[CP1252])
     for options in ((), ("-sub_charenc", "CP1252")):
         srt, warnings = converted(work / "out.srt", *options, "-i", str(src))
         print(f"CP1252{', ' if options else ''}{' '.join(options)}: " + shown(cues(srt), warnings))
