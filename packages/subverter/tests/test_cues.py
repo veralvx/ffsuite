@@ -12,7 +12,7 @@ from typing import Final
 
 import pytest
 import subverter
-from hypothesis import given, settings
+from hypothesis import example, given, settings
 from hypothesis import strategies as st
 from subverter import Cue, Reading, Timing
 
@@ -269,6 +269,105 @@ def test_a_subrip_time_is_hours_minutes_and_seconds_each_whole(
     data = f"1\n{line}\nx\n"
     reading = subverter.read("srt", data.encode(), "a.srt")
     assert (reading.cues, reading.notes) == ((Cue(*times, "x"),), ())
+
+
+# C's isspace but the line ends, which end a line first: what sscanf's %d and " " skip
+_C_BLANKS: Final = " \t\v\f"
+
+
+class _ScanfError(Exception):
+    """sscanf stopped short of a timing line's eight numbers."""
+
+
+def _scanf_number(line: str, at: int) -> tuple[int, int]:
+    """sscanf's %d at ``at``: blanks skipped, a sign, then one digit or more; its value, its end."""
+    while at < len(line) and line[at] in _C_BLANKS:
+        at += 1
+    start = at
+    if at < len(line) and line[at] in "+-":
+        at += 1
+    digits = at
+    while at < len(line) and line[at] in "0123456789":
+        at += 1
+    if at == digits:
+        raise _ScanfError
+    return int(line[start:at]), at
+
+
+def _scanf_time(line: str, at: int) -> tuple[int, int]:
+    """``%d:%d:%d%*1[,.]%d``, the fraction optional (VLC 3's): ms, as added; its end."""
+    h, at = _scanf_number(line, at)
+    for _ in range(2):
+        if line[at : at + 1] != ":":
+            raise _ScanfError
+        value, at = _scanf_number(line, at + 1)
+        h = h * 60 + value
+    fraction = 0
+    if line[at : at + 1] in (",", "."):  # a mark: its number needed
+        fraction, at = _scanf_number(line, at + 1)
+    return h * 1000 + fraction, at
+
+
+def _ffmpeg_timing(line: str) -> tuple[int, int] | None:
+    """ffmpeg 8.1's ``get_event_info`` (srtdec.c), transcribed: ``%d:%d:%d%*1[,.]%d --> %d:%d:
+    %d%*1[,.]%d``, then anything; exact, as no C ``int`` -- and the fraction optional."""
+    try:
+        start, at = _scanf_time(line, 0)
+        end, _ = _scanf_time(line, _scanf_arrow(line, at))
+    except _ScanfError:
+        return None
+    return start, end
+
+
+def _scanf_arrow(line: str, at: int) -> int:
+    """`` --> ``'s first blank and its arrow: any blanks, none too, then ``-->``; past it."""
+    while at < len(line) and line[at] in _C_BLANKS:
+        at += 1
+    if line[at : at + 3] != "-->":
+        raise _ScanfError
+    return at + 3
+
+
+# a SubRip time, well and badly made: its numbers (blanks, a sign, digits -- or not), its
+# colons, its fraction's mark, what follows it; each part mostly well made (nine in ten), as a
+# timing line needs every one of them
+
+
+def _mostly(well: tuple[str, ...], badly: tuple[str, ...]) -> st.SearchStrategy[str]:
+    return st.sampled_from(well * (9 * len(badly) // len(well) + 1) + badly)
+
+
+_NUMBERS: Final = _mostly(
+    ("0", "00", "5", "59", "100", " 5", "\t0", "\f5", "+5", "-5"), ("", "x", "5.5", "1e1", "- 5")
+)
+_COLONS: Final = _mostly((":",), (" :", "."))
+_MARKS: Final = _mostly(("", ",", ".", ", "), (",,", ",-"))
+_TAILS: Final = _mostly(("",), (" ", "x", "e0", " X1:5", ",", ":5"))
+
+
+@st.composite
+def _srt_times(draw: st.DrawFn) -> str:
+    h, m, s = draw(_NUMBERS), draw(_NUMBERS), draw(_NUMBERS)
+    mark = draw(_MARKS)
+    fraction = draw(_NUMBERS) if mark else ""
+    return f"{h}{draw(_COLONS)}{m}{draw(_COLONS)}{s}{mark}{fraction}{draw(_TAILS)}"
+
+
+@settings(max_examples=2000)  # cheap, and a timing line needs each of its parts well made
+@example("00:00:01,000", " --> ", "00:00:02,x")  # a mark without its number
+@example("00:00:01,-500", " --> ", "-01:00:02.5")  # signs, a short fraction
+@given(
+    _srt_times(),
+    st.sampled_from(("-->", " --> ", "\t-->", "-- >", "->", " -->\v", " -->\u00a0")),
+    _srt_times(),
+)
+def test_a_subrip_timing_line_is_read_as_ffmpegs_sscanf_reads_it(
+    left: str, arrow: str, right: str
+) -> None:
+    line = left + arrow + right
+    times = _ffmpeg_timing(line)
+    reading = subverter.read("srt", f"1\n{line}\nx\n".encode(), "a.srt")
+    assert reading.cues == ((Cue(*times, "x"),) if times else ())
 
 
 @pytest.mark.parametrize(
