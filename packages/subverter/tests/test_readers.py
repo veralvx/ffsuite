@@ -256,7 +256,8 @@ def test_a_no_break_space_after_a_subrip_arrow_is_no_blank() -> None:
 
 @pytest.mark.parametrize("blank", [" ", "\t"])
 def test_a_subrip_arrows_blanks_are_read_in_linear_time(blank: str) -> None:
-    # a run of blanks, then no arrow: ``[ \t]*-->`` scans the run again at each blank (36 s here)
+    # a run of blanks, an arrow not right after it: ``[ \t]*-->`` scans the run again from each
+    # blank (36 s here)
     line = f"{blank * 200_000}x --> y"
     data = f"1\n00:00:01,000 --> 00:00:02,000\na\n{line}\n"
     began = time.monotonic()
