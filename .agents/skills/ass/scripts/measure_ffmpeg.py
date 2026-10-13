@@ -452,8 +452,7 @@ def missing(text: str) -> list[str]:
     """What the skill's prose must say of its example, from the measured values: those missing."""
     prose = " ".join(text.split())
     said = [f"{a / 1000:g} s for {d / 1000:g} s" for a, d in EXAMPLE_TIMES]
-    said += [f"`{line}`" for line in (EXAMPLE_SRT[0], EXAMPLE_SRT[1], EXAMPLE_SRT[2])]
-    said.append(" ".join(f"`{EXAMPLE_SRT[3]}`".split()))
+    said += [f"`{line}`" for line in EXAMPLE_SRT]  # each line's spaces single, as the prose's
     whole = r"(?<![\w.]){}(?![\w]|\.\d)"  # no digit nor word glued to it
     return [x for x in said if not re.search(whole.format(re.escape(x)), prose)]
 
