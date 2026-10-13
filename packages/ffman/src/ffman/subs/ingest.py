@@ -14,11 +14,12 @@ from typing import Final, NamedTuple
 from subverter import readers
 from subverter.markup import unclosed
 from subverter.readers.utf8 import Nuls, nul_notes, utf16
-from subverter.transcript import Transcript
+from subverter.transcript import Cue, Transcript
 
 from ffman.errors import refuse, shown
 from ffman.media.paths import ext_of
 from ffman.subs import markup, normalize
+from ffman.subs.markup import Markup
 
 # the formats ffman parses none of: burned and attached as they are, from its copy (``passed``)
 PASSED_THROUGH: Final = ("ass", "ssa")
@@ -112,6 +113,17 @@ def _script(data: bytes, fmt: str, name: str) -> None:
     refuse(f"not {kind} file: {name} ({why})")
 
 
+def _markup_notes(cues: Sequence[Cue], kind: Markup) -> list[str]:
+    """The notes of what markup hid or cut of the texts: SubRip's braced runs, WebVTT's tags."""
+    if kind is Markup.SUBRIP and (runs := [run for cue in cues for run in markup.hidden(cue.text)]):
+        how = "ASS's override blocks, as ffmpeg and mpv hide them"
+        return [f"{len(runs)} braced runs hidden, {how}: {_first(runs)}"]
+    if kind is Markup.WEBVTT and (cut := [rest for cue in cues if (rest := unclosed(cue.text))]):
+        what = f"{len(cut)} texts cut at a < with no > after it, a tag to their end (W3C)"
+        return [f"{what}: the first, {shown(cut[0].rstrip())}"]
+    return []
+
+
 def _first(texts: Sequence[str]) -> str:
     """A note's first text, quoted."""
     return f"the first, {shown(texts[0])}"
@@ -125,10 +137,8 @@ def ingest(name: str, data: bytes) -> Transcript:
         _script(copy, fmt, name)
         return Transcript(fmt, f".{fmt}", has_words=False, chunks=(), words=(), notes=notes)
     found = readers.read(fmt, data, name)
-    references, escapes = found.has_references, found.has_ass_escapes
-    chunks, reversed_, same_start = normalize.cues(
-        found.cues, references=references, escapes=escapes
-    )
+    kind = Markup.of(found)
+    chunks, reversed_, same_start = normalize.cues(found.cues, kind)
     if not chunks:
         refuse(f"no timed text found in: {name}")
     notes = list(found.notes)
@@ -139,17 +149,10 @@ def ingest(name: str, data: bytes) -> Transcript:
     if same_start:
         how = "beginning with the next, one cue shown at a time"
         notes.append(f"{len(same_start)} cues dropped: {how}, {_first(same_start)}")
-    if escapes and (runs := [run for cue in found.cues for run in markup.hidden(cue.text)]):
-        how = "ASS's override blocks, as ffmpeg and mpv hide them"
-        notes.append(f"{len(runs)} braced runs hidden, {how}: {_first(runs)}")
-    if references and (cut := [rest for cue in found.cues if (rest := unclosed(cue.text))]):
-        what = f"{len(cut)} texts cut at a < with no > after it, a tag to their end (W3C)"
-        notes.append(f"{what}: the first, {shown(cut[0].rstrip())}")
+    notes += _markup_notes(found.cues, kind)
     if not found.has_words:
         return Transcript(fmt, found.source, found.has_words, chunks, (), tuple(notes))
-    placed_words, placed, untimed = normalize.words(
-        chunks, found.words, references=references, escapes=escapes
-    )
+    placed_words, placed, untimed = normalize.words(chunks, found.words, kind)
     if placed:
         why = "(untimed, tied, out of order or outside their sentence)"
         notes.append(

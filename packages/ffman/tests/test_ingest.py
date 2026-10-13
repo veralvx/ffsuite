@@ -14,7 +14,7 @@ from subverter.transcript import Chunk, Word
 from ffman.errors import REFUSALS
 from ffman.subs.ass import Style, script
 from ffman.subs.ingest import passed
-from ffman.subs.markup import clean
+from ffman.subs.markup import Markup, clean
 from ffman.subs.srt import srt
 from tests.support.ingesting import ingested
 from tests.support.transcripts import HOSTILE, encoded
@@ -1010,7 +1010,7 @@ def test_clean_is_its_regexes_wherever_they_read_the_text(text: str) -> None:
     plain = re.sub(
         r"\\[tn]|[\t\n\r]", " ", re.sub(r"\{\\[^}]*\}", "", re.sub(r"<[^>]*>", "", text))
     )
-    assert clean(text, references=False, escapes=False) == re.sub(r"[ \t]+", " ", plain).strip(" ")
+    assert clean(text, Markup.BASH) == re.sub(r"[ \t]+", " ", plain).strip(" ")
 
 
 def test_an_lrc_time_its_parts_in_range_past_a_double_is_none(tmp_path: Path) -> None:

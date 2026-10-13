@@ -13,7 +13,7 @@ from typing import Final, NamedTuple
 
 from subverter.transcript import Chunk, Cue, Timing, Word
 
-from ffman.subs.markup import clean
+from ffman.subs.markup import Markup, clean
 
 
 class Chunks(NamedTuple):
@@ -24,21 +24,20 @@ class Chunks(NamedTuple):
     same_start: tuple[str, ...]
 
 
-def cues(raw: Sequence[Cue], *, references: bool, escapes: bool) -> Chunks:
+def cues(raw: Sequence[Cue], markup: Markup) -> Chunks:
     """Cues to chunks: ordered by start (stably, before clamping), cleaned, clamped at 0.
 
     The untimed, the empty, the reversed and those of no length are dropped; each ends where the
     next starts, so of those sharing a start the last alone is kept. The reversed (an ffmpeg burn
     draws one to the next cue's start, the last to the end) and those sharing a start (libass
     draws them together), but of the kept one's text, are returned, their text lost; one of no
-    length, or before 0, no player shows. ``references``, ``escapes``: the texts' HTML
-    character references, ASS escapes (``clean``).
+    length, or before 0, no player shows. ``markup``: the texts' (``clean``).
     """
     timed = [(c.start, c.end, c) for c in raw if c.start is not None and c.end is not None]
     kept: list[tuple[int, int, str, str]] = []
     reversed_: list[str] = []
     for start, end, cue in sorted(timed, key=lambda t: t[0]):
-        text = clean(cue.text, references=references, escapes=escapes)
+        text = clean(cue.text, markup)
         if not text:
             continue
         a, b = max(start, 0), max(end, 0)
@@ -58,7 +57,7 @@ def cues(raw: Sequence[Cue], *, references: bool, escapes: bool) -> Chunks:
 
 
 def words(
-    chunks: tuple[Chunk, ...], raw: Sequence[Timing], *, references: bool, escapes: bool
+    chunks: tuple[Chunk, ...], raw: Sequence[Timing], markup: Markup
 ) -> tuple[tuple[Word, ...], int, int]:
     """The words placed in their sentences (_place); how many placed, how many sentences bare.
 
@@ -66,13 +65,13 @@ def words(
     -- WhisperX's segment its aligner could not align, whisper-cli's of special tokens alone, a
     highlighted run without ``<u>``.
 
-    ``references``, ``escapes``: the texts' HTML character references, ASS escapes (``clean``).
+    ``markup``: the texts' (``clean``).
     """
     window = {c.segment: (c.start, c.end) for c in chunks if c.segment != ""}
     kept = [
         Timing(t.segment, t.start, t.end, text)
         for t in raw
-        if (text := clean(t.text, references=references, escapes=escapes)) and t.segment in window
+        if (text := clean(t.text, markup)) and t.segment in window
     ]
     out: list[Word] = []
     placed = 0

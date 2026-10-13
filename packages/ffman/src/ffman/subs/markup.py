@@ -1,9 +1,11 @@
 """A transcript's markup: what its tags, override blocks and escapes leave of its text."""
 
 import re
+from enum import Enum, auto
 from typing import Final
 
 from subverter.markup import decoded, drawn, untagged
+from subverter.transcript import Reading
 
 _OVERRIDE: Final = re.compile(r"\{\\[^}]*\}")  # {\an8}: ASS's, off in LRC, CSV, TSV, JSON (bash's)
 # LRC's, CSV's, TSV's and JSON's tab or line break, typed (\t, \n) or not (bash's)
@@ -14,26 +16,43 @@ _BLANKS: Final = re.compile(r"[ \t]+")
 _TAG_MARK: Final = "\uffff"  # where a tag was: a noncharacter (a transcript's own, dropped)
 
 
-def clean(text: str, *, references: bool, escapes: bool) -> str:
-    r"""Bash's CLEAN_AWK: tags and overrides off, breaks to spaces, blanks squeezed, trimmed.
+class Markup(Enum):
+    """How a format's texts mark up -- its reading's flags, one value (``of``) -- for ``clean``."""
 
-    Overrides first: one opening with an escape (``{\t(...)}``) is dropped whole, as ffmpeg's
-    subrip decoder and VLC drop it -- bash broke it first, showing it. ``references``
-    (WebVTT's): no override, no escape -- a ``{\...}`` and a typed ``\n`` or ``\t`` text, as
-    every reader shows them -- a tag no ``>`` closes run to the text's end (``untagged``), and
-    each run between tags decoded, a decoded ``<`` or ``{`` text, a break, written or decoded, a
-    space. ``escapes`` (SubRip's, never with references): the text as ffmpeg and libass read it
-    (``drawn``) -- its tags as ffmpeg's decoder reads them, a ``<br>`` a line break; every
-    block off, ``{text}`` too, as ffmpeg and mpv hide it; ``\N`` a line break, so a space,
-    ffman wrapping; ``\n`` a space, ``\h`` a no-break space; ``\t`` text, as libass draws it.
+    BASH = auto()  # CSV's, TSV's, JSON's: bash's CLEAN_AWK
+    WEBVTT = auto()  # ``Reading.has_references``
+    SUBRIP = auto()  # ``Reading.has_ass_escapes``
+
+    @classmethod
+    def of(cls, found: Reading) -> "Markup":
+        """The markup of ``found``'s texts, by its flags (never both set)."""
+        if found.has_references:
+            return cls.WEBVTT
+        return cls.SUBRIP if found.has_ass_escapes else cls.BASH
+
+
+def clean(text: str, markup: Markup) -> str:
+    r"""``text`` as its format's readers show it, breaks spaces, blanks squeezed, trimmed.
+
+    ``BASH``, bash's CLEAN_AWK: tags and overrides off, a break typed (``\n``, ``\t``) or not a
+    space; overrides first: one opening with an escape (``{\t(...)}``) is dropped whole, as
+    ffmpeg's subrip decoder and VLC drop it -- bash broke it first, showing it. ``WEBVTT``: no
+    override, no escape -- a ``{\...}`` and a typed ``\n`` or ``\t`` text, as every reader shows
+    them -- a tag no ``>`` closes run to the text's end (``untagged``), and each run between tags
+    decoded, a decoded ``<`` or ``{`` text, a break, written or decoded, a space. ``SUBRIP``: the
+    text as ffmpeg and libass read it (``drawn``) -- its tags as ffmpeg's decoder reads them, a
+    ``<br>`` a line break; every block off, ``{text}`` too, as ffmpeg and mpv hide it; ``\N`` a
+    line break, so a space, ffman wrapping; ``\n`` a space, ``\h`` a no-break space; ``\t``
+    text, as libass draws it.
     """
-    if references:
-        runs = untagged(text, into=_TAG_MARK, webvtt=True).split(_TAG_MARK)
-        text = _VTT_BREAK.sub(" ", "".join(decoded(run) for run in runs))
-    elif escapes:
-        text = _SUBRIP_BREAK.sub(" ", drawn(text).text)
-    else:
-        text = _BREAK.sub(" ", _overrides_off(untagged(text)))
+    match markup:
+        case Markup.WEBVTT:
+            runs = untagged(text, into=_TAG_MARK, webvtt=True).split(_TAG_MARK)
+            text = _VTT_BREAK.sub(" ", "".join(decoded(run) for run in runs))
+        case Markup.SUBRIP:
+            text = _SUBRIP_BREAK.sub(" ", drawn(text).text)
+        case Markup.BASH:
+            text = _BREAK.sub(" ", _overrides_off(untagged(text)))
     return _BLANKS.sub(" ", text).removeprefix(" ").removesuffix(" ")
 
 
