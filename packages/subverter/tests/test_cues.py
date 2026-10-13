@@ -12,7 +12,7 @@ from typing import Final
 
 import pytest
 import subverter
-from hypothesis import given
+from hypothesis import given, settings
 from hypothesis import strategies as st
 from subverter import Cue, Reading, Timing
 
@@ -676,6 +676,160 @@ def test_webvtt_text_before_any_cue_or_after_an_arrow_is_not_stray(
     data: str, notes: tuple[str, ...]
 ) -> None:
     assert subverter.read("vtt", data.encode(), "a.vtt").notes == notes
+
+
+# --- whole files: WebVTT's as the W3C's parser reads them; SubRip's as ffmpeg's demuxer, but
+# for subverter's recorded readings -- each transcribed, its cues compared on generated files
+
+
+def _w3c_block(lines: list[str], k: int, *, header: bool) -> tuple[int, Cue | None]:
+    """W3C WebVTT's "collect a WebVTT block" from line ``k``: the line after it, its cue or None.
+
+    ``previous position`` is a line's start: after the last line taken, or after the timing line.
+    """
+    count, seen_arrow, previous, cue = 0, False, k, None
+    text: list[str] = []
+    while k < len(lines):
+        line = lines[k]
+        count, k = count + 1, k + 1
+        if "-->" in line:
+            if header or not (count == 1 or (count == 2 and not seen_arrow)):
+                k = previous
+                break
+            seen_arrow, previous = True, k
+            times = _w3c_timings(line)
+            cue = None if times is None else Cue(*times, "")
+            text = [] if times else text
+        elif not line:
+            break
+        else:
+            text.append(line)
+            previous = k
+    return k, (None if cue is None else Cue(cue.start, cue.end, " ".join(text)))
+
+
+def _w3c_cues(text: str) -> tuple[Cue, ...] | None:
+    """W3C WebVTT's "WebVTT parser algorithm": its cues, lines joined by a space; None, unread."""
+    whole = text.replace("\r\n", "\n").replace("\r", "\n")
+    if whole[:6] != "WEBVTT" or whole[6:7] not in ("", " ", "\t", "\n"):
+        return None
+    lines = whole.split("\n")
+    lines = lines[:-1] if lines[-1] == "" else lines  # its last LF ends the input
+    k, cues = 1, list[Cue]()
+    if k < len(lines) and lines[k]:  # "Header"
+        k, _ = _w3c_block(lines, k, header=True)
+    while k < len(lines):  # "Block loop", after each block its LFs
+        if not lines[k]:
+            k += 1
+            continue
+        k, cue = _w3c_block(lines, k, header=False)
+        cues += [cue] if cue else []
+    return tuple(cues)
+
+
+# what a WebVTT file is made of: timing lines good and bad, its blocks' words, blanks
+_VTT_LINES: Final = (
+    "",
+    "00:01.000 --> 00:02.000",
+    "00:00:03.000-->00:00:04.000 align:start",
+    "\t00:05.000\t-->\t00:06.000",
+    "00:01,000 --> 00:02,000",
+    "00:01.5 --> 00:02.000",
+    "60:00.000 --> 61:00.000",
+    "a --> b",
+    "NOTE x",
+    "STYLE",
+    "REGION",
+    "WEBVTT",
+    "a",
+    "b c",
+    "2",
+    " ",
+    "\t",
+)
+
+
+@settings(max_examples=1000)  # cheap, and each rule's case needs its lines in a row
+@given(
+    st.sampled_from(("WEBVTT", "WEBVTT - title", "WEBVTT\tx", "WEBVTTx", "webvtt")),
+    st.lists(st.tuples(st.sampled_from(_VTT_LINES), st.sampled_from(("\n", "\r\n", "\r")))),
+)
+def test_a_webvtt_files_cues_are_the_w3cs(head: str, lines: list[tuple[str, str]]) -> None:
+    text = head + "\n" + "".join(line + end for line, end in lines)
+    cues = _w3c_cues(text)
+    if cues is None:
+        with pytest.raises(subverter.Error, match="not a WebVTT file"):
+            _ = subverter.read("vtt", text.encode(), "a.vtt")
+    else:
+        assert subverter.read("vtt", text.encode(), "a.vtt").cues == cues
+
+
+_SRT_TIMING: Final = re.compile(r"(\d\d):(\d\d):(\d\d),(\d{3}) --> (\d\d):(\d\d):(\d\d),(\d{3})")
+_NUMBER_ALONE: Final = re.compile(r"[ \t]*[0-9]+[ \t]*")  # Index lines: ASCII digits, blanks
+
+
+def _ffmpeg_srt(text: str) -> tuple[Cue, ...]:
+    """ffmpeg 8.1's srt demuxer, ``srt_read_header`` (srtdec.c), on lines ended by LFs, transcribed
+    -- but for subverter's recorded readings: a line of spaces alone no text (Cue ends), a
+    number alone the only index it holds back (Index lines), a cue of no text kept (ffman drops
+    it). Its timing lines the canonical ones (``get_event_info``)."""
+    cues: list[Cue] = []
+    times: tuple[int, int] | None = None
+    held: str | None = None  # ``line_cache``
+    lines: list[str] = []
+    for line in text.split("\n"):
+        if not line:
+            continue
+        found = _SRT_TIMING.fullmatch(line)
+        if found is None:
+            if times is None:
+                continue
+            if held is not None:  # another line after it: the payload's
+                lines.append(held)
+                held = None
+            if _NUMBER_ALONE.fullmatch(line):
+                held = line
+            elif line.strip(" "):
+                lines.append(line)
+            continue
+        if times is not None:  # the line held back dropped: an index
+            cues.append(Cue(*times, " ".join(lines)))
+        h1, m1, s1, f1, h2, m2, s2, f2 = map(int, found.groups())
+        times = ((h1 * 60 + m1) * 60 + s1) * 1000 + f1, ((h2 * 60 + m2) * 60 + s2) * 1000 + f2
+        held, lines = None, []
+    if times is not None:  # the last: a number held back is its text
+        cues.append(Cue(*times, " ".join([*lines, *([held] if held else [])])))
+    return tuple(cues)
+
+
+# what a SubRip file is made of: indexes, timing lines, numbers, blanks, texts
+_SRT_LINES: Final = (
+    "",
+    "1",
+    "12",
+    " 7 ",
+    "\t3",
+    "2024",
+    "3 apples",
+    "+2",
+    "-1",
+    "2.",
+    " ",
+    "   ",
+    "\t",
+    "a",
+    "b c",
+    "x --> y",
+    "00:00:01,000 --> 00:00:02,000",
+    "00:01:00,500 --> 00:01:02,250",
+)
+
+
+@settings(max_examples=1000)  # cheap, and each rule's case needs its lines in a row
+@given(st.lists(st.sampled_from(_SRT_LINES)))
+def test_a_subrip_files_cues_are_ffmpegs_but_for_the_recorded_readings(lines: list[str]) -> None:
+    text = "\n".join(lines)
+    assert subverter.read("srt", text.encode(), "a.srt").cues == _ffmpeg_srt(text)
 
 
 # --- WhisperX --highlight_words: by structure, a run of one text a sentence, each <u> a word
