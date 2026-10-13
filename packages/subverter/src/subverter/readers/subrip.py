@@ -1,7 +1,8 @@
 """SubRip's grammar, as ffmpeg's srt demuxer reads it (``cues.Dialect``).
 
 Its line ends (``split_lines``); its timing line, a seconds fraction not of three digits a
-count of ms; a number alone right before a timing line the next cue's index; a line holding
+count of ms; an empty line or a line of spaces skipped, the cue going on (``_BLANK``); a number
+alone, only empty lines between it and a timing line, the next cue's index; a line holding
 ``-->`` that is no timing line, text.
 """
 
@@ -127,7 +128,7 @@ def _continued_notes(continued: list[tuple[int, str]]) -> tuple[str, ...]:
 
 
 def _spaced_notes(spaced: list[tuple[int, str]]) -> tuple[str, ...]:
-    """The cues read on past a line of spaces (ffmpeg's decoder ends them there): counted."""
+    """The cues read on past a line of spaces (ffmpeg's decoder ends them): counted, the first."""
     if not spaced:
         return ()
     line, text = spaced[0]

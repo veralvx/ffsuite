@@ -3540,7 +3540,8 @@ tests with 6.8.3's converters.*
       comment meaning to drop no text) and Kodi trims it to an empty line, which ends its
       text -- both drop what follows; ffmpeg's demuxer keeps it (a stream copy into MKV too,
       measured), VLC 3 as text, and MPC-HC (`STS.cpp`), Subtitle Edit (`SubRip.cs`),
-      mkvmerge, srt and pysubs2 read on. A number alone stays the next cue's index only with
+      mkvmerge (its 2011 source; the current one, on GitLab and Codeberg, unreachable here), srt
+      and pysubs2 read on. A number alone stays the next cue's index only with
       empty lines alone before the timing line, as ffmpeg's demuxer reads it; a line of
       spaces before an index is no missing blank line, unnoted. `Dialect.blank` (SubRip's
       ` *`, `ends` none), `Found.spaced`, the open cue's blanks in `cues._Blanks`. Tests: 7
