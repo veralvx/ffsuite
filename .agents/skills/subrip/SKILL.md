@@ -122,9 +122,9 @@ digits a count of milliseconds (`,5` 5 ms, as ffmpeg and VLC); a timing line's t
 time ignored; text on to the next timing line, an empty line and a line of spaces skipped (MPC-HC,
 Subtitle Edit; ffmpeg's demuxer skips the empty one, its decoder, so mpv, ending the text at the
 spaces; VLC ends it at an empty line, Kodi at either), its last line, a number alone, the next cue's
-index (ffmpeg drops any line starting with a number there); the markup above, a `<` opening a tag
-only as ffmpeg's decoder reads one (the table), an unknown tag dropped. Sort by start. A file not
-UTF-8 is a code page's: ask, or guess as VLC does, rather than pass its bytes on.
+index (ffmpeg drops any line led by a number there, but a negative one); the markup above, a `<`
+opening a tag only as ffmpeg's decoder reads one (the table), an unknown tag dropped. Sort by start.
+A file not UTF-8 is a code page's: ask, or guess as VLC does, rather than pass its bytes on.
 
 ## Converting, muxing and burning with ffmpeg
 

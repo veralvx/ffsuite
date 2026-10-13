@@ -20,8 +20,8 @@ from subverter.transcript import Reading
 __all__ = ["read", "split_lines"]
 
 # a cue's last line, a number alone, only empty lines between it and a timing line: the next
-# cue's index, as ffmpeg's srt demuxer reads it (which, after a cue's text, drops any line
-# starting with a number there)
+# cue's index, as ffmpeg's srt demuxer reads it (which, after a cue's text, drops any line led
+# by a number there, a negative one aside: strtol's)
 _INDEX: Final = re.compile(r"[ \t]*[0-9]+[ \t]*")
 # an empty line, ffmpeg's demuxer skips (srtdec.c): the cue goes on; a line of spaces alone too,
 # as MPC-HC (STS.cpp) and Subtitle Edit (SubRip.cs) read it -- ffmpeg's decoder ends the text
