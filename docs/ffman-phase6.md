@@ -3604,9 +3604,29 @@ tests with 6.8.3's converters.*
       mutations, three caught, the fourth (`lstrip()`) caught by the next fix: a VT or FF after
       the arrow, text before, now a blank, as ffmpeg's `sscanf` skips it (`srtdec.c`, measured;
       a no-break space none): 1 case failing first, 1 guard; five mutations, each caught.*
-- [ ] Found by the `<` box: a note quotes its text whole -- a cut rest, a stray block's first
+- [x] Found by the `<` box: a note quotes its text whole -- a cut rest, a stray block's first
       line, a dropped line -- so a 400,000-character line is that much on stderr. To decide:
       cut at a length, marked; or as now.
+      *Done (cut, marked -- the owner's standing rule: better by proof, so not asked): a note
+      names a text whole up to 85 characters -- a cue at its longest by Netflix's Timed Text
+      Style Guide (English (USA), II.3 and II.13), two lines of 42 and the space joining them,
+      so no note a conforming file makes changes -- else by its first 85, then `... (N more
+      characters)` (`subverter.excerpt`, `notes.py`); ffmpeg bounds a log message too, at 64
+      KiB (`libavutil/log.c`). Every note quoting a transcript's text, eight: WebVTT's dropped
+      and stray lines; SubRip's odd time, index, and text after an empty line or a line of
+      spaces; ffman's braced run and cut rest. Tests: 13 failing first (4 `excerpt`'s, 6 the
+      readers', 3 ffman's, `quoted.srt` one; the huge and long fractions' 2, changed), 1 guard;
+      thirteen mutations, each caught. Suite 2287, 100%; matrix 770; outcome report: 480
+      identical, `quoted.srt` new, on 3.13 and 3.14.*
+- [ ] Found by the note-quote box: a note or a refusal prints a transcript's control
+      characters raw -- an ESC in a stray line reached stderr as it was, an OSC setting the
+      terminal's title, an SGR its colour (measured); a file name's alike, in a refusal (`not
+      UTF-8: x<ESC>[31m.vtt (line 4)`). ffmpeg's log writes `?` for each C0 control but BS to CR
+      (`libavutil/log.c`, `sanitize`). To decide: shown escaped (as Python's `repr`, or `?` as
+      ffmpeg's); or as now.
+- [ ] Found by the note-quote box: ffmeta's notes quote names and values whole -- a tag's
+      name, a CATALOG or ISRC value, a FILE's name -- unbounded, as the transcripts' were. To
+      decide: cut alike (ffmeta its own, the standard library alone); or as now.
 - [ ] `ass`: the same, SSA (v4) through it.
 - [ ] `lrc`: the same.
 - [ ] `whisper-transcripts`: the same -- whisper-cli's and WhisperX's JSON, CSV, TSV and

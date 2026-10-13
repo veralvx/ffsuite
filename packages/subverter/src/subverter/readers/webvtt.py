@@ -15,6 +15,7 @@ from fractions import Fraction
 from typing import Final
 
 from subverter._errors import refuse
+from subverter.notes import excerpt
 from subverter.readers.cues import Dialect, Found, Timed
 from subverter.readers.cues import read as read_cues
 from subverter.readers.fields import exact, ms
@@ -71,7 +72,7 @@ def _dropped_notes(dropped: list[tuple[int, str]]) -> tuple[str, ...]:
         return ()
     line, text = dropped[0]
     why = "a line holding --> that is no WebVTT timing line (W3C)"
-    return (f"{len(dropped)} cues dropped: {why}, the first {text} on line {line}",)
+    return (f"{len(dropped)} cues dropped: {why}, the first {excerpt(text)} on line {line}",)
 
 
 def _stray_notes(strays: list[tuple[int, str]]) -> tuple[str, ...]:
@@ -81,7 +82,7 @@ def _stray_notes(strays: list[tuple[int, str]]) -> tuple[str, ...]:
         return ()
     line, text = texts[0]
     why = "after an empty line, in no cue (W3C)"
-    return (f"{len(texts)} text blocks dropped: {why}, the first {text} on line {line}",)
+    return (f"{len(texts)} text blocks dropped: {why}, the first {excerpt(text)} on line {line}",)
 
 
 def split_lines(text: str) -> list[str]:

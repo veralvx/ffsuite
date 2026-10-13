@@ -739,6 +739,38 @@ def test_a_vtts_lt_with_no_gt_after_it_is_a_tag_to_its_texts_end_noted(tmp_path:
     assert t.notes == (f"2 texts cut at a < with no > after it, {how}: the first, <3 you",)
 
 
+@pytest.mark.parametrize(
+    ("name", "data", "shown"),
+    [
+        (
+            "a.srt",
+            f"1\n00:00:01,000 --> 00:00:02,000\na{{{'n' * 100}}}b\n",
+            f"the first, {{{'n' * 84}... (17 more characters)",
+        ),
+        (
+            "a.vtt",
+            f"WEBVTT\n\n00:01.000 --> 00:02.000\na <{'n' * 100}\n",
+            f"the first, <{'n' * 84}... (16 more characters)",
+        ),
+    ],
+    ids=["braced", "unclosed"],
+)
+def test_ffmans_notes_quote_an_excerpt(tmp_path: Path, name: str, data: str, shown: str) -> None:
+    """subverter's ``excerpt``: a cue at Netflix's most whole, a longer text cut."""
+    (note,) = ingested(put(tmp_path, name, data)).notes
+    assert note.endswith(shown)
+
+
+def test_a_long_text_is_named_by_its_first_85_characters(tmp_path: Path) -> None:
+    t = ingested(put(tmp_path, "quoted.srt", HOSTILE["quoted.srt"]))
+    how = "read as theirs, as ffmpeg reads them"
+    first = "word " * 17  # 85 characters
+    assert t.notes == (
+        f"1 cues held text after an empty line, {how}: the first, {first}... (113 more characters)"
+        " on line 5",
+    )
+
+
 def test_a_srts_lt_with_no_gt_after_it_is_text(tmp_path: Path) -> None:
     t = ingested(put(tmp_path, "a.srt", "1\n00:00:01,000 --> 00:00:02,000\nI <3 you\n"))
     assert ([c.text for c in t.chunks], t.notes) == (["I <3 you"], ())

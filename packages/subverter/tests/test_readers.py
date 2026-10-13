@@ -394,7 +394,8 @@ def test_a_subrip_fraction_not_of_three_digits_is_a_count_of_ms_noted(
     began = time.monotonic()
     reading = subverter.read("srt", data.encode(), "a.srt")
     assert time.monotonic() - began < 1  # a long fraction read in bounded work
-    notes = () if said is None else (_ODD_SUBRIP.format(n=1, time=written, said=said),)
+    quoted = subverter.excerpt(written)  # the long ones cut
+    notes = () if said is None else (_ODD_SUBRIP.format(n=1, time=quoted, said=said),)
     assert (reading.cues, reading.notes) == ((Cue(start, 9000, "x"),), notes)
 
 
