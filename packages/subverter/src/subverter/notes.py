@@ -10,10 +10,11 @@ _SHOWN: Final = 2 * 42 + 1
 
 
 def excerpt(text: str) -> str:
-    """``text`` as a note quotes it: whole up to ``_SHOWN`` characters, else cut, the rest counted.
+    """``text`` as a note quotes it: whole up to 85 characters (``_SHOWN``), else its first 85.
 
-    A note names a text so its reader knows it (its line too, where it has one): a line of
-    400,000 characters, quoted whole, would be that much on stderr.
+    The rest counted: ``... (N more characters)``. A note names a text so its reader knows it
+    (its line too, where it has one): a line of 400,000 characters, quoted whole, would be that
+    much on stderr.
     """
     if len(text) <= _SHOWN:
         return text
