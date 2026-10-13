@@ -13,21 +13,29 @@ from typing import Final, NamedTuple
 from subverter.readers.utf8 import Nuls, by_line, nul_notes
 from subverter.transcript import Cue, Reading, Timing
 
-__all__ = ["Dialect", "Found", "Timed", "read"]
+__all__ = ["Dialect", "Found", "Odd", "Timed", "read"]
 
 _UNDERLINE: Final = re.compile(r"<u>([^<]*)</u>")  # WhisperX --highlight_words: the word
 _UNDERLINES: Final = re.compile(r"</?u>")  # its tags (``_plain``)
 
 
+class Odd(NamedTuple):
+    """A time written oddly but read: how (its dialect's word), as written, as read."""
+
+    kind: str
+    written: str
+    value: int | None
+
+
 class Timed(NamedTuple):
     """A timing line's start and end, each None past a double's range (``fields.ms``).
 
-    ``odd``: its times written oddly but read -- each as written, read (SubRip's short fraction).
+    ``odd``: its times written oddly but read (SubRip's short fraction, or none).
     """
 
     start: int | None
     end: int | None
-    odd: tuple[tuple[str, int | None], ...] = ()
+    odd: tuple[Odd, ...] = ()
 
 
 @dataclass(slots=True)

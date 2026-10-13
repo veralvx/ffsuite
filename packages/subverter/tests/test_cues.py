@@ -259,8 +259,6 @@ def test_a_subrip_line_whose_times_are_not_hours_minutes_and_seconds_is_text(lin
         ("00:00:-01,500 --> 00:00:02,000", (-500, 2000)),
         ("00:00:01, 500 --> 00:00:02,000", (1000 + 500, 2000)),
         ("00:75:00,000 --> 00:75:01,000", (4_500_000, 4_501_000)),  # past 59, read
-        # no fraction: VLC 3 reads it (``subtitle_ParseSubRipTimingValue``), ffmpeg not
-        ("00:00:01 --> 00:00:02", (1000, 2000)),
     ],
 )
 def test_a_subrip_time_is_hours_minutes_and_seconds_each_whole(
@@ -269,6 +267,31 @@ def test_a_subrip_time_is_hours_minutes_and_seconds_each_whole(
     data = f"1\n{line}\nx\n"
     reading = subverter.read("srt", data.encode(), "a.srt")
     assert (reading.cues, reading.notes) == ((Cue(*times, "x"),), ())
+
+
+_BARE: Final = (
+    "{n} times had no fraction, read as VLC reads them (ffmpeg reads no such timing line, its"
+    " cue lost): the first, {time} on line {line}"
+)
+
+
+@pytest.mark.parametrize(
+    ("line", "times", "n", "time"),
+    [
+        ("00:00:01 --> 00:00:02,000", (1000, 2000), 1, "00:00:01"),
+        ("00:00:01,000 --> 00:00:02 X1:5", (1000, 2000), 1, "00:00:02"),
+        (" 00:00:01 -->00:00:02", (1000, 2000), 2, "00:00:01"),
+    ],
+)
+def test_a_subrip_time_without_a_fraction_is_read_as_vlc_reads_it_noted(
+    line: str, times: tuple[int, int], n: int, time: str
+) -> None:
+    # VLC 3 reads it (``subtitle_ParseSubRipTimingValue``, by source); ffmpeg 8.1.2's sscanf
+    # needs a fraction: the line text, the cue lost (measured)
+    data = f"1\n00:00:00,000 --> 00:00:00,500\nfirst\n\n2\n{line}\nx\n"
+    reading = subverter.read("srt", data.encode(), "a.srt")
+    assert reading.cues == (Cue(0, 500, "first"), Cue(*times, "x"))
+    assert reading.notes == (_BARE.format(n=n, time=time, line=6),)
 
 
 # C's isspace but the line ends, which end a line first: what sscanf's %d and " " skip
@@ -430,7 +453,6 @@ _CUT: Final = {
         ("00:00:01,500", 1500, None),
         ("00:00:01,050", 1050, None),
         ("00:00:01,-500", 500, None),  # signed: 1 - 0.500 s either way
-        ("00:00:01", 1000, None),  # none
     ],
 )
 def test_a_subrip_fraction_not_of_three_digits_is_a_count_of_ms_noted(

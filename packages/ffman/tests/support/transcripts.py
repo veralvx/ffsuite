@@ -155,6 +155,9 @@ HOSTILE: Final = {
     # a line of years about an arrow (6.8.2's review): no SubRip time either side, so text, as
     # ffmpeg and VLC read it. Before, a bare number minutes, as bash's awk: the line a timing
     # line (2024 to 2025 minutes, no text), lost
+    # a time without a fraction (6.8.2's review): read as VLC reads it, noted -- ffmpeg reads no
+    # such timing line, its cue lost. Before, read unnoted
+    "bare.srt": "1\n00:00:00 --> 00:00:01\nwhole seconds\n",
     "years.srt": "1\n00:00:00,000 --> 00:00:00,400\nWhat changed:\n2024 --> 2025\n",
     "arrows.vtt": (
         "WEBVTT\n\n00:00.000 --> 00:00.200\nx\nNote: 1 --> 2\ny\n\n"

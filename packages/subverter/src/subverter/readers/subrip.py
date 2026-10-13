@@ -11,7 +11,7 @@ import re
 from typing import Final
 
 from subverter._errors import refuse, shown
-from subverter.readers.cues import Dialect, Found, Timed
+from subverter.readers.cues import Dialect, Found, Odd, Timed
 from subverter.readers.cues import read as read_cues
 from subverter.readers.fields import exact, ms
 from subverter.readers.utf8 import UTF16_BOMS, file_text
@@ -29,6 +29,8 @@ _INDEX: Final = re.compile(r"[ \t]*[0-9]+[ \t]*")
 _BLANK: Final = re.compile(" *")
 _SSCANF_BLANKS: Final = " \t\v\f"  # C's isspace, no line end: sscanf's (srtdec.c)
 _MS_DIGITS: Final = 3  # a fraction of seconds, as SubRip writes one: milliseconds
+_SHORT: Final = "short"  # an odd time (``Odd.kind``): its fraction not of three digits
+_BARE: Final = "bare"  # no fraction: VLC 3's, not ffmpeg's
 # sscanf's %d, ffmpeg's ``get_event_info`` reads each of a time's numbers by: blanks, a sign,
 # ASCII digits -- each run whole (possessive: ``(?![,.])`` splits no digits, a failed match
 # gives back no blanks one by one)
@@ -53,32 +55,34 @@ def _timing(line: str) -> Timed | None:
     if start is None or end is None:
         return None
     times = [(found[0].lstrip(_SSCANF_BLANKS), *_ms(found)) for found in (start, end)]
-    odd = tuple((written, value) for written, value, is_odd in times if is_odd)
+    odd = tuple(Odd(kind, written, value) for written, value, kind in times if kind)
     return Timed(times[0][1], times[1][1], odd)
 
 
-def _ms(time: re.Match[str]) -> tuple[int | None, bool]:
-    """A time's ms, as ffmpeg reads it: each number added, its own sign (``-00`` none); oddness.
+def _ms(time: re.Match[str]) -> tuple[int | None, str | None]:
+    """A time's ms, as ffmpeg reads it: each number added, its own sign (``-00`` none); how odd.
 
     Its fraction a count of ms, as ffmpeg's srt demuxer and VLC's subtitle module read it
-    (``01,5`` 1.005 s, ``01,5000`` 6 s): odd if not of three digits -- three read alike either
-    way. Each number read exactly (``exact``): None if one is past a double's range.
+    (``01,5`` 1.005 s, ``01,5000`` 6 s): ``_SHORT`` if not of three digits -- three read alike
+    either way; none, ``_BARE``. Each number read exactly (``exact``): None if one is past a
+    double's range.
     """
     hours, minutes, seconds, fraction = time.groups()
     numbers = (hours, minutes, seconds, fraction or "0")
     values = [value for value in map(exact, numbers) if value is not None]
     digits = (fraction or "").lstrip(_SSCANF_BLANKS).lstrip("-+")
-    is_odd = fraction is not None and len(digits) != _MS_DIGITS
+    kind = _BARE if fraction is None else _SHORT if len(digits) != _MS_DIGITS else None
     if len(values) < len(numbers):
-        return None, is_odd
+        return None, kind
     h, m, s, count = values
-    return ms(((h * 60 + m) * 60 + s) * 1000 + count, 1), is_odd
+    return ms(((h * 60 + m) * 60 + s) * 1000 + count, 1), kind
 
 
 def _notes(found: Found) -> tuple[str, ...]:
-    """Odd times read as ms, indexes taken from cues' texts, texts kept after a blank line."""
+    """Odd times, indexes taken from cues' texts, texts kept after a blank line."""
     return (
         _fraction_notes(found.odd)
+        + _bare_notes(found.odd)
         + _index_notes(found.indexes)
         + _continued_notes(found.continued)
         + _spaced_notes(found.spaced)
@@ -86,16 +90,31 @@ def _notes(found: Found) -> tuple[str, ...]:
 
 
 def _fraction_notes(odd: list[tuple[int, Timed]]) -> tuple[str, ...]:
-    """Odd times, read as ms: counted, the first named, with what it was read as."""
-    if not odd:
+    """Short fractions, read as ms: counted, the first named, with what it was read as."""
+    times = _odd(odd, _SHORT)
+    if not times:
         return ()
-    line, timing = odd[0]
-    written, value = timing.odd[0]
-    count = sum(len(t.odd) for _, t in odd)
+    line, (_, written, value) = times[0]
     how = "read as milliseconds as ffmpeg and VLC read them"
     taken = "no time (past a double's range)" if value is None else f"{_in_seconds(value)} s"
-    first = f"the first, {shown(written)} on line {line}, as {taken}"
-    return (f"{count} times had a fraction not of three digits, {how}: {first}",)
+    named = f"the first, {shown(written)} on line {line}, as {taken}"
+    return (f"{len(times)} times had a fraction not of three digits, {how}: {named}",)
+
+
+def _bare_notes(odd: list[tuple[int, Timed]]) -> tuple[str, ...]:
+    """Times without a fraction, read as VLC reads them: counted, the first named."""
+    times = _odd(odd, _BARE)
+    if not times:
+        return ()
+    line, first = times[0]
+    how = "read as VLC reads them (ffmpeg reads no such timing line, its cue lost)"
+    named = f"the first, {shown(first.written)} on line {line}"
+    return (f"{len(times)} times had no fraction, {how}: {named}",)
+
+
+def _odd(odd: list[tuple[int, Timed]], kind: str) -> list[tuple[int, Odd]]:
+    """The odd times of one kind, each with its line."""
+    return [(line, time) for line, timing in odd for time in timing.odd if time.kind == kind]
 
 
 def _index_notes(indexes: list[tuple[int, str]]) -> tuple[str, ...]:
