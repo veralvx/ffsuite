@@ -79,21 +79,21 @@ end in ms, the text):
 | CRLF                                                                     | CR removed                                                                                | the same                                                                      |
 | CR only                                                                  | one line: each CR dropped (`first[00:03.00]second`, at the first stamp; a NUL at its end) | two lines                                                                     |
 | a UTF-8 BOM                                                              | detected, but the first line lost: the BOM stays in it                                    | the BOM skipped                                                               |
-| a NUL in a line (`fi` NUL `rst`)                                         | in the packet; the text cut there by the decoder; the next lines read                     | `fi�rst`, noted                                                               |
+| a NUL in a line (`fi` NUL `rst`)                                         | in the packet; the text cut there by the decoder; the next lines read                     | `fi` U+FFFD `rst`, noted                                                      |
 | UTF-16, LE or BE (its BOM)                                               | not LRC: "Invalid data found"; `-f lrc`, no line                                          | read as UTF-8's                                                               |
 | CP1252 (`café ’x’`)                                                      | read as its bytes; converted, the line dropped ("Invalid UTF-8"), but with `-sub_charenc` | refused: "not UTF-8: x.lrc (line 1)"                                          |
 | whisper-cli's `[by:whisper.cpp]`, `[00:00.00] Hello world`, `[60:19.99]` | `creator` = `whisper.cpp`; `Hello world`; 3619.99 s                                       | `Hello world`; 3619.99 s                                                      |
 
 *Measured* -- converted into SubRip, WebVTT and ASS (`ffmpeg -i in.lrc out.srt`):
 
-| File                                                 | ffmpeg's conversion                                                                                                 |
-| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `[00:01.00]one` `[00:02.50]two`                      | `one` 1-2.5 s; `two` 2.5-2.5 s: the last line of no length, in all three                                            |
-| the same, then `[00:04.00]` (an empty stamped line)  | the last line to 4 s; an empty cue of no length after it                                                            |
-| `x<3 and y>2 <i>i</i> a\nb {\an8}c &amp;`            | in all three `x<3 and y>2 <i>i</i> a\`U+2060`nb \{{}\`U+2060`an8}c &amp;`: the decoder's escapes for libass kept    |
-| `<00:01.00>one <00:01.50>two`                        | the stamps as text (a SubRip or WebVTT reader then takes them for tags)                                             |
-| CP1252 (`café ’x’`)                                  | the line dropped: "Invalid UTF-8 in decoded subtitles text"; with `-sub_charenc CP1252`, `café ’x’`                 |
-| the `subtitles` filter, `[00:01.00]x`, `[00:02.00]y` | `x` drawn at 1.5 s; `y` never (2.5, 5, 9.5 s): the last line drawn by no burn; with `[00:04.00]` after it, at 2.5 s |
+| File                                                 | ffmpeg's conversion                                                                                                          |
+| ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `[00:01.00]one` `[00:02.50]two`                      | `one` 1-2.5 s; `two` 2.5-2.5 s: the last line of no length, in all three                                                     |
+| the same, then `[00:04.00]` (an empty stamped line)  | the last line to 4 s; an empty cue of no length after it                                                                     |
+| `x<3 and y>2 <i>i</i> a\nb {\an8}c &amp;`            | in all three as written but for the decoder's escapes for libass: a word joiner (U+2060) after each backslash, `{` as `\{{}` |
+| `<00:01.00>one <00:01.50>two`                        | the stamps as text (a SubRip or WebVTT reader then takes them for tags)                                                      |
+| CP1252 (`café ’x’`)                                  | the line dropped: "Invalid UTF-8 in decoded subtitles text"; with `-sub_charenc CP1252`, `café ’x’`                          |
+| the `subtitles` filter, `[00:01.00]x`, `[00:02.00]y` | `x` drawn at 1.5 s; `y` never (2.5, 5, 9.5 s): the last line drawn by no burn; with `[00:04.00]` after it, at 2.5 s          |
 
 `-c copy` into Matroska writes the text as a SubRip track (`S_TEXT/UTF8`); MP4 and WebM refuse a
 copy ("Could not find tag for codec text"; "... WebVTT subtitles are supported for WebM"): `-c:s

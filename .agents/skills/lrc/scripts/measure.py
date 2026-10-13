@@ -56,12 +56,12 @@ READS: dict[str, str] = {
     "spaces before the first stamp": "  [00:01.00]  spaced text  \n",
     "CRLF": "[00:01.00]windows\r\n[00:02.00]next\r\n",
     "CR only": "[00:01.00]first\r[00:03.00]second\r",
-    "BOM": "﻿[00:01.00]bom\n[00:02.00]next\n",
+    "BOM": "\ufeff[00:01.00]bom\n[00:02.00]next\n",
     "a NUL in a line": "[00:01.00]fi\0rst\n[00:02.00]next\n",
     "whisper-cli": "[by:whisper.cpp]\n[00:00.00] Hello world\n[60:19.99] past an hour\n",
 }
 # the same, as bytes: UTF-16 by its BOM; CP1252
-SONG = "﻿[00:01.00]café\n[00:02.00]next\n"
+SONG = "\ufeff[00:01.00]café\n[00:02.00]next\n"
 ENCODED: dict[str, bytes] = {
     "UTF-16LE (its BOM)": SONG.encode("utf-16-le"),
     "UTF-16BE (its BOM)": SONG.encode("utf-16-be"),
@@ -239,7 +239,7 @@ def decoded(work: Path) -> None:
     print(
         f"metadata into ASS, its [Script Info]: {ass.split('[V4+ Styles]')[0].splitlines()[1:]!r}"
     )
-    _ = src.write_bytes(ENCODED["CP1252 (café \u2019x\u2019)"])
+    _ = src.write_bytes(ENCODED["CP1252 (café ’x’)"])
     for options in ((), ("-sub_charenc", "CP1252")):
         srt, warnings = converted(work / "out.srt", *options, "-i", str(src))
         print(f"CP1252{', ' if options else ''}{' '.join(options)}: " + shown(cues(srt), warnings))
