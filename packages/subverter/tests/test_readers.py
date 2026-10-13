@@ -247,6 +247,13 @@ def test_a_run_of_crs_is_read_in_linear_time(fmt: str) -> None:
     assert time.monotonic() - began < 1
 
 
+def test_a_no_break_space_after_a_subrip_arrow_is_no_blank() -> None:
+    # ffmpeg 8.1.2 (measured): the line is text, as any character but C's blanks
+    line = "00:00:03,000 -->\u00a000:00:04,000"
+    data = f"1\n00:00:01,000 --> 00:00:02,000\na\n{line}\n"
+    assert subverter.read("srt", data.encode(), "a.srt").cues == (Cue(1000, 2000, f"a {line}"),)
+
+
 @pytest.mark.parametrize("blank", [" ", "\t"])
 def test_a_subrip_arrows_blanks_are_read_in_linear_time(blank: str) -> None:
     # a run of blanks, then no arrow: ``[ \t]*-->`` scans the run again at each blank (36 s here)
@@ -262,6 +269,7 @@ def test_a_subrip_arrows_blanks_are_read_in_linear_time(blank: str) -> None:
     [
         "00:00:03,000\t-->\t00:00:04,000",  # tabs round the arrow
         "00:00:03,000 --> 00:00:04,000 --> 00:00:05,000",  # its first arrow
+        "00:00:03,000\f-->\v00:00:04,000",  # C's other blanks, sscanf's (before: text)
     ],
 )
 def test_a_subrip_timing_lines_arrow_is_its_first_blanks_round_it(line: str) -> None:

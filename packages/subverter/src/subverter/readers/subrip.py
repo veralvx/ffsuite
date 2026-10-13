@@ -28,6 +28,7 @@ _INDEX: Final = re.compile(r"[ \t]*[0-9]+[ \t]*")
 # as MPC-HC (STS.cpp) and Subtitle Edit (SubRip.cs) read it -- ffmpeg's decoder ends the text
 # there (htmlsubtitles.c, a line end at a line's start), its demuxer keeping what follows
 _BLANK: Final = re.compile(" *")
+_SSCANF_BLANKS: Final = " \t\v\f"  # C's isspace, no line end: sscanf's round " --> " (srtdec.c)
 
 
 def _timing(line: str) -> Timed | None:
@@ -41,7 +42,7 @@ def _timing(line: str) -> Timed | None:
     # at its first arrow, the blanks after it off (``is_decimal`` takes those before) -- not by
     # ``[ \t]*-->``, which scans a run of blanks again from each of them
     left, _, right = line.partition("-->")
-    right = right.lstrip(" \t")
+    right = right.lstrip(_SSCANF_BLANKS)
     start = left.replace(",", ".").split(":")
     end = _END.match(right.replace(",", "."))  # "," to ".": the same length, so ``right``'s spans
     if end is None or len(start) > _PARTS or not all(map(is_decimal, start)):

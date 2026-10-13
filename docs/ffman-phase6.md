@@ -3601,7 +3601,9 @@ tests with 6.8.3's converters.*
       scanning a run of blanks again from each -- 200,000 before an arrow, 36 s -- now split at
       its first arrow by `str.partition`: read as HEAD reads 60000 generated files, 0 differ;
       bounded (2 cases failing first), its tabs and first arrow pinned (2 guards); four
-      mutations, three caught, the fourth (`lstrip()`) caught by the next fix.*
+      mutations, three caught, the fourth (`lstrip()`) caught by the next fix: a VT or FF after
+      the arrow, text before, now a blank, as ffmpeg's `sscanf` skips it (`srtdec.c`, measured;
+      a no-break space none): 1 case failing first, 1 guard; five mutations, each caught.*
 - [ ] Found by the `<` box: a note quotes its text whole -- a cut rest, a stray block's first
       line, a dropped line -- so a 400,000-character line is that much on stderr. To decide:
       cut at a length, marked; or as now.
