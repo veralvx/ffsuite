@@ -78,6 +78,8 @@ HOSTILE: Final = {
     "subs.xyz": "x\n",
     "empty.srt": "1\n00:00:01,000 --> 00:00:01,000\nzero\n",
     "halves.json": '{"segments": [{"start": 0.0125, "end": 1.0625, "text": "half", "words": [{"word": "half", "start": 0.0625, "end": 0.1125}]}]}',
+    # times without hours (6.8.2's review): no SubRip time, as ffmpeg and VLC read them, so no
+    # timing line -- refused. Before, as bash: `00:01` 1 s, `5` 5 minutes, two cues
     "no-newline.srt": "1\n00:01 --> 00:02\nshort times\n2\n5 --> 7\nbare seconds, no blank line before",
     "blank-lines.srt": "\n\n1\n00:00:01,000 --> 00:00:02,000\nx\n\n\n\n2\n00:00:03,000 --> 00:00:04,000\ny\n",
     "gaps.srt": "1\n00:00:01,000 --> 00:00:02,000\n<u>A</u> b\n\n2\n00:00:02,000 --> 00:00:03,000\nA b\n\n3\n00:00:03,000 --> 00:00:04,000\nA <u>b</u>\n\n",
@@ -150,6 +152,10 @@ HOSTILE: Final = {
         "1\n00:00:00,000 --> 00:00:00,200\nThe sign said:\nNote: 1 --> 2\ny\n\n"
         + "2\n00:00:00,200 --> 00:00:00,400\na --> b\nc\n"
     ),
+    # a line of years about an arrow (6.8.2's review): no SubRip time either side, so text, as
+    # ffmpeg and VLC read it. Before, a bare number minutes, as bash's awk: the line a timing
+    # line (2024 to 2025 minutes, no text), lost
+    "years.srt": "1\n00:00:00,000 --> 00:00:00,400\nWhat changed:\n2024 --> 2025\n",
     "arrows.vtt": (
         "WEBVTT\n\n00:00.000 --> 00:00.200\nx\nNote: 1 --> 2\ny\n\n"
         + "00:00.200 --> 00:00.400\nnext\n"

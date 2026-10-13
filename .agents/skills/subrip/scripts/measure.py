@@ -31,6 +31,7 @@ READS: dict[str, bytes] = {
     "ms one digit (,5)": b"1\n00:00:01,5 --> 00:00:02,25\nshort\n",
     "ms four digits (,5000)": b"1\n00:00:01,5000 --> 00:00:02,0000\nlong\n",
     "no hours": b"1\n00:01,000 --> 00:02,000\nno hours\n",
+    "no fraction": b"1\n00:00:01 --> 00:00:02\nno fraction\n",
     "hours 100": b"1\n100:00:00,000 --> 100:00:01,000\nhundred\n",
     "minutes 75": b"1\n00:75:00,000 --> 00:75:01,000\nseventy-five\n",
     "negative start": b"1\n-00:00:01,000 --> 00:00:02,000\nminus zero hours\n",
@@ -131,6 +132,9 @@ ENCODE: dict[str, str] = {
 # ffman's reading (subverter's cues) and burn (its chunks, as its ASS draws them): a file each
 FFMAN: dict[str, bytes] = {
     "short fraction": READS["ms one digit (,5)"],
+    "no hours": READS["no hours"],
+    "no fraction": READS["no fraction"],
+    "a line of years": b"1\n00:00:01,000 --> 00:00:02,000\nWhat changed:\n2024 --> 2025\n",
     "blank line in text": READS["blank line in text"],
     "line of spaces": b"1\n00:00:01,000 --> 00:00:02,000\nfirst\n   \nsecond\n" + CUE2,
     "number last, next cue unnumbered": READS["a number last line, next cue unnumbered"],

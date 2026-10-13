@@ -48,7 +48,7 @@ burns its own ASS.
 
 | Where                                                         | ffmpeg, mpv                                                                                                                                                        | VLC 3                                                                                                                                               | ffman (subverter)                                                                                                                          |
 | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| Recognised                                                    | first non-blank line a number, the next a timing line with a space each side of `-->`; hours needed (`00:01,000` reads as no cue)                                  | a timing line in its first 256 lines and 4 KiB, the spaces not needed; hours needed                                                                 | by the name, `.srt`; `00:01,000` read too (bash's)                                                                                         |
+| Recognised                                                    | first non-blank line a number, the next a timing line with a space each side of `-->`; hours needed (`00:01,000` reads as no cue)                                  | a timing line in its first 256 lines and 4 KiB, the spaces not needed; hours needed                                                                 | by the name, `.srt`; hours needed, a fraction not (VLC's)                                                                                  |
 | A short fraction (`00:00:01,5`)                               | the digits are milliseconds: 1.005 s; `,5000` adds 5 s                                                                                                             | the same: 1.005 s                                                                                                                                   | the same: 1.005 s, noted                                                                                                                   |
 | A blank line inside a cue's text                              | an empty one skipped, the next line the same cue's; one of spaces ends the text, the rest of the cue dropped                                                       | an empty one ends the cue, what follows until a timing line lost; one of spaces is text                                                             | an empty one skipped, as ffmpeg's; one of spaces too, as MPC-HC's: the text after either noted                                             |
 | A cue's last line starting with a number (`2024`, `3 apples`) | taken for the next cue's index -- dropped -- when the next cue has no index line (a cue's only line kept if more than a number)                                    | text                                                                                                                                                | text, but a number alone, only empty lines between it and a timing line: the next cue's index, dropped, noted when no blank line before it |
@@ -116,14 +116,15 @@ in `<u>`. All write `HH:MM:SS,mmm`, no BOM, in text mode -- LF, but CRLF on Wind
 ## Reading one correctly
 
 As the players do: a UTF-8 BOM skipped, a UTF-16 one read as UTF-16; LF, CRLF or CR; lines skipped
-up to a timing line (an index is not needed); `,` or `.` before the fraction, its digits a count of
-milliseconds (`,5` 5 ms, as ffmpeg and VLC); a timing line's text after the end time ignored; text
-on to the next timing line, an empty line and a line of spaces skipped (MPC-HC, Subtitle Edit;
-ffmpeg's demuxer skips the empty one, its decoder, so mpv, ending the text at the spaces; VLC ends
-it at an empty line, Kodi at either), its last line, a number alone, the next cue's index (ffmpeg
-drops any line starting with a number there); the markup above, a `<` opening a tag only as ffmpeg's
-decoder reads one (the table), an unknown tag dropped. Sort by start. A file not UTF-8 is a code
-page's: ask, or guess as VLC does, rather than pass its bytes on.
+up to a timing line (an index is not needed); a time hours, minutes and seconds, each a whole number
+(`00:01,000` none), then `,` or `.` and the fraction -- optional, as VLC (ffmpeg needs it) -- its
+digits a count of milliseconds (`,5` 5 ms, as ffmpeg and VLC); a timing line's text after the end
+time ignored; text on to the next timing line, an empty line and a line of spaces skipped (MPC-HC,
+Subtitle Edit; ffmpeg's demuxer skips the empty one, its decoder, so mpv, ending the text at the
+spaces; VLC ends it at an empty line, Kodi at either), its last line, a number alone, the next cue's
+index (ffmpeg drops any line starting with a number there); the markup above, a `<` opening a tag
+only as ffmpeg's decoder reads one (the table), an unknown tag dropped. Sort by start. A file not
+UTF-8 is a code page's: ask, or guess as VLC does, rather than pass its bytes on.
 
 ## Converting, muxing and burning with ffmpeg
 

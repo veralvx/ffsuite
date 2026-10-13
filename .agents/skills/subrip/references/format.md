@@ -40,6 +40,7 @@ world
 | `00:00:01,5 --> 00:00:02,25`                             | 1005, 1020: the digits are milliseconds, not a fraction                          |
 | `00:00:01,5000 --> 00:00:02,0000`                        | 6000, -4000: 5000 ms added; the muxer then drops the cue, a warning              |
 | `00:01,000 --> 00:02,000` (no hours)                     | not SubRip: "Invalid data found"                                                 |
+| `00:00:01 --> 00:00:02` (no fraction)                    | not SubRip: "Invalid data found"                                                 |
 | `100:00:00,000`, `00:75:00,000`                          | 360000000, 4500000: written back `100:00:00,000`                                 |
 | `-00:00:01,000 --> 00:00:02,000`                         | 1000: a sign on zero hours is lost                                               |
 | `-01:00:00,000 --> 00:00:02,000`                         | -3600000; remuxed, every time shifted up by an hour (`avoid_negative_ts`)        |
@@ -153,6 +154,9 @@ the next start; braces and backslashes drawn as written). *Measured*:
 | File                                                        | subverter                            | ffman burns                                         |
 | ----------------------------------------------------------- | ------------------------------------ | --------------------------------------------------- |
 | `00:00:01,5 --> 00:00:02,25`                                | 1005, 2025: milliseconds, noted      | the same                                            |
+| `00:01,000 --> 00:02,000` (no hours)                        | no cue: no timing line               | refused: "no timed text found"                      |
+| `00:00:01 --> 00:00:02` (no fraction)                       | 1000, 2000: as VLC reads it          | the same                                            |
+| `What changed:`, `2024 --> 2025`                            | `What changed: 2024 --> 2025`        | the same                                            |
 | `first`, an empty line, `second`                            | `first second`, noted                | the same                                            |
 | `first`, a line of spaces, `second`                         | `first second`, noted                | the same                                            |
 | last line `2024`, an empty line, the next cue not indexed   | `the year`, noted                    | the same                                            |

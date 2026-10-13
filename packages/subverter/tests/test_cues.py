@@ -221,15 +221,54 @@ def test_a_subrip_line_whose_arrow_has_no_time_each_side_is_text(text: str, read
     )
 
 
-def test_bash_lenient_timing_lines_are_still_timing_lines() -> None:
-    # minutes and seconds alone; a bare number, minutes; either fraction mark; a sign on zero
-    # hours (lost, as ffmpeg loses it); spaces; SubRip's coordinates after
-    data = "1\n00:01 --> 00:02\na\n\n2\n5 --> 7\nb\n\n3\n 00:00:08.500 --> -00:00:09,000 X1:1\nc\n"
+@pytest.mark.parametrize(
+    "line",
+    [
+        # bash's lenient forms, text now, as ffmpeg 8.1.2 reads them (measured), VLC 3 too (by
+        # source): no hours; a bare number, once minutes; a decimal in a part; a blank before a
+        # colon
+        "00:01 --> 00:02",
+        "5 --> 7",
+        "2024 --> 2025: what changed",
+        "1 --> 2 then 3",
+        "1.5:00:00,000 --> 2:00:00,000",
+        "00 :00:01,000 --> 00:00:02,000",
+        # more after a time's numbers -- an exponent, a fraction's mark without its digits:
+        # text as ffmpeg reads it, VLC 3 ignoring what follows (by source)
+        "00:00:01.5e0 --> 00:00:02,000",
+        "00:00:01, --> 00:00:02,000",
+        "00:00:01,000 --> 00:00:02,",
+    ],
+)
+def test_a_subrip_line_whose_times_are_not_hours_minutes_and_seconds_is_text(line: str) -> None:
+    data = f"1\n00:00:00,000 --> 00:00:00,500\nfirst\n{line}\nsecond\n"
     assert subverter.read("srt", data.encode(), "a.srt").cues == (
-        Cue(1000, 2000, "a"),
-        Cue(300_000, 420_000, "b"),
-        Cue(8500, 9000, "c"),
+        Cue(0, 500, f"first {line} second"),
     )
+
+
+@pytest.mark.parametrize(
+    ("line", "times"),
+    [
+        # sscanf's %d each part (ffmpeg's ``get_event_info``): blanks, then a sign, before its
+        # digits; each part a whole number, added as written, a sign its own (measured)
+        ("00: 00: 01,000 --> 00:00:02,000", (1000, 2000)),
+        ("+00:00:01,000 --> 00:00:02,000", (1000, 2000)),
+        (" 00:00:08.500 --> -00:00:09,000 X1:1", (8500, 9000)),  # a sign on zero hours lost
+        ("-01:30:00,000 --> 02:00:00,000", (-1_800_000, 7_200_000)),
+        ("00:00:-01,500 --> 00:00:02,000", (-500, 2000)),
+        ("00:00:01, 500 --> 00:00:02,000", (1000 + 500, 2000)),
+        ("00:75:00,000 --> 00:75:01,000", (4_500_000, 4_501_000)),  # past 59, read
+        # no fraction: VLC 3 reads it (``subtitle_ParseSubRipTimingValue``), ffmpeg not
+        ("00:00:01 --> 00:00:02", (1000, 2000)),
+    ],
+)
+def test_a_subrip_time_is_hours_minutes_and_seconds_each_whole(
+    line: str, times: tuple[int, int]
+) -> None:
+    data = f"1\n{line}\nx\n"
+    reading = subverter.read("srt", data.encode(), "a.srt")
+    assert (reading.cues, reading.notes) == ((Cue(*times, "x"),), ())
 
 
 @pytest.mark.parametrize(
@@ -284,18 +323,15 @@ _CUT: Final = {
         ("00:00:01,25", 1025, "1.025 s"),
         ("00:00:01,5000", 6000, "6 s"),
         ("00:00:01.0500", 1500, "1.5 s"),
-        ("00:01,5", 1005, "1.005 s"),  # minutes and seconds
-        ("00:00:.5", 5, "0.005 s"),  # a fraction alone
-        ("00:00:-01,5", -1005, "-1.005 s"),  # its sign the seconds'
+        ("00:00:01, 5", 1005, "1.005 s"),  # a blank before its digits (sscanf's %d)
+        ("00:00:-01,5", -995, "-0.995 s"),  # added, its sign the seconds' own (measured)
         pytest.param(f"00:00:01,{'9' * 400}", None, "no time (past a double's range)", id="huge"),
         pytest.param(f"00:00:01,{'1' * 20000}", None, "no time (past a double's range)", id="long"),
         # three digits, alike either way; no fraction to read so: no note
         ("00:00:01,500", 1500, None),
         ("00:00:01,050", 1050, None),
-        ("00:00:01,", 1000, None),
-        ("00:00:01.5e0", 1500, None),  # an exponent: a decimal
-        ("00:00.5:01,000", 31000, None),  # a fraction of minutes: a decimal
-        ("1.5", 90000, None),  # minutes alone
+        ("00:00:01,-500", 500, None),  # signed: 1 - 0.500 s either way
+        ("00:00:01", 1000, None),  # none
     ],
 )
 def test_a_subrip_fraction_not_of_three_digits_is_a_count_of_ms_noted(

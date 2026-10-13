@@ -12,24 +12,19 @@ from typing import Final
 
 from subverter._values import round_half_up
 
-__all__ = ["DECIMAL", "NUMBER", "exact", "is_decimal", "json_number", "ms", "number", "time_ms"]
+__all__ = ["exact", "json_number", "ms", "number", "time_ms"]
 
 # a decimal, as jq's tonumber and awk read one: ASCII digits, a sign, a fraction, an exponent
 # (Python's float() also takes "1_000", other scripts' digits, "nan" and "inf"); its groups:
 # sign, whole, fraction, a fraction alone, exponent. One way to match a text, so a refusal is
 # linear (``[0-9]+\.?[0-9]*`` tried each split of a run of digits: quadratic)
-NUMBER: Final = r"([-+]?)(?:([0-9]+)(?:\.([0-9]*))?|\.([0-9]+))(?:[eE]([-+]?[0-9]+))?"
-DECIMAL: Final = re.compile(rf"\s*{NUMBER}\s*", re.ASCII)  # blanks around, as jq and awk read
+_NUMBER: Final = r"([-+]?)(?:([0-9]+)(?:\.([0-9]*))?|\.([0-9]+))(?:[eE]([-+]?[0-9]+))?"
+_DECIMAL: Final = re.compile(rf"\s*{_NUMBER}\s*", re.ASCII)  # blanks around, as jq and awk read
 _HIGHEST: Final = 308  # a double's largest power of ten: a first digit above it, no number
 _LOWEST: Final = -400  # under a double's least (5e-324): zero, as a double underflows
 _DIGITS: Final = 400  # significant digits read: more than any rounding of a time here looks at
 _EXPONENT_DIGITS: Final = 6  # an exponent of 10**6 or more is far past either bound
 _LONGEST: Final = Fraction(sys.float_info.max)  # a time past a double's range is none
-
-
-def is_decimal(text: str) -> bool:
-    """Whether ``text`` is wholly a decimal, as ``exact`` reads one -- its size aside."""
-    return DECIMAL.fullmatch(text) is not None
 
 
 def exact(text: str) -> Fraction | None:
@@ -40,7 +35,7 @@ def exact(text: str) -> Fraction | None:
     them as one more (a sticky 1): every boundary a time's rounding meets lies far above the
     400th digit, so the value falls on the same side of each as the text's own.
     """
-    match = DECIMAL.fullmatch(text)
+    match = _DECIMAL.fullmatch(text)
     if match is None:
         return None
     sign, whole, fraction, only, exponent = match.groups()

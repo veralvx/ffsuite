@@ -6,7 +6,7 @@ from fractions import Fraction
 import pytest
 from hypothesis import example, given
 from hypothesis import strategies as st
-from subverter.readers.fields import exact, is_decimal, ms, number
+from subverter.readers.fields import exact, ms, number
 
 
 @pytest.mark.parametrize(
@@ -85,22 +85,21 @@ def test_a_number_is_a_json_number_or_a_decimal_string() -> None:
 
 
 @pytest.mark.parametrize(
-    ("text", "whole"),
+    ("text", "value"),
     [
-        (" 5", True),
-        ("1e3", True),
-        ("+7", True),
-        (".5", True),
-        ("1.", True),
-        ("9" * 5000, True),  # its size aside: ``exact`` reads it as none
-        ("12abc", False),
-        ("", False),
-        ("-3.5x", False),
-        ("1.2.3", False),
-        ("1_000", False),
-        ("\u0663", False),  # another script's digit (Python's float() takes it)
+        (" 5", Fraction(5)),
+        ("1e3", Fraction(1000)),
+        ("+7", Fraction(7)),
+        (".5", Fraction(1, 2)),
+        ("1.", Fraction(1)),
+        ("12abc", None),
+        ("", None),
+        ("-3.5x", None),
+        ("1.2.3", None),
+        ("1_000", None),
+        ("\u0663", None),  # another script's digit (Python's float() takes it)
     ],
 )
-def test_a_decimal_is_wholly_one(text: str, whole: bool) -> None:
-    """A SubRip or WebVTT time's parts: each wholly a decimal, or the line no timing line."""
-    assert is_decimal(text) is whole
+def test_a_decimal_is_wholly_one(text: str, value: Fraction | None) -> None:
+    """jq's and awk's decimal, blanks round it: a text holding more, no number."""
+    assert exact(text) == value
