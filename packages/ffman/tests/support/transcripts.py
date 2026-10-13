@@ -228,7 +228,7 @@ HOSTILE: Final = {
     # names the rest, its trailing blanks off
     "unclosed.vtt": (
         "WEBVTT\n\n00:00.000 --> 00:00.100\nI <3 you  \n\n00:00.100 --> 00:00.200\nbefore <b\n"
-        "ends\n\n00:00.200 --> 00:00.300\nTom &amp; Jerry &lt;3\n"
+        "ends\n\n00:00.200 --> 00:00.300\nR&amp;D &lt;5 kg\n"
     ),
     # a NUL in a text (6.8.2): U+FFFD, as the W3C reads one, noted. Before: written into the
     # ASS, where libass ended the script -- `fi` drawn, every later cue lost (measured)

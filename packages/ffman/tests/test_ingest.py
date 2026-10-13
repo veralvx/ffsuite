@@ -734,7 +734,7 @@ def test_each_run_between_tags_is_decoded_alone(tmp_path: Path, text: str, shown
 def test_a_vtts_lt_with_no_gt_after_it_is_a_tag_to_its_texts_end_noted(tmp_path: Path) -> None:
     """A tag no > closes runs to the text's end (W3C), as Chromium 141 and ffmpeg 8.1.2 show it."""
     t = ingested(put(tmp_path, "unclosed.vtt", HOSTILE["unclosed.vtt"]))
-    assert [c.text for c in t.chunks] == ["I", "before", "Tom & Jerry <3"]
+    assert [c.text for c in t.chunks] == ["I", "before", "R&D <5 kg"]
     how = "a tag to their end (W3C)"
     assert t.notes == (f"2 texts cut at a < with no > after it, {how}: the first, <3 you",)
 
