@@ -764,10 +764,9 @@ def test_ffmans_notes_quote_an_excerpt(tmp_path: Path, name: str, data: str, sho
 def test_a_long_text_is_named_by_its_first_85_characters(tmp_path: Path) -> None:
     t = ingested(put(tmp_path, "quoted.srt", HOSTILE["quoted.srt"]))
     how = "read as theirs, as ffmpeg reads them"
-    first = "word " * 17  # 85 characters
+    first = "word " * 17 + "... (113 more characters)"  # its first 85 characters, the rest counted
     assert t.notes == (
-        f"1 cues held text after an empty line, {how}: the first, {first}... (113 more characters)"
-        " on line 5",
+        f"1 cues held text after an empty line, {how}: the first, {first} on line 5",
     )
 
 

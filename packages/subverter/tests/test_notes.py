@@ -22,7 +22,7 @@ def test_an_excerpt_is_a_cue_at_netflixs_most_the_rest_counted(text: str, quoted
 
 
 _LONG: Final = "x" * 100  # past a cue at its most
-_SHOWN: Final = "x" * 85 + "... (15 more characters)"
+_LONG_QUOTED: Final = "x" * 85 + "... (15 more characters)"  # its first 85, the rest counted
 _T1: Final = "00:00:01,000 --> 00:00:02,000"
 
 
@@ -30,10 +30,16 @@ _T1: Final = "00:00:01,000 --> 00:00:02,000"
     ("fmt", "data", "shown"),
     [
         pytest.param(  # SubRip: text after an empty line, read on
-            "srt", f"1\n{_T1}\na\n\n{_LONG}\n", f"the first, {_SHOWN} on line 5", id="continued"
+            "srt",
+            f"1\n{_T1}\na\n\n{_LONG}\n",
+            f"the first, {_LONG_QUOTED} on line 5",
+            id="continued",
         ),
         pytest.param(  # SubRip: text after a line of spaces, read on
-            "srt", f"1\n{_T1}\na\n  \n{_LONG}\n", f"the first, {_SHOWN} on line 5", id="spaced"
+            "srt",
+            f"1\n{_T1}\na\n  \n{_LONG}\n",
+            f"the first, {_LONG_QUOTED} on line 5",
+            id="spaced",
         ),
         pytest.param(  # SubRip: a number alone before a timing line, the next cue's index
             "srt",
@@ -56,7 +62,7 @@ _T1: Final = "00:00:01,000 --> 00:00:02,000"
         pytest.param(  # WebVTT: text in no cue
             "vtt",
             f"WEBVTT\n\n00:01.000 --> 00:02.000\na\n\n{_LONG}\n",
-            f"the first {_SHOWN} on line 6",
+            f"the first {_LONG_QUOTED} on line 6",
             id="stray",
         ),
     ],

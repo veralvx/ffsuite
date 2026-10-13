@@ -365,6 +365,12 @@ _ODD_SUBRIP: Final = (
     " them: the first, {time} on line 2, as {said}"
 )
 
+# the huge and long times past a cue at its longest: quoted by their first 85 characters
+_CUT: Final = {
+    f"00:00:01,{'9' * 400}": f"00:00:01,{'9' * 76}... (324 more characters)",
+    f"00:00:01,{'1' * 20000}": f"00:00:01,{'1' * 76}... (19924 more characters)",
+}
+
 
 @pytest.mark.parametrize(
     ("written", "start", "said"),
@@ -394,7 +400,7 @@ def test_a_subrip_fraction_not_of_three_digits_is_a_count_of_ms_noted(
     began = time.monotonic()
     reading = subverter.read("srt", data.encode(), "a.srt")
     assert time.monotonic() - began < 1  # a long fraction read in bounded work
-    quoted = subverter.excerpt(written)  # the long ones cut
+    quoted = _CUT.get(written, written)
     notes = () if said is None else (_ODD_SUBRIP.format(n=1, time=quoted, said=said),)
     assert (reading.cues, reading.notes) == ((Cue(start, 9000, "x"),), notes)
 

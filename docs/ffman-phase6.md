@@ -3614,10 +3614,12 @@ tests with 6.8.3's converters.*
       characters)` (`subverter.excerpt`, `notes.py`); ffmpeg bounds a log message too, at 64
       KiB (`libavutil/log.c`). Every note quoting a transcript's text, eight: WebVTT's dropped
       and stray lines; SubRip's odd time, index, and text after an empty line or a line of
-      spaces; ffman's braced run and cut rest. Tests: 13 failing first (4 `excerpt`'s, 6 the
-      readers', 3 ffman's, `quoted.srt` one; the huge and long fractions' 2, changed), 1 guard;
+      spaces; ffman's braced run and cut rest. Tests: 15 failing first (4 `excerpt`'s, 6 the
+      readers', 3 ffman's, `quoted.srt` one, and the huge and long fractions, changed), 1 guard;
       thirteen mutations, each caught. Suite 2287, 100%; matrix 770; outcome report: 480
-      identical, `quoted.srt` new, on 3.13 and 3.14.*
+      identical, `quoted.srt` new, on 3.13 and 3.14. Its review counted the failing tests
+      again on the code before it (15, not 13) and gave the fractions' test literal quotes, no
+      longer `excerpt`'s own.*
 - [ ] Found by the note-quote box: a note or a refusal prints a transcript's control
       characters raw -- an ESC in a stray line reached stderr as it was, an OSC setting the
       terminal's title, an SGR its colour (measured); a file name's alike, in a refusal (`not
