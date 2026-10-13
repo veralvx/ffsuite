@@ -3718,10 +3718,32 @@ tests with 6.8.3's converters.*
       and 10 of no length (ffprobe prints no duration; alike). Whole files, 6000: the same 280
       differences before and after (Index lines). A blank run's failed match given back blank by
       blank, 14 times the old cost -- possessive now, at or under it. Outcome report: 486
-      identical, `no-newline.srt` refused, `years.srt` new, on 3.13 and 3.14. Left: the 199 texts, each a tag beside the text's own `{` or `\`
-      (ffmpeg's exact b/i/s/u blocks leave 41, each a font's -- the owner's, not taken); a cue's
+      identical, `no-newline.srt` refused, `years.srt` new, on 3.13 and 3.14. Left: the 199
+      texts, each a tag beside the text's own `{` or `\` (ffmpeg's exact b/i/s/u blocks leave
+      41, each a font's -- the owner's, not taken); a cue's
       only line `2 ` (ffmpeg's two-case rule, rare); `Dialect.blank`; `Reading`'s two booleans,
       one value with the ASS reader (6.8.3, the model).*
+- [x] The owner's review (2026-10-13), the second: SubRip end to end, fresh -- every recorded
+      decision weighed again against ffmpeg's sources (n8.1.2: `srtdec.c`, `subtitles.c`,
+      `htmlsubtitles.c`, read again) and VLC 3.0.x's (`subtitle.c`).
+      *Done (the owner's standing rule: better by proof, so not asked). Kept, each optimal by its
+      evidence: the timing grammar (15492 lines read as ffmpeg reads them, but the two recorded),
+      short fractions, line ends, cue ends, index lines (ffmpeg's `strtol` cache read again: a
+      number alone the index, a negative one text), UTF-16 and UTF-8, the NUL, the tags, braces and
+      escapes (`drawn`), the attached text. Found and fixed: a time without a fraction read unnoted
+      -- the one SubRip reading where the players disagree that went unsaid -- now noted
+      (Timing lines); a cue ending before it begins, or beginning with the next, dropped
+      unnoted though a player shows its text (an ffmpeg burn draws a reversed one to the next
+      start, the last to the end, measured) -- now noted, one of no length, before 0 or a
+      duplicate of the text kept silent (Dropped cues); ffman's `paint.drawn` named as
+      subverter's `drawn`, its inverse -- now `literal`; the timing grammar's differential run
+      once -- now a property test, ffmpeg's sscanf transcribed (9 of the grammar's 12 mutations
+      caught by it, the rest by the parametrized tests); ffmpeg's index rule worded loosely
+      ("a line starting with a number": not a negative one). Tests: 3 and 2 failing first; 10
+      mutations of the notes, each caught. Suite 2380, 100%; matrix 770; outcome report: 488
+      identical, `bare.srt` and `dropped.srt` new, on 3.13 and 3.14. Left: an untimed cue
+      dropped unnoted (the owner's, Transcript values); ffmpeg's 4095-byte line split (its
+      buffer's; ffman reads the line whole).*
 - [ ] `ass`: the same, SSA (v4) through it.
       Found by the SubRip and WebVTT review: ffman's UTF-16 reading of an ASS (`subs/ingest.py`,
       `_utf8`) and subverter's of a SubRip (`subrip._text`, `utf8.UTF16_BOMS`), one.
