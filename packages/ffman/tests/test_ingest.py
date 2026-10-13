@@ -657,9 +657,21 @@ def test_what_holds_of_any_transcript(tmp_path: Path, name: str) -> None:
         assert a.segment != b.segment or a.start <= b.start
 
 
-def test_a_reversed_cue_is_dropped(tmp_path: Path) -> None:
-    srt = "1\n00:00:02,000 --> 00:00:01,000\nback\n\n2\n00:00:03,000 --> 00:00:04,000\nfore\n"
-    assert ingested(put(tmp_path, "r.srt", srt)).chunks == (Chunk(3000, 4000, "fore", ""),)
+REVERSED: Final = "{n} cues dropped: ending before they begin, the first, {text}"
+SAME_START: Final = (
+    "{n} cues dropped: beginning with the next, one cue shown at a time, the first, {text}"
+)
+
+
+def test_a_reversed_cue_is_dropped_noted(tmp_path: Path) -> None:
+    # its text lost: ffmpeg shows one to the next cue's start, VLC none (measured, by source)
+    srt = (
+        "1\n00:00:02,000 --> 00:00:01,000\n<i>back</i>\n\n2\n00:00:03,000 --> 00:00:04,000\nfore\n"
+        "\n3\n00:00:06,000 --> 00:00:05,000\nagain\n\n4\n00:00:07,000 --> 00:00:07,000\nzero\n"
+    )
+    t = ingested(put(tmp_path, "r.srt", srt))
+    assert t.chunks == (Chunk(3000, 4000, "fore", ""),)
+    assert t.notes == (REVERSED.format(n=2, text="back"),)  # no length: shown by none
 
 
 def test_a_time_past_a_doubles_range_in_ms_is_no_time(tmp_path: Path) -> None:
@@ -675,10 +687,17 @@ def test_a_time_past_a_doubles_range_in_ms_is_no_time(tmp_path: Path) -> None:
     )
 
 
-def test_a_cue_the_next_one_starts_with_is_cut_to_nothing(tmp_path: Path) -> None:
-    """Each cue ends where the next starts: one sharing its start is left no time, dropped."""
-    srt = "1\n00:00:01,000 --> 00:00:03,000\nfirst\n\n2\n00:00:01,000 --> 00:00:02,000\nsecond\n"
-    assert ingested(put(tmp_path, "s.srt", srt)).chunks == (Chunk(1000, 2000, "second", ""),)
+def test_a_cue_the_next_one_starts_with_is_cut_to_nothing_noted(tmp_path: Path) -> None:
+    """Each cue ends where the next starts: one sharing its start is left no time, dropped --
+    its text lost, noted (libass draws both) -- but one of the text shown (ffmpeg drops the
+    duplicate)."""
+    srt = (
+        "1\n00:00:01,000 --> 00:00:03,000\nfirst\n\n2\n00:00:01,000 --> 00:00:02,000\nsecond\n\n"
+        "3\n00:00:05,000 --> 00:00:06,000\nsame\n\n4\n00:00:05,000 --> 00:00:07,000\nsame\n"
+    )
+    t = ingested(put(tmp_path, "s.srt", srt))
+    assert t.chunks == (Chunk(1000, 2000, "second", ""), Chunk(5000, 7000, "same", ""))
+    assert t.notes == (SAME_START.format(n=1, text="first"),)
 
 
 def test_a_json_text_is_read_as_written(tmp_path: Path) -> None:

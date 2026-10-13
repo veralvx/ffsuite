@@ -8,6 +8,7 @@ in it U+FFFD (``passed``) -- if both ffmpeg's reader and libass take it (``_scri
 
 import codecs
 import re
+from collections.abc import Sequence
 from typing import Final, NamedTuple
 
 from subverter import readers
@@ -105,6 +106,11 @@ def _script(data: bytes, fmt: str, name: str) -> None:
     refuse(f"not {kind} file: {name} ({why})")
 
 
+def _first(texts: Sequence[str]) -> str:
+    """A note's first text, quoted."""
+    return f"the first, {shown(texts[0])}"
+
+
 def ingest(name: str, data: bytes) -> Transcript:
     """A transcript from its bytes, as bash's ingest_subs read it: its refusals, its notes."""
     fmt = ext_of(name)
@@ -114,13 +120,22 @@ def ingest(name: str, data: bytes) -> Transcript:
         return Transcript(fmt, f".{fmt}", has_words=False, chunks=(), words=(), notes=notes)
     found = readers.read(fmt, data, name)
     references, escapes = found.has_references, found.has_ass_escapes
-    chunks = normalize.cues(found.cues, references=references, escapes=escapes)
+    chunks, reversed_, same_start = normalize.cues(
+        found.cues, references=references, escapes=escapes
+    )
     if not chunks:
         refuse(f"no timed text found in: {name}")
     notes = list(found.notes)
+    if reversed_:
+        notes.append(
+            f"{len(reversed_)} cues dropped: ending before they begin, {_first(reversed_)}"
+        )
+    if same_start:
+        how = "beginning with the next, one cue shown at a time"
+        notes.append(f"{len(same_start)} cues dropped: {how}, {_first(same_start)}")
     if escapes and (runs := [run for cue in found.cues for run in markup.hidden(cue.text)]):
         how = "ASS's override blocks, as ffmpeg and mpv hide them"
-        notes.append(f"{len(runs)} braced runs hidden, {how}: the first, {shown(runs[0])}")
+        notes.append(f"{len(runs)} braced runs hidden, {how}: {_first(runs)}")
     if references and (cut := [rest for cue in found.cues if (rest := unclosed(cue.text))]):
         what = f"{len(cut)} texts cut at a < with no > after it, a tag to their end (W3C)"
         notes.append(f"{what}: the first, {shown(cut[0].rstrip())}")

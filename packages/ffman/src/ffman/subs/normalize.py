@@ -9,33 +9,52 @@ bytes (docs/ffman-from-bash.md).
 from collections.abc import Sequence
 from dataclasses import dataclass
 from itertools import groupby
-from typing import Final
+from typing import Final, NamedTuple
 
 from subverter.transcript import Chunk, Cue, Timing, Word
 
 from ffman.subs.markup import clean
 
 
-def cues(raw: Sequence[Cue], *, references: bool, escapes: bool) -> tuple[Chunk, ...]:
+class Chunks(NamedTuple):
+    """The chunks; the texts dropped that a player shows (``cues``), each kind in order."""
+
+    chunks: tuple[Chunk, ...]
+    reversed: tuple[str, ...]
+    same_start: tuple[str, ...]
+
+
+def cues(raw: Sequence[Cue], *, references: bool, escapes: bool) -> Chunks:
     """Cues to chunks: ordered by start (stably, before clamping), cleaned, clamped at 0.
 
-    The untimed, the empty and the reversed are dropped; each ends where the next starts.
-    ``references``, ``escapes``: the texts' HTML character references, ASS escapes (``clean``).
+    The untimed, the empty, the reversed and those of no length are dropped; each ends where the
+    next starts, so of those sharing a start the last alone is kept. The reversed (an ffmpeg burn
+    draws one to the next cue's start, the last to the end) and those sharing a start (libass
+    draws them together), but of the kept one's text, are returned, their text lost; one of no
+    length, or before 0, no player shows. ``references``, ``escapes``: the texts' HTML
+    character references, ASS escapes (``clean``).
     """
     timed = [(c.start, c.end, c) for c in raw if c.start is not None and c.end is not None]
     kept: list[tuple[int, int, str, str]] = []
+    reversed_: list[str] = []
     for start, end, cue in sorted(timed, key=lambda t: t[0]):
         text = clean(cue.text, references=references, escapes=escapes)
-        if text:
-            a, b = max(start, 0), max(end, 0)
-            if b > a:
-                kept.append((a, b, text, cue.segment))
+        if not text:
+            continue
+        a, b = max(start, 0), max(end, 0)
+        if b > a:
+            kept.append((a, b, text, cue.segment))
+        elif end < start:
+            reversed_.append(text)
+    runs = [list(run) for _, run in groupby(kept, key=lambda k: k[0])]  # each, one start
     chunks: list[Chunk] = []
-    for i, (a, b, text, segment) in enumerate(kept):
-        end = min(b, kept[i + 1][0]) if i + 1 < len(kept) else b
-        if end > a:
-            chunks.append(Chunk(a, end, text, segment))
-    return tuple(chunks)
+    same_start: list[str] = []
+    for r, run in enumerate(runs):
+        *cut, (a, b, text, segment) = run  # the last of a start shown, to the next start
+        nxt = runs[r + 1][0][0] if r + 1 < len(runs) else b
+        chunks.append(Chunk(a, min(b, nxt), text, segment))
+        same_start += [t for _, _, t, _ in cut if t != text]  # its own text shown: none lost
+    return Chunks(tuple(chunks), tuple(reversed_), tuple(same_start))
 
 
 def words(

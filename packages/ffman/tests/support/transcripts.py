@@ -158,6 +158,13 @@ HOSTILE: Final = {
     # a time without a fraction (6.8.2's review): read as VLC reads it, noted -- ffmpeg reads no
     # such timing line, its cue lost. Before, read unnoted
     "bare.srt": "1\n00:00:00 --> 00:00:01\nwhole seconds\n",
+    # cues dropped with their text (6.8.2's review): one ending before it begins (an ffmpeg burn
+    # draws one to the next cue's start, the last to the end), one beginning with the next
+    # (libass draws both) -- noted. Before, dropped unnoted
+    "dropped.srt": (
+        "1\n00:00:00,000 --> 00:00:00,400\nunder\n\n2\n00:00:00,000 --> 00:00:00,200\nover\n\n"
+        "3\n00:00:00,300 --> 00:00:00,250\nbackwards\n"
+    ),
     "years.srt": "1\n00:00:00,000 --> 00:00:00,400\nWhat changed:\n2024 --> 2025\n",
     "arrows.vtt": (
         "WEBVTT\n\n00:00.000 --> 00:00.200\nx\nNote: 1 --> 2\ny\n\n"

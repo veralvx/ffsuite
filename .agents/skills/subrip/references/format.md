@@ -163,7 +163,7 @@ the next start; braces and backslashes drawn as written). *Measured*:
 | last line `2024`, the next cue's timing line right after it | `the year`, noted                    | the same                                            |
 | `first`, then `2` and a timing line, no blank line          | `first`, noted                       | the same                                            |
 | `a --> b`, `c`                                              | `a --> b c`                          | the same                                            |
-| end before start; zero duration                             | read as written                      | dropped                                             |
+| end before start; zero duration                             | read as written                      | dropped, end before start noted                     |
 | out of order; two identical                                 | as written; both                     | sorted; one                                         |
 | `<b>b</b> <font color="red">r</font> <v Bob>v</v>`          | as written                           | `b r v`                                             |
 | `x<3 and y>2`; `a < b and c > d`; `heart <3`                | as written                           | `x2`; `a d`; `heart <3`                             |
