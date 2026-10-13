@@ -4,7 +4,7 @@ A colour is written whole -- the word's opening block -- where nothing of it mov
 letter (a cluster) its own block: ``\1c`` and ``\3c`` chains through a motion's keyframes, by
 absolute time, so a letter's hue runs on from one event into the next. ``Painter.held`` counts
 the runs over ``MOTION_BUDGET`` keyframes, whose hues are held still (libass parses an event's
-tags every frame). Each letter written so that libass draws it as written (``drawn``).
+tags every frame). Each letter written so that libass draws it as written (``literal``).
 """
 
 from collections.abc import Callable
@@ -34,12 +34,12 @@ _SPACE: Final = Fraction(3, 20)
 # a text's letters as ASS writes them for libass to draw as written: a brace its escape (\{,
 # \}), a backslash before a word joiner, U+2060, drawn as nothing -- ffmpeg's own escape
 # (libavcodec/ass.c), so neither a letter nor a tag block after it makes an escape or an override
-_DRAWN: Final = str.maketrans({"\\": "\\\u2060", "{": "\\{", "}": "\\}"})
+_LITERAL: Final = str.maketrans({"\\": "\\\u2060", "{": "\\{", "}": "\\}"})
 
 
-def drawn(text: str) -> str:
-    """``text`` as ASS writes it, libass to draw each of its letters as written (``_DRAWN``)."""
-    return text.translate(_DRAWN)
+def literal(text: str) -> str:
+    """``text`` as ASS writes it, libass to draw each of its letters as written (``_LITERAL``)."""
+    return text.translate(_LITERAL)
 
 
 def solid(paint: Colorize) -> Colour:
@@ -111,7 +111,7 @@ class Painter:
         ``letters``; a run over the budget keeps each letter's first colour, still.
         """
         if self.whole:
-            return drawn(word)
+            return literal(word)
         highlight, text, edge = self.highlight, self.text, self.outline
         units, gaps = segments(word)
         if isinstance(highlight, Rectangle):
@@ -146,7 +146,7 @@ class Painter:
         lines painted apart), else this text's own.
         """
         if self.moving_text is None and self.moving_outline is None:
-            return drawn(text)
+            return literal(text)
         units, gaps = segments(text)
         if end is None:
             end = self._budget(len(units), e - s, 0, self.moving_text, self.moving_outline)
@@ -204,7 +204,7 @@ def _per_letter(
 ) -> str:
     """Each unit after its gap, in a block of its own: ``tags(k, first + k)``."""
     pairs = enumerate(zip(units, gaps, strict=True))
-    return "".join(f"{gap}{{{tags(k, first + k)}}}{drawn(unit)}" for k, (unit, gap) in pairs)
+    return "".join(f"{gap}{{{tags(k, first + k)}}}{literal(unit)}" for k, (unit, gap) in pairs)
 
 
 def _steps(frames: list[tuple[int, Colour]], tag: str) -> str:

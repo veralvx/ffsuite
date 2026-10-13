@@ -31,7 +31,7 @@ from ffman.subs.colorize import (
 )
 from ffman.subs.layout import CANVAS, font_size
 from ffman.subs.metrics import UNKNOWN, Metrics, counts, estimate
-from ffman.subs.paint import Painter, drawn, solid
+from ffman.subs.paint import Painter, literal, solid
 from ffman.values import decimal, div_half_up, finite_decimal, round_half_up
 
 # the text box's bottom above the frame's, of its height (the owner's)
@@ -383,7 +383,7 @@ class _Events:
                 continue
             sp = lines.gaps[m] if out else ""  # each word after its gap, but the line's first
             if m == k and not top:
-                out += f"{sp}{{\\alpha&HFF&}}{drawn(word)}{{\\alpha&H00&}}"
+                out += f"{sp}{{\\alpha&HFF&}}{literal(word)}{{\\alpha&H00&}}"
             elif m == k:
                 last = m + 1 == len(lines.words) or lines.line_of[m + 1] != n
                 # space, or the line's edge, on each side
@@ -396,7 +396,7 @@ class _Events:
                     f"{sp}{{\\alpha&H00&{tags}}}{shown}{{\\r\\alpha&HFF&}}"  # \r: the scale stops
                 )
             elif top:  # hidden on layer 1: no colours to move
-                out += f"{sp}{drawn(word)}"
+                out += f"{sp}{literal(word)}"
             else:
                 out += f"{sp}{self.paint.text_of(word, lines.first[m], lines.letters, s, e, end)}"
         return out
