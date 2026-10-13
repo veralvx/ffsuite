@@ -63,7 +63,7 @@ def _utf8(data: bytes, name: str) -> bytes:
     libass no codepage, which then reads a byte not UTF-8 as its Latin-1 character
     (``ass_utf8_get_char``: CP1252's quotes become controls) and a UTF-16 script up to its
     first NUL byte -- no track, the burn failed; ffmpeg's decoder drops an event not UTF-8
-    from the attached track, and its reader takes a unit not UTF-16 for a NUL
+    from the attached track, and its reader takes a lone surrogate for a NUL
     (``ff_text_r8``) -- each measured.
     """
     text = utf16(data, name, _lines)
