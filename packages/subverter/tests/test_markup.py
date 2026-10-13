@@ -1,5 +1,5 @@
 """markup: a text's tags off; WebVTT's character references decoded as HTML decodes them; a SubRip's
-text as ffmpeg and libass draw it."""
+text as ffmpeg and libass draw it; an LRC's without its word stamps."""
 
 import html
 import re
@@ -254,4 +254,27 @@ def test_drawn_is_ffmpeg_then_libass_wherever_they_read(text: str) -> None:
 def test_drawn_is_bounded_whatever_its_braces_and_lts(text: str, as_drawn: str) -> None:
     began = time.monotonic()
     assert subverter.drawn(text).text == as_drawn
+    assert time.monotonic() - began < 1
+
+
+@pytest.mark.parametrize(
+    ("text", "shown"),
+    [  # Enhanced LRC's word stamps off, as Navidrome 0.64.2 and Jellyfin 12.2 read them (by source)
+        ("<00:12.00>Enhanced <00:12.40>word <00:12.90>times", "Enhanced word times"),
+        ("wo<00:01.00>rd", "word"),  # a stamp inside a word: no space for it
+        ("<00:01>a <00:01.5>b <61:00.000>c <00:01.00>", "a b c "),  # the line stamps' grammar
+        # every other character as written: a stamp of hours, unclosed or spaced; a tag
+        ("<1:02:03.00>a <00:01.00 b < 00:01.00>c", "<1:02:03.00>a <00:01.00 b < 00:01.00>c"),
+        ("<i>x</i> x<3 and y>2 <v Bob>", "<i>x</i> x<3 and y>2 <v Bob>"),
+        ("a\\nb\\tc {\\an8}d &amp;", "a\\nb\\tc {\\an8}d &amp;"),  # typed, braced, a reference
+    ],
+)
+def test_unstamped_takes_an_lrcs_word_stamps_off_alone(text: str, shown: str) -> None:
+    assert subverter.unstamped(text) == shown
+
+
+def test_unstamped_is_bounded_whatever_its_lts() -> None:
+    text = "<0:" * 100_000 + "0" * 100_000  # each < a stamp's start, none closed
+    began = time.monotonic()
+    assert subverter.unstamped(text) == text
     assert time.monotonic() - began < 1

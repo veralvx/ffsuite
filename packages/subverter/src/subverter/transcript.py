@@ -71,6 +71,9 @@ class Reading:
     its tags and ASS's off -- a ``{...}`` block hidden, ``\N`` a line break, ``\n`` a space,
     ``\h`` a no-break space, ``\{`` ``\}`` braces -- for their consumer to read as ffmpeg and
     libass do (``drawn``).
+
+    ``has_word_stamps``: its texts are LRC's, plain but for Enhanced LRC's word stamps
+    (``<mm:ss.xx>``), for their consumer to take off (``unstamped``).
     """
 
     source: str
@@ -80,3 +83,4 @@ class Reading:
     notes: tuple[str, ...] = ()
     has_references: bool = False
     has_ass_escapes: bool = False
+    has_word_stamps: bool = False

@@ -1,10 +1,10 @@
-"""A transcript's markup: its tags, which a reader reads its words without; references; escapes."""
+"""A transcript's markup -- tags, references, escapes, word stamps -- its words read without."""
 
 import html
 import re
 from typing import Final, NamedTuple
 
-__all__ = ["Drawn", "decoded", "drawn", "unclosed", "untagged"]
+__all__ = ["LRC_TIME", "Drawn", "decoded", "drawn", "unclosed", "unstamped", "untagged"]
 
 _TAG: Final = re.compile(r"<[^>]*>")  # <u>, <i>, <font ...>: SubRip's and WebVTT's, closed
 _DECIMAL: Final = re.compile(r"&#([0-9]+);?")  # a decimal reference
@@ -30,6 +30,10 @@ _BREAKS: Final = frozenset(("br", "br/"))  # a line break: \N
 _BLOCK_OR_ESCAPE: Final = re.compile(r"\{([^}]*)\}|\\([Nnh{}])")
 _ESCAPE: Final = re.compile(r"\\([Nnh{}])")
 _ESCAPES: Final = {"N": "\n", "n": " ", "h": "\u00a0", "{": "{", "}": "}"}
+# an LRC stamp's time, ``mm:ss.xx`` -- minutes, then seconds, a decimal -- its lines' in brackets
+# (``readers.lrc``), Enhanced LRC's words' in angle brackets (``unstamped``)
+LRC_TIME: Final = r"([0-9]+):([0-9]+(?:[.][0-9]+)?)"
+_WORD_STAMP: Final = re.compile(rf"<{LRC_TIME}>")
 
 
 def decoded(text: str) -> str:
@@ -142,6 +146,17 @@ def untagged(text: str, *, into: str = "", webvtt: bool = False) -> str:
     end = text.rfind(">") + 1
     rest = unclosed(text) if webvtt else ""
     return _TAG.sub(into, text[:end]) + text[end : len(text) - len(rest)] + (into if rest else "")
+
+
+def unstamped(text: str) -> str:
+    """An LRC text without its Enhanced LRC word stamps, ``<mm:ss.xx>``, each word's start.
+
+    As Navidrome 0.64.2 and Jellyfin 12.2 (LrcParser 2025.623.0) show it, reading them as word
+    times (ffmpeg 8.1.2 shows them as text); their grammar the line stamps' (``LRC_TIME``).
+    Every other character as written -- a tag, a brace, a backslash, a reference -- as ffmpeg's,
+    Jellyfin's and, but for the HTML it takes off, Navidrome's.
+    """
+    return _WORD_STAMP.sub("", text)
 
 
 def unclosed(text: str) -> str:

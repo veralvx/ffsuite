@@ -728,3 +728,18 @@ def test_only_a_subrips_texts_hold_ass_escapes(fmt: str, escapes: bool) -> None:
     }[fmt]
     reading = subverter.read(fmt, data.encode(), f"a.{fmt}")
     assert (reading.has_ass_escapes, reading.cues[0].text) == (escapes, "one\\Ntwo")
+
+
+@pytest.mark.parametrize("fmt", ["srt", "vtt", "lrc", "csv", "tsv", "json"])
+def test_only_an_lrcs_texts_hold_word_stamps(fmt: str) -> None:
+    # Enhanced LRC's <mm:ss.xx>, a word's start, kept for its consumer (``unstamped``)
+    data = {
+        "srt": "1\n00:00:01,000 --> 00:00:02,000\n<00:01.50>two\n",
+        "vtt": "WEBVTT\n\n00:01.000 --> 00:02.000\n<00:01.50>two\n",
+        "lrc": "[00:01.00]<00:01.50>two\n",
+        "csv": "start,end,text\n1000,2000,<00:01.50>two\n",
+        "tsv": "start\tend\ttext\n1000\t2000\t<00:01.50>two\n",
+        "json": json.dumps({"segments": [{"start": 1, "end": 2, "text": "<00:01.50>two"}]}),
+    }[fmt]
+    reading = subverter.read(fmt, data.encode(), f"a.{fmt}")
+    assert (reading.has_word_stamps, reading.cues[0].text) == (fmt == "lrc", "<00:01.50>two")

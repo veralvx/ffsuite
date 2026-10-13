@@ -8,6 +8,7 @@ line (ffmpeg's ends one at an LF alone, dropping each CR -- a CR-only file one l
 import re
 from typing import Final
 
+from subverter.markup import LRC_TIME
 from subverter.readers.fields import exact, ms
 from subverter.readers.subrip import file_lines
 from subverter.readers.utf8 import Nuls, by_line, nul_notes
@@ -15,7 +16,7 @@ from subverter.transcript import Cue, Reading
 
 __all__ = ["read"]
 
-_TIME: Final = r"\[([0-9]+):([0-9]+(?:[.][0-9]+)?)\]"  # [mm:ss.xx]
+_TIME: Final = rf"\[{LRC_TIME}\]"  # [mm:ss.xx]
 _STAMP: Final = re.compile(_TIME)
 # a line's stamps, blanks between them (as Navidrome reads them), then its text
 _STAMPS: Final = re.compile(rf"{_TIME}(?:[ \t]*{_TIME})*")
@@ -29,7 +30,13 @@ def read(data: bytes, name: str) -> Reading:
     lines = file_lines(data, name)
     offset, notes = _offset(lines)
     cues, nuls = _rows(lines, name, offset)
-    return Reading(".lrc", has_words=False, cues=tuple(cues), notes=notes + nul_notes(nuls))
+    return Reading(
+        ".lrc",
+        has_words=False,
+        cues=tuple(cues),
+        notes=notes + nul_notes(nuls),
+        has_word_stamps=True,
+    )
 
 
 def _offset(lines: list[str]) -> tuple[int, tuple[str, ...]]:
