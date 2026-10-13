@@ -3679,10 +3679,44 @@ tests with 6.8.3's converters.*
       outcome report: 482 identical, `meta/quoted-name` new, on 3.13 and 3.14. Its review named
       two locals by what they hold (`name`, `unset_name`; `given`), and the decision's list the
       options whose names are quoted.*
+- [x] The owner's review (2026-10-13): SubRip and WebVTT end to end -- the approach, the layout, the
+      architecture, DRY, the standards, researched again (the W3C's WebVTT still at `0648025`;
+      ffmpeg 8.1.3's readers and decoders as 8.1.2's).
+      *Done (the owner's standing rule: better by proof, so not asked). Proven as they were:
+      WebVTT's cues as a fresh transcription of the W3C's parser reads them, 0 of 50000 generated
+      files differ (the transcription Chromium 141's on 1500); its cue texts as Chromium's, 0 of
+      3000; SubRip's cues as ffmpeg's demuxer, 0 of 6000 but for the recorded readings (Index
+      lines). Found and fixed: a SubRip's `<` read as any `<...>` -- `1 < 2 and 3 > 2` burned `1 2`,
+      `one<br>two` `onetwo` -- now as ffmpeg's decoder reads a tag, `<br>` a line break (SubRip
+      tags); a typed `\t` a space, bash's rule for jq's @tsv, now text, as libass and VLC draw it
+      (ASS escapes); a UTF-16 SubRip refused as no timed text, now read as ffmpeg recodes it, and a
+      UTF-16 WebVTT's refusal so named (Transcripts in UTF-16); a STYLE or REGION block before a
+      form feed noted as dropped text. Layout: each text reader reads its file's bytes, its encoding
+      its own as its line ends (`utf8.file_text` shared); SubRip's and WebVTT's tests in
+      `test_cues.py`, as `readers/cues.py`; the whole-file readings property tests, the W3C's parser
+      and ffmpeg's demuxer transcribed -- before, differentials run once. Tests: 31 failing first
+      (11 the UTF-16's, 19 the tags' and escapes', the form feed's); 23 mutations of the tags'
+      reading, each caught; 9 of the readers against the new properties, 8 caught, the last
+      equivalent there (a split character's empty part). Measured: 5000 generated SubRip texts of
+      tags through ffmpeg 8.1.2's decoder, then libass, 0 differ (before, 3350); with braces and
+      backslashes, 199, each a tag beside the text's own `{` or `\` (Braced runs). Suite 2363, 100%;
+      matrix 770; outcome report: 483 identical, `markup.srt`, `utf-16.srt`, `utf-16-bad.srt` and
+      `utf-16.vtt` new, on 3.13 and 3.14. Weighed, left: SubRip's lenient timing lines (the owner's,
+      Timing lines); a cue whose only line is a number with a blank after it (ffmpeg keeps it, here
+      an index); `Dialect.blank` for WebVTT, its `ends` read first; `Reading`'s two booleans;
+      `unescaped`'s name, its docstring stating its reach.*
 - [ ] `ass`: the same, SSA (v4) through it.
+      Found by the SubRip and WebVTT review: ffman's UTF-16 reading of an ASS (`subs/ingest.py`,
+      `_utf8`) and subverter's of a SubRip (`subrip._text`, `utf8.UTF16_BOMS`), one.
 - [ ] `lrc`: the same.
+      Found by the SubRip and WebVTT review: an LRC in UTF-16, which ffmpeg's reader recodes as a
+      SubRip's; its typed `\t` and `\n` spaces and every `<...>` a tag (bash's rules, for jq's
+      @tsv); its tests in their own file, out of `test_readers.py`.
 - [ ] `whisper-transcripts`: the same -- whisper-cli's and WhisperX's JSON, CSV, TSV and
       plain text.
+      Found by the SubRip and WebVTT review: CSV's, TSV's and JSON's typed `\t` and `\n` spaces
+      and every `<...>` a tag (bash's rules, for jq's @tsv), and their encodings; their tests in
+      their own files.
 - [ ] `subtitle-mappings`: the mappings, a skill -- its three references and scripts.
 
 *6.8.3 The converters* (pure, from the skills)
@@ -3695,6 +3729,9 @@ tests with 6.8.3's converters.*
 - [ ] The LRC writer, last: no end times -- each line's start, the loss noted.
 - [ ] By word or by chunk: an output that holds either takes the choice (its
       flag decided in the spec), refused where the input times no words.
+      Found by the SubRip and WebVTT review: ffmpeg's master, after 8.1, reads a WebVTT cue's
+      timestamp tags as ASS karaoke (`\kf`) and writes them back (`webvttdec.c`, `webvttenc.c`):
+      word timings a WebVTT holds, which ffman removes.
 - [ ] Every conversion between the sources and targets above: property tests, corpus
       cases.
 
