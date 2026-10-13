@@ -3767,7 +3767,15 @@ tests with 6.8.3's converters.*
       filter, not the `ass` one; fields in another order, no cue converted; one fraction digit
       7.03 s in mpv, 7.3 s in Aegisub -- each right; the third read `.500` as 5 s, the row's
       example ambiguous, now `0:00:01.500`. The UTF-16 reading one: `utf8.utf16`, SubRip's and
-      ffman's ASS copy's, each counting its lines as its reader splits them (`b98da2a`).*
+      ffman's ASS copy's, each counting its lines as its reader splits them (`b98da2a`). Its
+      review, then an independent reviewer's, two rounds, each claim checked against the sources
+      and binaries: a `{` opens a block only before a `}`; VLC draws no event it did not read, nor
+      reads a time with a comma; Aegisub opens none; SubRip drops a style's strikeout, and both
+      formats break at `\n`; two NULs, or one first in a line, end ffmpeg's reading; ffmpeg reads
+      a lone surrogate as a NUL, an odd last byte as a character (decisions, mappings);
+      `-sub_charenc` recodes the events alone; mpv never draws the last event ending before it
+      starts (by source). Each measured where it could be, now in `measure_ffmpeg.py`
+      (`f5ae8fa`..`2520e71`). The evals untouched by them, not rerun.*
 - [ ] Found by the `ass` box: ffman passes an ASS through unread, so where libass alone (its
       burn) and ffmpeg's reading (`--add-subs`) differ, the two differ, unnoted -- measured:
       fields in another order or CR line ends alone, burned, attached with no cue; a comma
