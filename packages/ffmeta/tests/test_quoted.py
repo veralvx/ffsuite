@@ -1,6 +1,6 @@
-"""ffmeta's messages quote a name or a value by ``_errors.shown``, as its refusals did: on one
-line, each character visible, 60 characters at most -- a name of a control character and 100
-more each time; what a format holds of its own (a field's name) quoted as it is."""
+"""ffmeta's messages quote a name or a value its format has not checked by ``_errors.shown``: on
+one line, each character visible, 60 characters at most -- here, a name of a control character
+and 100 more, in every note and refusal that quotes one."""
 
 from collections.abc import Callable
 from fractions import Fraction

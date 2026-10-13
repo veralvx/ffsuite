@@ -3676,7 +3676,9 @@ tests with 6.8.3's converters.*
       `--pregap`'s `N=TIME`, a chapter comment's `CHAPTERxxxNAME`, a cue's keywords and
       numbers. Tests: 18 failing first (12 notes, 6 refusals: `tests/test_quoted.py`, a name
       of an ESC and 100 more); twenty mutations, each caught. Suite 2316, 100%; matrix 770;
-      outcome report: 482 identical, `meta/quoted-name` new, on 3.13 and 3.14.*
+      outcome report: 482 identical, `meta/quoted-name` new, on 3.13 and 3.14. Its review named
+      two locals by what they hold (`name`, `unset_name`; `given`), and the decision's list the
+      options whose names are quoted.*
 - [ ] `ass`: the same, SSA (v4) through it.
 - [ ] `lrc`: the same.
 - [ ] `whisper-transcripts`: the same -- whisper-cli's and WhisperX's JSON, CSV, TSV and

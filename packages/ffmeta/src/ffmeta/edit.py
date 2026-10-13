@@ -50,8 +50,8 @@ def parse(sets: list[str], adds: list[str], unsets: list[str], *, clear: bool) -
     for flag, tags in (("--set", set_tags), ("--add", add_tags)):
         for tag in tags:
             if key(tag.name) in unset:
-                given, unsetting = shown(tag.name), shown(unset[key(tag.name)])
-                refuse(f"{flag} {given} and --unset {unsetting} contradict")
+                name, unset_name = shown(tag.name), shown(unset[key(tag.name)])
+                refuse(f"{flag} {name} and --unset {unset_name} contradict")
     return Edits(clear, tuple(unsets), set_tags, add_tags)
 
 

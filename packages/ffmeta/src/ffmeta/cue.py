@@ -423,8 +423,8 @@ def _track_lines(track: Track, indexes: tuple[Index, ...], notes: list[str]) -> 
         if are_flags(tuple(flags)):
             lines.append(f"    FLAGS {' '.join(flags)}")
         else:
-            written = shown(" ".join(track.flags))
-            notes.append(left_out(f"{what} FLAGS '{written}'", f"flags are {', '.join(FLAGS)}"))
+            given = shown(" ".join(track.flags))
+            notes.append(left_out(f"{what} FLAGS '{given}'", f"flags are {', '.join(FLAGS)}"))
     if track.isrc is not None:
         if is_isrc(track.isrc):
             lines.append(f"    ISRC {track.isrc}")
