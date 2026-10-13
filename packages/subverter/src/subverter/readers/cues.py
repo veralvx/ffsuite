@@ -30,7 +30,7 @@ class Odd(NamedTuple):
 class Timed(NamedTuple):
     """A timing line's start and end, each None past a double's range (``fields.ms``).
 
-    ``odd``: its times written oddly but read (SubRip's short fraction, or none).
+    ``odd``: its times written oddly but read (SubRip's: a short fraction, or none at all).
     """
 
     start: int | None

@@ -94,10 +94,11 @@ def _fraction_notes(odd: list[tuple[int, Timed]]) -> tuple[str, ...]:
     times = _odd(odd, _SHORT)
     if not times:
         return ()
-    line, (_, written, value) = times[0]
+    line, first = times[0]
     how = "read as milliseconds as ffmpeg and VLC read them"
+    value = first.value
     taken = "no time (past a double's range)" if value is None else f"{_in_seconds(value)} s"
-    named = f"the first, {shown(written)} on line {line}, as {taken}"
+    named = f"the first, {shown(first.written)} on line {line}, as {taken}"
     return (f"{len(times)} times had a fraction not of three digits, {how}: {named}",)
 
 
