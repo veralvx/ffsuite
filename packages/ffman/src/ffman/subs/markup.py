@@ -56,7 +56,7 @@ def clean(text: str, markup: Markup) -> str:
             text = _SUBRIP_BREAK.sub(" ", drawn(text).text)
         case Markup.LRC:
             text = unstamped(text)
-        case Markup.BASH:
+        case _:  # Markup.BASH: a case of its own left a branch no member takes
             text = _BREAK.sub(" ", _overrides_off(untagged(text)))
     return _BLANKS.sub(" ", text).removeprefix(" ").removesuffix(" ")
 
