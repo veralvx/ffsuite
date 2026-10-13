@@ -3781,10 +3781,41 @@ tests with 6.8.3's converters.*
       fields in another order or CR line ends alone, burned, attached with no cue; a comma
       before a fraction or an event ending before it starts, attached, not burned. To decide
       with 6.8.3's ASS reader: refuse, write the copy as both read it, or note.
-- [ ] `lrc`: the same.
+- [x] `lrc`: the same.
       Found by the SubRip and WebVTT review: an LRC in UTF-16, which ffmpeg's reader recodes as a
       SubRip's; its typed `\t` and `\n` spaces and every `<...>` a tag (bash's rules, for jq's
       @tsv); its tests in their own file, out of `test_readers.py`.
+      *Done: `.agents/skills/lrc/` -- `SKILL.md` (the format; its readers -- ffmpeg's demuxer and
+      `text` decoder, so mpv but for the last line, Navidrome 0.64.2, Jellyfin 12.2 through
+      LrcParser 2025.623.0, ffman -- side by side, 19 rows; what ffmpeg makes of it; the writers;
+      the rules for a file all of them read alike, the time rule as code; reading one;
+      converting, muxing and burning; an example; sources); `references/format.md` rewritten from
+      the sources and `scripts/measure.py`, which now measures ffman's reading beside ffmpeg's, the
+      conversions' text and last line, a burn's last line, the copies into MKV, MP4 and WebM, and
+      checks the skill from its own text -- the example's events, its SubRip and ffman's reading,
+      the prose stating them, the time rule over 6029 times to 100 minutes as ffmpeg reads them
+      and each stamp Navidrome's and LrcParser's grammar, the five commands' streams -- exiting 1
+      on a difference. Measured: the last line, given no duration by ffmpeg's demuxer, never
+      burned and a cue of no length converted, unless an empty stamped line ends it (mpv shows it
+      to the end, by source). `quick_validate.py`: valid (description 972 of 1024). Three evals
+      (`evals/evals.json`, new instances, measured) answered cold from the skill alone: the last
+      line lost by a burn, Jellyfin's two-digit fraction, Navidrome's two-digit minutes past
+      whisper.cpp's 99 -- each right.
+      The found items: the box's first was wrong -- ffmpeg 8.1.2's LRC reader reads raw bytes
+      (`read_line`), so a UTF-16 LRC is no LRC to it (measured), the "Transcripts in UTF-16" row
+      corrected; Navidrome and Jellyfin read it, now ffman too, a unit not UTF-16 refused by its
+      line (`eb867c8`; `subrip.file_lines` shared). Its text: as ffmpeg and Jellyfin show it, its
+      Enhanced LRC word stamps off as Navidrome and Jellyfin take them -- `x<3 and y>2` no longer
+      burned `x2` (`0ad33d8`, `cf9ac7b`; "LRC texts"), the markup one value in ffman, `Markup`
+      (`07d90e3`, `4388c8d`). Its tests: `test_lrc.py`, the same 15 (`06b5891`). Tests: 5 and 2
+      failing first (UTF-16), 13 and 3 (the text); suite 2405, coverage 100%; the outcome report,
+      `burn/hostile/utf-16.lrc`, `utf-16-bad.lrc` and `markup.lrc` new, the rest identical. Found:
+      the next box.*
+- [ ] Found by the `lrc` box: an LRC line ffman drops is unnoted -- one with blanks before its
+      stamp (` [00:02.00]two`), which Navidrome and Jellyfin read and ffmpeg 8.1.2 drops only
+      because `read_ts` skips the blanks but hands `sscanf` the line from its start; one of hours
+      (`[1:02:03.00]`), which Navidrome reads; a sign, a comma before the fraction. To decide: read
+      the first (and the second?), note the rest; or as now.
 - [ ] `whisper-transcripts`: the same -- whisper-cli's and WhisperX's JSON, CSV, TSV and
       plain text.
       Found by the SubRip and WebVTT review: CSV's, TSV's and JSON's typed `\t` and `\n` spaces
@@ -3809,6 +3840,8 @@ tests with 6.8.3's converters.*
       Found by the SubRip and WebVTT review: ffmpeg's master, after 8.1, reads a WebVTT cue's
       timestamp tags as ASS karaoke (`\kf`) and writes them back (`webvttdec.c`, `webvttenc.c`):
       word timings a WebVTT holds, which ffman removes.
+      Found by the `lrc` box: Enhanced LRC's word stamps (`<mm:ss.xx>`), word starts Navidrome
+      and Jellyfin read, which ffman takes off its text (`unstamped`).
 - [ ] Every conversion between the sources and targets above: property tests, corpus
       cases.
 

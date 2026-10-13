@@ -7,7 +7,7 @@ ffman, the command line, and its libraries ffmeta and subverter. Read ffman's
 line's contract, and [`docs/decisions.md`](docs/decisions.md) for
 why each behaviour is what it is -- each row names the module it lives in.
 The agent skills for the formats ffman reads and writes -- cue sheets,
-ffmetadata, Vorbis comments, SubRip, WebVTT, ASS -- and the mappings between them are in
+ffmetadata, Vorbis comments, SubRip, WebVTT, ASS, LRC -- and the mappings between them are in
 [`.agents/skills/`](.agents/skills/README.md), with their rules; ffmeta's tests
 read them as oracles.
 
@@ -89,7 +89,7 @@ shell, from `packages/ffman`:
 uv run python -m tests.outcome compare HEAD   # HEAD's src and this tree's: identical, same graph, or changed
 ```
 
-It runs a fixed corpus (`packages/ffman/tests/outcome/corpus.py`: 490 cases, every flow, effect,
+It runs a fixed corpus (`packages/ffman/tests/outcome/corpus.py`: 493 cases, every flow, effect,
 transcript and refusal) under `--dry-run` and records each case's exit status,
 stdout (the commands), stderr (notes, refusals) and work files (the ASS and SRT
 ffman writes) -- not pixels, which are the suite's. "Same graph": a filtergraph
