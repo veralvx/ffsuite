@@ -668,10 +668,13 @@ def test_a_reversed_cue_is_dropped_noted(tmp_path: Path) -> None:
     srt = (
         "1\n00:00:02,000 --> 00:00:01,000\n<i>back</i>\n\n2\n00:00:03,000 --> 00:00:04,000\nfore\n"
         "\n3\n00:00:06,000 --> 00:00:05,000\nagain\n\n4\n00:00:07,000 --> 00:00:07,000\nzero\n"
+        "\n5\n00:00:-2,000 --> 00:00:-1,000\nbefore\n"
+        "\n6\n00:00:-1,000 --> 00:00:-2,000\nbefore, reversed\n"  # ffmpeg: from 0 to the next
     )
     t = ingested(put(tmp_path, "r.srt", srt))
     assert t.chunks == (Chunk(3000, 4000, "fore", ""),)
-    assert t.notes == (REVERSED.format(n=2, text="back"),)  # no length: shown by none
+    # first by start: the cue reversed before 0; no length, before 0: shown by none
+    assert t.notes == (REVERSED.format(n=3, text="before, reversed"),)
 
 
 def test_a_time_past_a_doubles_range_in_ms_is_no_time(tmp_path: Path) -> None:
