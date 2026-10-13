@@ -3589,7 +3589,14 @@ tests with 6.8.3's converters.*
       texts each against Chromium 141 (`getCueAsHTML`) and ffmpeg 8.1.2's decoder: 0 differ --
       HEAD's code, 1305 of the first 3000 against Chromium. Suite 2255, 100%; matrix 770;
       outcome report: 479 identical, `unclosed.vtt` new, on 3.13 and 3.14; the `webvtt`
-      skill's ffman column, reading rule and record re-measured; a `subtitle-mappings` row.*
+      skill's ffman column, reading rule and record re-measured; a `subtitle-mappings` row.
+      Its review found `untagged` seeking a tag from each `<` past the last `>`, squared steps
+      -- 35 s at 200,000 of them: a SubRip of that one cue ingested in 104 s, a WebVTT in 34 s
+      (WhisperX's test), now 0.01 s -- fixed apart: none sought there, equal to its regexes (a
+      property test), bounded (3 cases, 2 failing first); five mutations, each caught.*
+- [ ] Found by the `<` box: a note quotes its text whole -- a cut rest, a stray block's first
+      line, a dropped line -- so a 400,000-character line is that much on stderr. To decide:
+      cut at a length, marked; or as now.
 - [ ] `ass`: the same, SSA (v4) through it.
 - [ ] `lrc`: the same.
 - [ ] `whisper-transcripts`: the same -- whisper-cli's and WhisperX's JSON, CSV, TSV and

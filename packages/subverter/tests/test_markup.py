@@ -2,6 +2,7 @@
 text as ffmpeg and libass draw it."""
 
 import html
+import re
 import time
 from typing import Final
 
@@ -31,6 +32,29 @@ def test_untagged_puts_what_it_is_given_where_each_tag_was() -> None:
 def test_a_webvtt_tag_no_gt_closes_runs_to_the_texts_end(text: str, shown: str, rest: str) -> None:
     assert subverter.untagged(text, webvtt=True) == shown
     assert subverter.unclosed(text) == rest
+
+
+@pytest.mark.parametrize(
+    ("text", "subrip", "webvtt"),
+    [  # each < no > closes: no scan to the end from it
+        ("a<" * 200_000, "a<" * 200_000, "a"),
+        ("<>" + "<" * 200_000 + "x", "<" * 200_000 + "x", ""),
+        ("<" * 200_000 + ">x", "x", "x"),  # one tag, to its >
+    ],
+    ids=["after each a", "after a tag", "closed once"],
+)
+def test_untagged_is_bounded_whatever_its_lts(text: str, subrip: str, webvtt: str) -> None:
+    began = time.monotonic()
+    assert subverter.untagged(text) == subrip
+    assert subverter.untagged(text, webvtt=True) == webvtt
+    assert time.monotonic() - began < 1
+
+
+@given(st.lists(st.sampled_from(("<", ">", "a", "<b>", "\n")), max_size=12).map("".join))
+def test_untagged_is_its_regex_wherever_that_reads_the_text(text: str) -> None:
+    """The regexes alone, unbounded: a tag to its ``>``; in WebVTT, else to the text's end."""
+    assert subverter.untagged(text, into="|") == re.sub(r"<[^>]*>", "|", text)
+    assert subverter.untagged(text, into="|", webvtt=True) == re.sub(r"<[^>]*>?", "|", text)
 
 
 def test_a_subrip_lt_with_no_gt_is_text() -> None:
