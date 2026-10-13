@@ -109,8 +109,8 @@ acts at once. A signal exits silently (bash printed nothing).
   implicitly): `the output is the input: use --in-place to replace it: X`.
   `--in-place` writes through the input's real path, so a symlinked input's
   target is replaced, not the link (A).
-- The output's path, once written, is printed on stdout; to a terminal, each control
-  character escaped, as on stderr -- to a pipe or a file, exactly (New).
+- The output's path, once written, is printed on stdout: to a pipe or a file exactly, to a
+  terminal each control character escaped, as on stderr (New).
 
 ### 3.2 Picture (A)
 
