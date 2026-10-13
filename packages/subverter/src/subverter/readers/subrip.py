@@ -10,11 +10,11 @@ alone, only empty lines between it and a timing line, the next cue's index; a li
 import re
 from typing import Final
 
-from subverter._errors import refuse, shown
+from subverter._errors import shown
 from subverter.readers.cues import Dialect, Found, Odd, Timed
 from subverter.readers.cues import read as read_cues
 from subverter.readers.fields import exact, ms
-from subverter.readers.utf8 import UTF16_BOMS, file_text
+from subverter.readers.utf8 import file_text, utf16
 from subverter.transcript import Reading
 
 __all__ = ["read", "split_lines"]
@@ -174,19 +174,12 @@ def read(data: bytes, name: str) -> Reading:
 
 
 def _text(data: bytes, name: str) -> str:
-    """Its text: UTF-16 by its BOM, as ffmpeg's reader recodes it; else UTF-8 (``file_text``).
+    """Its text: UTF-16 by its BOM (``utf16``; VLC 3 alike), else UTF-8 (``file_text``).
 
-    ffmpeg's ``ff_text_init_avio``, either byte order; VLC 3 alike. A unit not UTF-16 -- a lone
-    surrogate, an odd last byte -- refused by its line: ffmpeg's reader stops at the one, every
-    later cue lost, and reads the other as a character.
+    A refusal's line counted as this reader splits them (``split_lines``).
     """
-    if not data.startswith(UTF16_BOMS):
-        return file_text(data)
-    try:
-        return data.decode("utf-16")  # its BOM read, then off
-    except UnicodeDecodeError as error:  # at a unit's start: what is before it is whole
-        whole = data[: error.start].decode("utf-16")
-        refuse(f"not UTF-16: {name} (line {len(split_lines(whole))})")
+    text = utf16(data, name, lambda whole: len(split_lines(whole)))
+    return file_text(data) if text is None else text
 
 
 # its texts hold ASS's escapes, as ffmpeg's subrip decoder passes them to libass, and no HTML

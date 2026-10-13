@@ -29,6 +29,7 @@ __all__ = [
     "file_text",
     "joined",
     "nul_notes",
+    "utf16",
 ]
 
 UTF16_BOMS: Final = (codecs.BOM_UTF16_LE, codecs.BOM_UTF16_BE)  # a UTF-16 file's, each order
@@ -109,6 +110,23 @@ def file_text(data: bytes) -> str:
     writes one, and refuses what still is not UTF-8 by its line (``by_line``).
     """
     return data.decode("utf-8", "surrogateescape").removeprefix("\ufeff")
+
+
+def utf16(data: bytes, name: str, lines: Callable[[str], int]) -> str | None:
+    """A file's text by its UTF-16 BOM, either order, as ffmpeg's reader recodes it; else None.
+
+    ffmpeg's ``ff_text_init_avio``, its SubRip's, LRC's and ASS's alike. A unit not UTF-16 -- a
+    lone surrogate, an odd last byte -- refused by its line: ``lines``, how many its format's
+    reader counts in a text. ffmpeg's reader stops at the one, every later cue lost, and reads
+    the other as a character.
+    """
+    if not data.startswith(UTF16_BOMS):
+        return None
+    try:
+        return data.decode("utf-16")  # its BOM read, then off
+    except UnicodeDecodeError as error:  # at a unit's start: what is before it is whole
+        whole = data[: error.start].decode("utf-16")
+        refuse(f"not UTF-16: {name} (line {lines(whole)})")
 
 
 def nul_notes(*nuls: Nuls) -> tuple[str, ...]:

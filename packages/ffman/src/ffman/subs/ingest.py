@@ -13,7 +13,7 @@ from typing import Final, NamedTuple
 
 from subverter import readers
 from subverter.markup import unclosed
-from subverter.readers.utf8 import Nuls, nul_notes
+from subverter.readers.utf8 import Nuls, nul_notes, utf16
 from subverter.transcript import Transcript
 
 from ffman.errors import refuse, shown
@@ -22,7 +22,6 @@ from ffman.subs import markup, normalize
 
 # the formats ffman parses none of: burned and attached as they are, from its copy (``passed``)
 PASSED_THROUGH: Final = ("ass", "ssa")
-_UTF16: Final = (codecs.BOM_UTF16_LE, codecs.BOM_UTF16_BE)
 _LINE_END: Final = re.compile(rb"\r\n|\r|\n")  # an editor's: the line a note or refusal names
 _SIGNATURE: Final = b"[Script Info]"  # ffmpeg's ``ass_probe``: its 13 bytes, after blank lines
 # libass's ``process_text`` and ``process_line``: a line, its BOMs and then spaces skipped
@@ -60,20 +59,21 @@ def _utf8(data: bytes, name: str) -> bytes:
     """``data`` as UTF-8: a UTF-16 file (its BOM) recoded, as ffmpeg's reader recodes it.
 
     Refused at the line where it is neither, as subverter refuses a transcript not UTF-8:
-    ``not UTF-8: NAME (line N)``, or ``not UTF-16``. ffmpeg's ``ass`` filter gives libass no
-    codepage, which then reads a byte not UTF-8 as its Latin-1 character
+    ``not UTF-8: NAME (line N)``, or ``not UTF-16`` (``utf16``). ffmpeg's ``ass`` filter gives
+    libass no codepage, which then reads a byte not UTF-8 as its Latin-1 character
     (``ass_utf8_get_char``: CP1252's quotes become controls) and a UTF-16 script up to its
     first NUL byte -- no track, the burn failed; ffmpeg's decoder drops an event not UTF-8
     from the attached track, and its reader takes a unit not UTF-16 for a NUL
     (``ff_text_r8``) -- each measured.
     """
-    codec = "utf-16" if data.startswith(_UTF16) else "utf-8"
+    text = utf16(data, name, lambda whole: _line(read := whole.encode(), len(read)))
+    if text is not None:
+        return text.encode()
     try:
-        text = data.decode(codec)
+        _ = data.decode()
     except UnicodeDecodeError as e:  # its start a character's: what is before it is whole
-        read = data[: e.start].decode(codec).encode()
-        refuse(f"not {codec.upper()}: {name} (line {_line(read, len(read))})")
-    return data if codec == "utf-8" else text.encode()  # UTF-8 already: no second copy
+        refuse(f"not UTF-8: {name} (line {_line(data, e.start)})")
+    return data  # UTF-8 already: no second copy
 
 
 def _line(data: bytes, at: int) -> int:
