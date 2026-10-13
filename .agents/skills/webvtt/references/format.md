@@ -232,7 +232,7 @@ sorted, cleaned of their tags, their references decoded, each cut at the next st
 | `<ruby>kanji<rt>reading</rt></ruby>`; timestamp tags                       | `kanjireading`; removed                                                                                                   |
 | `&amp; &lt; &gt; &lrm;&rlm; &nbsp;`; `&copy; &#38; &#x26; &bogus;`         | decoded, HTML's: `& < >`, U+200E U+200F, U+00A0; `© & & &bogus;`                                                          |
 | `a < b and c > d`; `before <b ends`                                        | `a d`; `before <b ends`: a `<` without a `>` after it kept                                                                |
-| `{\an8}not an override {x}`; `one\Ntwo \h a\nb\tc`                         | `not an override {x}`; `one\Ntwo \h a b c`: an override block removed, a typed `\n` or `\t` a space                       |
+| `{\an8}not an override {x}`; `one\Ntwo \h a\nb\tc`                         | as written                                                                                                                |
 | two lines; CRLF; leading and trailing spaces                               | joined by a space; read; trimmed                                                                                          |
 | a byte not UTF-8 (`caf\xe9`)                                               | refused: "not UTF-8: in.vtt (line 4)"                                                                                     |
 | a NUL in a cue's text                                                      | U+FFFD there, noted                                                                                                       |

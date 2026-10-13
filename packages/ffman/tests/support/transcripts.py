@@ -220,6 +220,9 @@ HOSTILE: Final = {
         "WEBVTT\n\n00:00.000 --> 00:00.200\nfirst\n\nlost\n\nNOTE a comment\n\nid\n"
         "00:00.200 --> 00:00.400\nsecond\n\nalso lost\n"
     ),
+    # a WebVTT's backslashes and braces: text, as every reader shows them (6.8.2). Before: SubRip's
+    # reading -- the override gone, a typed \n or \t a space: `C: ew able`
+    "typed.vtt": "WEBVTT\n\n00:00.000 --> 00:00.400\nC:\\new \\table {\\an8}\n",
     # a NUL in a text (6.8.2): U+FFFD, as the W3C reads one, noted. Before: written into the
     # ASS, where libass ended the script -- `fi` drawn, every later cue lost (measured)
     "nul.srt": "1\n00:00:00,000 --> 00:00:00,200\nfi\x00rst\n\n2\n00:00:00,200 --> 00:00:00,400\nsecond\n",

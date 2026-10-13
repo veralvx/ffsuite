@@ -3552,10 +3552,26 @@ tests with 6.8.3's converters.*
       matrix 770; outcome report: 476 identical, `spaced.srt` new, on 3.13 and 3.14; the
       `subrip` skill's ffman column, reading and record re-measured, its sources pinned
       (MPC-HC, Subtitle Edit, Kodi).*
-- [ ] Found by the `webvtt` box: in a WebVTT text ffman removes `{\...}` override blocks and
+- [x] Found by the `webvtt` box: in a WebVTT text ffman removes `{\...}` override blocks and
       reads a typed `\n` or `\t` as a space -- SubRip's reading -- where Chromium, ffmpeg and
       VLC show them as written (measured; VLC by source). To decide: as written in WebVTT;
       or as now.
+      *Done (as written, the owner's standing rule: better by proof, so not asked): its
+      override blocks and typed escapes are text, as every reader shows them, unnoted --
+      nothing lost. The proof: SubRip's reading broke a WebVTT's backslash -- `C:\new
+      \table` burned `C: ew able` -- and glued a reference across an override, `&am{\b1}p;`
+      read `&`; Chromium 141 shows both as written (measured). `subs/markup.py`: WebVTT's
+      `clean` takes its tags alone, its written breaks spaces once decoded with the
+      references' (`_VTT_BREAK`, `_MARKED_OVERRIDE` gone); burned as written through
+      libass's escapes (Text drawn as written), attached exactly (Attached text: MKV and WebM
+      decoded back as written; MP4's `{...}` hidden by its decoder, as before). Tests: 8
+      failing first (4 earlier ones changed: the WebVTT `{\an8}`, two decoded runs, the
+      override order), 2 guards; four mutations, each caught. Differential: 9000 generated WebVTT texts of
+      braces, backslashes, tags and references read as Chromium 141 renders them
+      (`getCueAsHTML`'s text), 0 differ -- HEAD's code, 1520 of the first 3000. Suite 2243,
+      100%; outcome report: 476 identical, `burn/hostile/settings.vtt` changed (`{\an8}`
+      drawn), `typed.vtt` and `attach/typed-vtt` new, on 3.13 and 3.14; matrix 770; the
+      `webvtt` skill's ffman column, rule 6 and record re-measured.*
 - [ ] Found by the `webvtt` box: a WebVTT text's `<` with no `>` after it is kept by ffman
       (`before <b ends`), where Chromium and ffmpeg lose the rest of the cue and VLC keeps it
       (measured; VLC by source). To decide: as the W3C, the rest dropped, noted; or as now.

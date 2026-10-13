@@ -769,6 +769,8 @@ def _attach() -> list[Case]:
         _conv(
             "attach/utf-16-ass", "-i", "v.mp4", "--add-subs", "hostile/utf-16.ass", "-o", "x.mkv"
         ),
+        # a WebVTT's backslashes and braces, text (6.8.2), held exactly in the SubRip track
+        _conv("attach/typed-vtt", "-i", "v.mp4", "--add-subs", "hostile/typed.vtt", "-o", "x.mkv"),
         _conv("attach/onto-track", "-i", "tracks.mkv", "--add-subs", "wx.srt"),
         _conv("attach/language-alone", "-i", "v.mp4", "--language", "por"),
         # the SRT clip: the duration in whole ms, floored (bash's float made 1.005 s 1004)

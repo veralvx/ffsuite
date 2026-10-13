@@ -43,10 +43,34 @@ def test_srt_crlf_bom_sorted_and_trimmed(tmp_path: Path) -> None:
 
 def test_vtt_hours_settings_and_tags(tmp_path: Path) -> None:
     vtt = "WEBVTT\n\n1:00:01.500 --> 1:00:02.000 align:start\n{\\an8}Up \\N there\n"
-    # {\an8} goes; ASS's \N stays (bash's clean() turns only jq's escaped \t and \n to spaces)
+    # ASS's {\an8} and \N: text in WebVTT, as Chromium, ffmpeg and VLC 3 show them (6.8.2)
     assert ingested(put(tmp_path, "a.vtt", vtt)).chunks == (
-        Chunk(3601500, 3602000, r"Up \N there", ""),
+        Chunk(3601500, 3602000, r"{\an8}Up \N there", ""),
     )
+
+
+@pytest.mark.parametrize(
+    ("text", "shown"),
+    [
+        ("C:\\new \\table", "C:\\new \\table"),  # before 6.8.2: `C: ew able`
+        ("a\\nb\\tc", "a\\nb\\tc"),
+        ("{\\i1}it{\\i0} x", "{\\i1}it{\\i0} x"),
+        ("a\tb", "a b"),  # a tab: a blank, squeezed as any
+    ],
+)
+def test_a_webvtt_texts_backslashes_and_braces_are_text(
+    tmp_path: Path, text: str, shown: str
+) -> None:
+    # as Chromium 141 shows them (measured), ffmpeg's decoder (it escapes them for libass) and
+    # VLC 3 (subsvtt.c) too
+    t = ingested(put(tmp_path, "a.vtt", f"WEBVTT\n\n00:01.000 --> 00:02.000\n{text}\n"))
+    assert [c.text for c in t.chunks] == [shown]
+
+
+def test_a_webvtt_texts_backslashes_and_braces_are_burned_as_written(tmp_path: Path) -> None:
+    t = ingested(put(tmp_path, "typed.vtt", HOSTILE["typed.vtt"]))
+    drawn = "C:\\\u2060new \\\u2060table \\{\\\u2060an8\\}"  # libass's escapes (Text drawn)
+    assert f",{drawn}\n" in script(t, 1920, 1080, Style())[0]
 
 
 def test_highlighted_cues_become_sentences_and_words(tmp_path: Path) -> None:
@@ -480,11 +504,14 @@ def test_a_highlighted_subrips_words_read_its_escapes_too(tmp_path: Path) -> Non
     assert [w.text for w in t.words] == ["New\u00a0York", "City"]
 
 
-def test_an_override_opening_with_an_escape_is_dropped_whatever_the_format(tmp_path: Path) -> None:
-    # {\t(...)}: ASS's animation -- dropped, as ffmpeg's subrip decoder and VLC drop it
+def test_an_override_opening_with_an_escape_is_dropped_but_in_webvtt(tmp_path: Path) -> None:
+    # {\t(...)}: ASS's animation -- dropped, as ffmpeg's subrip decoder and VLC drop it; in
+    # WebVTT, text (6.8.2), as every reader shows it
     srt = ingested(put(tmp_path, "a.srt", "1\n00:00:00,000 --> 00:00:00,400\n{\\t(0,1)}a {\\n}b\n"))
+    lrc = ingested(put(tmp_path, "a.lrc", "[00:00.00]{\\t(0,1)}a \\N\n[00:00.40]\n"))
     vtt = ingested(put(tmp_path, "a.vtt", "WEBVTT\n\n00:00.000 --> 00:00.400\n{\\t(0,1)}a \\N\n"))
-    assert (srt.chunks[0].text, vtt.chunks[0].text) == ("a b", "a \\N")  # WebVTT's \N as written
+    texts = (srt.chunks[0].text, lrc.chunks[0].text, vtt.chunks[0].text)
+    assert texts == ("a b", "a \\N", "{\\t(0,1)}a \\N")
 
 
 def test_an_lrc_line_of_several_stamps_is_a_line_each(tmp_path: Path) -> None:
@@ -692,10 +719,10 @@ def test_a_break_a_reference_decodes_to_is_a_space(tmp_path: Path) -> None:
     ("text", "shown"),
     [
         ("&am<b>p;", "&amp;"),  # a reference a tag splits: none (WebVTT's tokens)
-        ("&am{\\b1}p;", "&"),  # an override is no WebVTT token: gone, then decoded
+        ("&am{\\b1}p;", "&am{\\b1}p;"),  # an override is text: no reference (Chromium's)
         ("C:&bsol;new &bsol;table", "C:\\new \\table"),  # a decoded backslash: no escape
         ("&#123;&#92;an8&#125; up", "{\\an8} up"),  # a decoded override: text
-        ("{<b>\\an8}up", "up"),  # an override a tag splits: gone, as without references
+        ("{<b>\\an8}up", "{\\an8}up"),  # the tag off, the braces text
     ],
 )
 def test_each_run_between_tags_is_decoded_alone(tmp_path: Path, text: str, shown: str) -> None:

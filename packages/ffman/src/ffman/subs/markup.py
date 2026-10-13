@@ -7,10 +7,9 @@ from subverter.markup import decoded, unescaped, untagged
 
 _OVERRIDE: Final = re.compile(r"\{\\[^}]*\}")  # {\an8}: ASS override blocks, as some SRTs carry
 _BREAK: Final = re.compile(r"\\[tn]|[\t\n\r]")  # a tab or a line break, escaped (\t, \n) or not
-_DECODED_BREAK: Final = re.compile(r"[\t\n\f\r]")  # decoded (&#10;, &#12;) or a .vtt's own FF
+_VTT_BREAK: Final = re.compile(r"[\t\n\f\r]")  # a .vtt's tab, break or FF, written or decoded
 _BLANKS: Final = re.compile(r"[ \t]+")
 _TAG_MARK: Final = "\uffff"  # where a tag was: a noncharacter (a transcript's own, dropped)
-_MARKED_OVERRIDE: Final = re.compile(r"\{\uffff*\\[^}]*\}")  # _OVERRIDE, _TAG_MARKs in it
 
 
 def clean(text: str, *, references: bool, escapes: bool) -> str:
@@ -18,22 +17,20 @@ def clean(text: str, *, references: bool, escapes: bool) -> str:
 
     Overrides first: one opening with an escape (``{\t(...)}``) is dropped whole, as ffmpeg's
     subrip decoder and VLC drop it -- bash broke it first, showing it. ``references``
-    (WebVTT's): each run between tags decoded, once the overrides are off -- a decoded ``<``
-    or ``{`` text, a decoded break a space. ``escapes`` (SubRip's, never with references):
+    (WebVTT's): no override, no escape -- a ``{\...}`` and a typed ``\n`` or ``\t`` text, as
+    every reader shows them -- and each run between tags decoded, a decoded ``<`` or ``{``
+    text, a decoded break a space. ``escapes`` (SubRip's, never with references):
     the text as ffmpeg and libass read it (``unescaped``) -- every block off, ``{text}`` too, as
     ffmpeg and mpv hide it; ``\N`` a line break, so a space, ffman wrapping; ``\h`` a no-break
     space.
     """
     if references:
-        text = _MARKED_OVERRIDE.sub("", untagged(text, into=_TAG_MARK))
+        runs = untagged(text, into=_TAG_MARK).split(_TAG_MARK)
+        text = _VTT_BREAK.sub(" ", "".join(decoded(run) for run in runs))
     elif escapes:
-        text = unescaped(untagged(text)).text
+        text = _BREAK.sub(" ", unescaped(untagged(text)).text)
     else:
-        text = _OVERRIDE.sub("", untagged(text))
-    text = _BREAK.sub(" ", text)
-    if references:
-        runs = text.split(_TAG_MARK)
-        text = _DECODED_BREAK.sub(" ", "".join(decoded(run) for run in runs))
+        text = _BREAK.sub(" ", _OVERRIDE.sub("", untagged(text)))
     return _BLANKS.sub(" ", text).removeprefix(" ").removesuffix(" ")
 
 
