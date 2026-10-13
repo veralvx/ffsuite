@@ -66,7 +66,7 @@ def _utf8(data: bytes, name: str) -> bytes:
     from the attached track, and its reader takes a unit not UTF-16 for a NUL
     (``ff_text_r8``) -- each measured.
     """
-    text = utf16(data, name, lambda whole: _line(read := whole.encode(), len(read)))
+    text = utf16(data, name, _lines)
     if text is not None:
         return text.encode()
     try:
@@ -74,6 +74,12 @@ def _utf8(data: bytes, name: str) -> bytes:
     except UnicodeDecodeError as e:  # its start a character's: what is before it is whole
         refuse(f"not UTF-8: {name} (line {_line(data, e.start)})")
     return data  # UTF-8 already: no second copy
+
+
+def _lines(text: str) -> int:
+    """How many lines ``text`` holds, as an editor counts them (``_line``)."""
+    data = text.encode()
+    return _line(data, len(data))
 
 
 def _line(data: bytes, at: int) -> int:
