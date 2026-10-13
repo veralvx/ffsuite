@@ -4,7 +4,7 @@ SubRip, WebVTT, LRC, CSV and TSV, and whisper-cli's and WhisperX's JSON (``reade
 """
 
 from subverter._errors import Error
-from subverter.markup import Unescaped, decoded, unclosed, unescaped, untagged
+from subverter.markup import Drawn, decoded, drawn, unclosed, untagged
 from subverter.readers import FORMATS, read
 from subverter.transcript import Chunk, Cue, Reading, Timing, Transcript, Word
 
@@ -12,16 +12,16 @@ __all__ = [
     "FORMATS",
     "Chunk",
     "Cue",
+    "Drawn",
     "Error",
     "Reading",
     "Timing",
     "Transcript",
-    "Unescaped",
     "Word",
     "decoded",
+    "drawn",
     "read",
     "unclosed",
-    "unescaped",
     "untagged",
 ]
 

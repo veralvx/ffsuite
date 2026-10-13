@@ -66,7 +66,7 @@ def test_matroskas_text_reads_back_as_itself(text: str) -> None:
         return
     written = srt((Chunk(0, 1000, text, ""),), None, codec="srt").encode()
     (read,) = subverter.read("srt", written, "x.srt").cues
-    assert subverter.unescaped(read.text).text.replace(WJ, "") == text
+    assert subverter.drawn(read.text).text.replace(WJ, "") == text
 
 
 # what a WebVTT text may hold that the W3C reads: references, tags, a timing line's arrow
@@ -107,7 +107,7 @@ def stored(ffmpeg: str, ffprobe: str, path: Path) -> list[str]:
                     "-f", fmt, "-")  # fmt: skip
         cues = subverter.read(fmt.replace("webvtt", "vtt"), data.encode(), f"x.{fmt}").cues
         if fmt == "srt":
-            texts = [subverter.unescaped(c.text).text for c in cues]
+            texts = [subverter.drawn(c.text).text for c in cues]
         else:
             texts = [subverter.decoded(subverter.untagged(c.text)) for c in cues]
     return [t.replace(WJ, "") for t in texts if t]

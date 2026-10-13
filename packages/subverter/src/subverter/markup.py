@@ -4,7 +4,7 @@ import html
 import re
 from typing import Final, NamedTuple
 
-__all__ = ["Unescaped", "decoded", "unclosed", "unescaped", "untagged"]
+__all__ = ["Drawn", "decoded", "drawn", "unclosed", "untagged"]
 
 _TAG: Final = re.compile(r"<[^>]*>")  # <u>, <i>, <font ...>: SubRip's and WebVTT's, closed
 _DECIMAL: Final = re.compile(r"&#([0-9]+);?")  # a decimal reference
@@ -48,14 +48,14 @@ def _bounded(match: re.Match[str]) -> str:
     return "\ufffd" if len(digits) > _DIGITS_MAX else f"&#{digits};"
 
 
-class Unescaped(NamedTuple):
+class Drawn(NamedTuple):
     """A SubRip text as ffmpeg and libass draw it; the override blocks libass hides, unbraced."""
 
     text: str
     blocks: tuple[str, ...]
 
 
-def unescaped(text: str) -> Unescaped:
+def drawn(text: str) -> Drawn:
     r"""A SubRip text as mpv and an ffmpeg burn draw it: its tags and blocks off, its escapes read.
 
     ffmpeg's subrip decoder passes the text to ASS (``_passed``): its tags and ASS's off, a
@@ -76,7 +76,7 @@ def unescaped(text: str) -> Unescaped:
     text = _passed(text)
     cut = text.rfind("}") + 1
     tail = _ESCAPE.sub(lambda found: _ESCAPES[found[1]], text[cut:])
-    return Unescaped(_BLOCK_OR_ESCAPE.sub(read, text[:cut]) + tail, tuple(blocks))
+    return Drawn(_BLOCK_OR_ESCAPE.sub(read, text[:cut]) + tail, tuple(blocks))
 
 
 def _passed(text: str) -> str:

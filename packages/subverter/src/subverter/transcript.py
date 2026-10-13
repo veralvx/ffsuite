@@ -70,7 +70,7 @@ class Reading:
     ``has_ass_escapes``: its texts are SubRip's, which ffmpeg's subrip decoder passes to ASS,
     its tags and ASS's off -- a ``{...}`` block hidden, ``\N`` a line break, ``\n`` a space,
     ``\h`` a no-break space, ``\{`` ``\}`` braces -- for their consumer to read as ffmpeg and
-    libass do (``unescaped``).
+    libass do (``drawn``).
     """
 
     source: str

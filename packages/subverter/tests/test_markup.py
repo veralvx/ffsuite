@@ -100,7 +100,7 @@ def test_decoded_is_html_unescape_wherever_that_reads_the_text(text: str) -> Non
 
 
 @pytest.mark.parametrize(
-    ("text", "drawn", "blocks"),
+    ("text", "as_drawn", "blocks"),
     [
         ("one\\Ntwo", "one\ntwo", ()),  # a line break
         ("a\\hb", "a\u00a0b", ()),  # a no-break space
@@ -151,10 +151,10 @@ def test_decoded_is_html_unescape_wherever_that_reads_the_text(text: str) -> Non
         ("<b{\\i1}>x", "<b>x", ()),  # its name no tag's (a {): text, the { then ASS's tags
     ],
 )
-def test_unescaped_reads_a_subrip_text_as_ffmpeg_and_libass_draw_it(
-    text: str, drawn: str, blocks: tuple[str, ...]
+def test_drawn_reads_a_subrip_text_as_ffmpeg_and_libass_draw_it(
+    text: str, as_drawn: str, blocks: tuple[str, ...]
 ) -> None:
-    assert subverter.unescaped(text) == subverter.Unescaped(drawn, blocks)
+    assert subverter.drawn(text) == subverter.Drawn(as_drawn, blocks)
 
 
 _ALIGNED: Final = tuple(f"{n}}}" for n in range(10))  # scanbraces: {\an, a digit, }
@@ -235,12 +235,12 @@ _RUNS: Final = (
 
 @settings(max_examples=1000)  # cheap, and a tag needs its < and > in a row
 @given(st.lists(st.sampled_from(_RUNS), max_size=12).map("".join))
-def test_unescaped_is_ffmpeg_then_libass_wherever_they_read(text: str) -> None:
-    assert tuple(subverter.unescaped(text)) == _libass(_ffmpeg(text))
+def test_drawn_is_ffmpeg_then_libass_wherever_they_read(text: str) -> None:
+    assert tuple(subverter.drawn(text)) == _libass(_ffmpeg(text))
 
 
 @pytest.mark.parametrize(
-    ("text", "drawn"),
+    ("text", "as_drawn"),
     [
         ("}" + "{" * 200_000, "}" + "{" * 200_000),  # each unclosed {: no scan to the end
         ("}" + "{\\" * 100_000, "}" + "{" * 100_000 + "\\"),  # its \{ a brace
@@ -251,7 +251,7 @@ def test_unescaped_is_ffmpeg_then_libass_wherever_they_read(text: str) -> None:
         ("}" + "{" * 200_000 + ">", "}" + "{" * 200_000 + ">"),  # past the last }, no { sought
     ],
 )
-def test_unescaped_is_bounded_whatever_its_braces_and_lts(text: str, drawn: str) -> None:
+def test_drawn_is_bounded_whatever_its_braces_and_lts(text: str, as_drawn: str) -> None:
     began = time.monotonic()
-    assert subverter.unescaped(text).text == drawn
+    assert subverter.drawn(text).text == as_drawn
     assert time.monotonic() - began < 1

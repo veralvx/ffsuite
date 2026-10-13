@@ -29,7 +29,7 @@ _JOINED: Final = {"\\": "\\" + _WJ, "{": "{" + _WJ, "<": "<" + _WJ}
 # MP4's mov_text, stored as written (no escape in it); SubRip's text past its last "}"
 _JOINS: Final = str.maketrans(_JOINED)
 # Matroska's SubRip, read again by ffmpeg and libass: a "{" with a "}" after it a block to
-# libass, so its \{ (``unescaped``); VLC shows that backslash
+# libass, so its \{ (``drawn``); VLC shows that backslash
 _BRACED: Final = str.maketrans({**_JOINED, "{": "\\{" + _WJ})
 # WebM's WebVTT: the W3C's references for & < > (ffmpeg's webvtt encoder escapes nothing)
 _WEBVTT: Final = str.maketrans({**_JOINED, "&": "&amp;", "<": "&lt;", ">": "&gt;"})
