@@ -176,7 +176,8 @@ def read(data: bytes, name: str) -> Reading:
 def _text(data: bytes, name: str) -> str:
     """Its text: UTF-16 by its BOM (``utf16``; VLC 3 alike), else UTF-8 (``file_text``).
 
-    A refusal's line counted as this reader splits them (``split_lines``).
+    A refusal's line counted as this reader splits them (``split_lines``). ffmpeg's SubRip
+    reader stops at a lone surrogate's NUL, every later cue lost.
     """
     text = utf16(data, name, lambda whole: len(split_lines(whole)))
     return file_text(data) if text is None else text

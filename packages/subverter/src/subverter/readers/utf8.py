@@ -117,8 +117,8 @@ def utf16(data: bytes, name: str, lines: Callable[[str], int]) -> str | None:
 
     ffmpeg's ``ff_text_init_avio``, its SubRip's, LRC's and ASS's alike. A unit not UTF-16 -- a
     lone surrogate, an odd last byte -- refused by its line: ``lines``, how many its format's
-    reader counts in a text. ffmpeg's reader stops at the one, every later cue lost, and reads
-    the other as a character.
+    reader counts in a text. ffmpeg's reader takes the one for a NUL (``ff_text_r8``), what
+    follows its format reader's, and the other for a character.
     """
     if not data.startswith(UTF16_BOMS):
         return None
