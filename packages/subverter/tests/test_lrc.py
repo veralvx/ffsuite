@@ -94,8 +94,7 @@ _DROPPED: Final = "dropped, opened by no stamp ffman reads nor a tag"
             (Cue(-59500, -1000, "b"), Cue(-1000, 2500, "a"), Cue(2500, 5500, "a")),
             (
                 "LRC offset on line 2 applied: every line 500 ms later",
-                f"2 LRC lines {_SIGNED} (Navidrome and Jellyfin read none): the first, "
-                + "[00:02.00][-00:01.50]a on line 1",
+                f"2 LRC lines {_SIGNED} (Navidrome and Jellyfin read none): the first, [00:02.00][-00:01.50]a on line 1",
             ),
             id="a minus",
         ),
@@ -104,8 +103,8 @@ _DROPPED: Final = "dropped, opened by no stamp ffman reads nor a tag"
         ),
         pytest.param(  # no stamp ffman reads: hours (Navidrome's), a plus, a comma, a colon
             # before the fraction, text before the stamp (Jellyfin's) or none (Navidrome joins it
-            # to the line before), a time past a double's range, a blank not ffmpeg's (a space or a
-            # tab) before the stamp; the line named without its trailing blanks
+            # to the line before), a time past a double's range, a blank before the stamp other
+            # than ffmpeg's (a space, a tab); the line named without its trailing blanks
             "[00:01.00]a\n[1:02:03.00]hours \t\n[+00:05.00]plus\n[00:06,00]comma\n"
             + f"[00:07:50]colon\nno stamp\nx [00:08.00]after text\n[{'9' * 306}:00.00]far\n"
             + "\u00a0[00:09.00]no-break space\n",
