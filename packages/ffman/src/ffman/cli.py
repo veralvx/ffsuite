@@ -9,12 +9,12 @@ from typing import Final
 
 from ffman import __summary__, __version__
 from ffman.effects import format_catalogue
-from ffman.errors import PROG, REFUSALS, escaped, refuse
+from ffman.errors import PROG, REFUSALS, refuse
 from ffman.jobs.convert.dispatch import convert
 from ffman.jobs.convert.options import validate
 from ffman.jobs.meta.options import validate as validate_meta
 from ffman.jobs.meta.run import run as meta
-from ffman.media.run import SIGNALS, Interrupted, Runner, install_signal_handlers
+from ffman.media.run import SIGNALS, Interrupted, Runner, install_signal_handlers, note
 from ffman.options import CONVERT, META, format_help, parse
 
 TOP_USAGE: Final = f"{PROG} COMMAND [options]"
@@ -120,13 +120,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     except Interrupted as stop:  # cleaned up on the way out; silent, as bash was
         return stop.status
     except REFUSALS as error:
-        print(f"{PROG}: error: {escaped(str(error))}", file=sys.stderr)
+        note(f"error: {error}")
         return 1
     except BrokenPipeError:  # the reader left (ffman ... | head): quiet, as bash died of SIGPIPE
         _stdout_to_devnull()
         return 128 + signal.SIGPIPE
     except OSError as error:  # the environment: a folder not writable, a disk full
-        print(f"{PROG}: error: {escaped(_describe(error))}", file=sys.stderr)
+        note(f"error: {_describe(error)}")
         return 1
     else:
         return status

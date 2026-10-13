@@ -38,7 +38,11 @@ _TMP: Final = "/tmp"  # noqa: S108 -- the POSIX default, as mktemp's
 
 
 def note(message: str) -> None:
-    """Tell the user something on stderr, as bash's ``note``: ``ffman: MESSAGE``."""
+    """Tell the user something on stderr, as bash's ``note``: ``ffman: MESSAGE``.
+
+    A note, or a refusal's ``error: ...`` (``cli.main``): each control character escaped
+    (``errors.escaped``), so none commands the terminal.
+    """
     _ = sys.stderr.write(f"{PROG}: {escaped(message)}\n")
 
 
