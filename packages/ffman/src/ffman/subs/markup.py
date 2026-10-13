@@ -6,7 +6,9 @@ from typing import Final
 from subverter.markup import decoded, unescaped, untagged
 
 _OVERRIDE: Final = re.compile(r"\{\\[^}]*\}")  # {\an8}: ASS's, off in LRC, CSV, TSV, JSON (bash's)
-_BREAK: Final = re.compile(r"\\[tn]|[\t\n\r]")  # a tab or a line break, escaped (\t, \n) or not
+# LRC's, CSV's, TSV's and JSON's tab or line break, typed (\t, \n) or not (bash's)
+_BREAK: Final = re.compile(r"\\[tn]|[\t\n\r]")
+_SUBRIP_BREAK: Final = re.compile(r"[\t\n\r]")  # a tab or a line break, as libass reads them
 _VTT_BREAK: Final = re.compile(r"[\t\n\f\r]")  # a .vtt's tab, break or FF, written or decoded
 _BLANKS: Final = re.compile(r"[ \t]+")
 _TAG_MARK: Final = "\uffff"  # where a tag was: a noncharacter (a transcript's own, dropped)
@@ -21,14 +23,15 @@ def clean(text: str, *, references: bool, escapes: bool) -> str:
     every reader shows them -- a tag no ``>`` closes run to the text's end (``untagged``), and
     each run between tags decoded, a decoded ``<`` or ``{`` text, a break, written or decoded, a
     space. ``escapes`` (SubRip's, never with references): the text as ffmpeg and libass read it
-    (``unescaped``) -- every block off, ``{text}`` too, as ffmpeg and mpv hide it; ``\N`` a line
-    break, so a space, ffman wrapping; ``\h`` a no-break space.
+    (``unescaped``) -- its tags as ffmpeg's decoder reads them, a ``<br>`` a line break; every
+    block off, ``{text}`` too, as ffmpeg and mpv hide it; ``\N`` a line break, so a space,
+    ffman wrapping; ``\n`` a space, ``\h`` a no-break space; ``\t`` text, as libass draws it.
     """
     if references:
         runs = untagged(text, into=_TAG_MARK, webvtt=True).split(_TAG_MARK)
         text = _VTT_BREAK.sub(" ", "".join(decoded(run) for run in runs))
     elif escapes:
-        text = _BREAK.sub(" ", unescaped(untagged(text)).text)
+        text = _SUBRIP_BREAK.sub(" ", unescaped(text).text)
     else:
         text = _BREAK.sub(" ", _overrides_off(untagged(text)))
     return _BLANKS.sub(" ", text).removeprefix(" ").removesuffix(" ")
@@ -49,4 +52,4 @@ def hidden(text: str) -> list[str]:
     A block's text is what comes before its first tag (``{note\i1}``: ``note``); a block of
     tags alone (``{\an8}``) or an empty one holds none.
     """
-    return [f"{{{b}}}" for b in unescaped(untagged(text)).blocks if b.split("\\", 1)[0].strip()]
+    return [f"{{{b}}}" for b in unescaped(text).blocks if b.split("\\", 1)[0].strip()]

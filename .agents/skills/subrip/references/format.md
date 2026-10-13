@@ -85,10 +85,12 @@ the policy is to drop unknown markup and keep the text. *Measured*:
 | `<v Bob>`, `<c.yellow>` (WebVTT's)                           | `<v ...>` dropped with a warning; `<c.yellow>` kept as text                                 |
 | `a < b and c > d`                                            | `a {\b1} d`: `< b and c >` read as a `<b>` tag, text lost                                   |
 | `x<3 and y>2`; `heart <3`; `a ＜ b` (U+FF1C)                 | `x2`, a warning ("Unrecognized tag 3"): the span read as a tag; kept; kept                  |
+| `1 < 2 and 3 > 2`                                            | kept: a space after the `<`, then no name it knows                                          |
 | `<<quote>>`; `{not an override}`                             | kept                                                                                        |
 | `A &amp; B`                                                  | kept: SubRip has no character references                                                    |
 | `one\Ntwo` (typed in the text)                               | kept: `\N`, a break once rendered as ASS                                                    |
 | `hard\hspace` (typed)                                        | kept: `\h`, a hard space once rendered as ASS                                               |
+| `C:\temp` (typed)                                            | kept: no escape, `\t` (libass draws it as written)                                          |
 | leading and trailing spaces of a line                        | removed                                                                                     |
 | `first`, a line of spaces, `second`                          | `first`: the rest of the cue dropped                                                        |
 | `caf` and the byte E9, then a cue `next`                     | `next` alone: "Invalid UTF-8 in decoded subtitles text; maybe missing -sub_charenc option"  |
@@ -161,6 +163,8 @@ the next start; braces and backslashes drawn as written). *Measured*:
 | out of order; two identical                                 | as written; both                     | sorted; one                                         |
 | `<b>b</b> <font color="red">r</font> <v Bob>v</v>`          | as written                           | `b r v`                                             |
 | `x<3 and y>2`; `a < b and c > d`; `heart <3`                | as written                           | `x2`; `a d`; `heart <3`                             |
+| `1 < 2 and 3 > 2 <<q>> a<br>b`                              | as written                           | the same, `<br>` a space: as ffmpeg                 |
+| `C:\temp <c.x>c</c>`                                        | as written                           | `C:\temp <c.x>c`: as ffmpeg, libass                 |
 | `{\an8}top`                                                 | as written                           | `top`                                               |
 | `one\Ntwo a\nb hard\hspace`                                 | as written                           | `one two a b hard space`: `\h` a no-break space     |
 | `a {b} c\x \{d\}`                                           | as written                           | `a c\x {d}`: `{b}` hidden (noted), drawn as written |

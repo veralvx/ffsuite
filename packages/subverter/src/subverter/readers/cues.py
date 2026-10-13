@@ -10,13 +10,13 @@ from dataclasses import dataclass, field
 from itertools import groupby
 from typing import Final, NamedTuple
 
-from subverter.markup import untagged
 from subverter.readers.utf8 import Nuls, by_line, nul_notes
 from subverter.transcript import Cue, Reading, Timing
 
 __all__ = ["Dialect", "Found", "Timed", "read"]
 
 _UNDERLINE: Final = re.compile(r"<u>([^<]*)</u>")  # WhisperX --highlight_words: the word
+_UNDERLINES: Final = re.compile(r"</?u>")  # its tags (``_plain``)
 
 
 class Timed(NamedTuple):
@@ -226,9 +226,14 @@ def _joined(
     return [Cue(*t, " ".join(p)) for t, p in zip(times, parts, strict=True)], whole.nuls
 
 
+def _plain(text: str) -> str:
+    """A highlighted cue's text without WhisperX's underline: its sentence's, as written."""
+    return _UNDERLINES.sub("", text)
+
+
 def _is_highlighted(cues: list[Cue]) -> bool:
     """WhisperX --highlight_words, by structure: <u> somewhere, most neighbours one text."""
-    plains = [untagged(c.text) for c in cues]
+    plains = [_plain(c.text) for c in cues]
     underlined = any("<u>" in c.text for c in cues)
     same = sum(1 for i in range(1, len(plains)) if plains[i] == plains[i - 1])
     return underlined and len(cues) > 1 and same / (len(cues) - 1) >= 0.5  # noqa: PLR2004 -- most
@@ -240,9 +245,9 @@ def _highlighted(cues: list[Cue]) -> tuple[list[Cue], list[Timing]]:
     words: list[Timing] = []
     current, cs, ce, last, sid = "", None, None, -1, -1
     for cue in cues:
-        plain = untagged(cue.text)
+        plain = _plain(cue.text)
         underline = _UNDERLINE.search(cue.text)
-        offset = len(untagged(cue.text[: underline.start()])) if underline else -1
+        offset = len(_plain(cue.text[: underline.start()])) if underline else -1
         if plain != current or (underline and offset <= last):
             if current:
                 sentences.append(Cue(cs, ce, current, str(sid)))

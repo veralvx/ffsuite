@@ -470,6 +470,16 @@ def test_a_subrips_ass_escapes_read_as_libass_draws_them(tmp_path: Path) -> None
     assert t.notes == ()
 
 
+def test_a_subrips_tags_and_escapes_read_as_ffmpeg_then_libass_draw_them(tmp_path: Path) -> None:
+    t = ingested(put(tmp_path, "markup.srt", HOSTILE["markup.srt"]))
+    assert [c.text for c in t.chunks] == [
+        "1 < 2 and 3 > 2",  # no tag: a space after its <, no name ffmpeg knows
+        "<<quote>> one two",  # guillemets; <br> a line break, so a space, ffman wrapping
+        "C:\\temp ew <c.yellow>c",  # \t text, \n a space (libass's); a "." no tag's
+    ]
+    assert t.notes == ()
+
+
 def test_braces_and_backslashes_are_drawn_as_written(tmp_path: Path) -> None:
     t = ingested(put(tmp_path, "braces.srt", HOSTILE["braces.srt"]))
     assert [c.text for c in t.chunks] == ["a{b} c\\x"]  # \{ \} its braces; {d} a block, hidden
@@ -503,6 +513,14 @@ def test_braces_and_backslashes_are_drawn_as_written(tmp_path: Path) -> None:
             id="tags inside",
         ),
         pytest.param("a \\{\\i1\\} b", "a \\ b", (), id="a backslash before tags"),
+        pytest.param(  # a < no tag (ffmpeg's decoder): the block after it libass's
+            "1 < 2 {note} and 3 > 2",
+            "1 < 2 and 3 > 2",
+            (
+                "1 braced runs hidden, ASS's override blocks, as ffmpeg and mpv hide them: the first, {note}",
+            ),
+            id="after a < no tag",
+        ),
     ],
 )
 def test_a_subrips_braced_run_is_a_block_hidden_as_libass_hides_it(

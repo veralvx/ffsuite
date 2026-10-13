@@ -181,6 +181,15 @@ HOSTILE: Final = {
     # override opening with `\t` dropped as any. Before: burned `one/Ntwo a/hb`, the override
     # `( (0,100,/fs20))` -- its `\t` a space before overrides were removed (bash's order)
     "escapes.srt": "1\n00:00:00,000 --> 00:00:00,400\n{\\t(0,100,\\fs20)}one\\Ntwo a\\hb\n",
+    # a SubRip's tags and escapes as ffmpeg's decoder, then libass, read them (6.8.2's review): a
+    # < a tag only to a name it knows, or likely one; <br> a line break; \t text, \n a space.
+    # Before: every <...> a tag, <br> nothing, a typed \t a space -- burned `1 2`, `> onetwo`,
+    # `C: emp ew c`
+    "markup.srt": (
+        "1\n00:00:00,000 --> 00:00:00,100\n1 < 2 and 3 > 2\n\n"
+        "2\n00:00:00,100 --> 00:00:00,200\n<<quote>> one<br>two\n\n"
+        "3\n00:00:00,200 --> 00:00:00,300\nC:\\temp\\new <c.yellow>c</c>\n"
+    ),
     # braces and backslashes drawn as written (6.8.2): libass's \{ and \}, a backslash before a
     # word joiner; a SubRip's own \{ \} its braces, its {d} a block, hidden as libass hides it,
     # noted. Before: burned `a/(b/) c/x (d)`

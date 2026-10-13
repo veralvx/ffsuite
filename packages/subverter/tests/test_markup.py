@@ -8,7 +8,7 @@ from typing import Final
 
 import pytest
 import subverter
-from hypothesis import given
+from hypothesis import given, settings
 from hypothesis import strategies as st
 
 
@@ -104,7 +104,8 @@ def test_decoded_is_html_unescape_wherever_that_reads_the_text(text: str) -> Non
     [
         ("one\\Ntwo", "one\ntwo", ()),  # a line break
         ("a\\hb", "a\u00a0b", ()),  # a no-break space
-        ("a\\nb \\t", "a\\nb \\t", ()),  # libass's soft break and others: as written
+        ("a\\nb", "a b", ()),  # libass's soft break: a space, ffmpeg's script setting no WrapStyle
+        ("C:\\temp \\x", "C:\\temp \\x", ()),  # no escape: as written
         ("a\\\\Nb", "a\\\nb", ()),  # a backslash, then the escape: as libass reads them
         ("\\N\\h\\N", "\n\u00a0\n", ()),
         ("a\\{b\\}", "a{b}", ()),  # braces
@@ -125,6 +126,29 @@ def test_decoded_is_html_unescape_wherever_that_reads_the_text(text: str) -> Non
         ("a{\\i1 b", "a{\\i1 b", ()),  # no } after it: kept
         ("a{b", "a{b", ()),  # no } after it: a character
         ("a}b", "a}b", ()),
+        # its tags, as ffmpeg's decoder reads them (measured, 8.1.2): a <, then to its > a name
+        # it knows, or "likely a tag", dropped; <br> a line break; else the < a character
+        ("x<3 and y>2", "x2", ()),  # likely a tag: 3
+        ("a < b and c > d", "a  d", ()),  # a space first, but a name it knows: b
+        ("< i>x</i>", "x", ()),
+        ("x <b class=a>y</b>", "x y", ()),
+        ("a <3 b> c", "a  c", ()),
+        ("1 < 2 and 3 > 2", "1 < 2 and 3 > 2", ()),  # a space first, no name it knows: text
+        ("if x < 5 and y > 3", "if x < 5 and y > 3", ()),
+        ("a < b < c > d", "a < b < c > d", ()),  # its scan ends at the next <
+        ("<<quote>>", "<<quote>>", ()),  # after a <, no tag but a name it knows
+        ("<c.yellow>c</c>", "<c.yellow>c", ()),  # a "." no tag's
+        ("one<br>two<BR/>three", "one\ntwo\nthree", ()),
+        ("one<br />two</br>x", "one\ntwo\nx", ()),
+        ("a<brx>b", "ab", ()),  # likely a tag: dropped
+        ("a < font color=red>b</font>", "a b", ()),  # a space first, but a name it knows
+        ("<<font>x", "<x", ()),  # after a <, too
+        ("a<</v>b <<v>c", "a<b <<v>c", ()),  # after a <, likely again if it closes
+        ("heart <3", "heart <3", ()),  # no >
+        ("<" + "x" * 127 + ">a", "a", ()),  # a tag of 127 characters at most
+        ("<" + "x" * 128 + ">a", "<" + "x" * 128 + ">a", ()),
+        ("{\\i1<b>x}y", "y", ()),  # a block's own < no tag: dropped with it
+        ("<b{\\i1}>x", "<b>x", ()),  # its name no tag's (a {): text, the { then ASS's tags
     ],
 )
 def test_unescaped_reads_a_subrip_text_as_ffmpeg_and_libass_draw_it(
@@ -136,10 +160,40 @@ def test_unescaped_reads_a_subrip_text_as_ffmpeg_and_libass_draw_it(
 _ALIGNED: Final = tuple(f"{n}}}" for n in range(10))  # scanbraces: {\an, a digit, }
 
 
+_LIKELY: Final = frozenset("0123456789_/abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+
+
+def _ffmpeg_tag(text: str, k: int) -> tuple[str, int]:
+    """ffmpeg 8.1's subrip decoder at a ``<``: what it writes, and where it goes on."""
+    shown, likely = "", True
+    while text[k + 1 : k + 2] == "<":  # "<<": each < but the last a character
+        shown, likely, k = shown + "<", False, k + 1
+    closing = text[k + 1 : k + 2] == "/"
+    scan = n = k + 1 + closing
+    while n - scan < 128 and text[n : n + 1] not in ("", "<", ">"):  # scantag
+        n += 1
+    if n - scan == 128 or text[n : n + 1] != ">":  # 127 characters at most, then its >
+        return shown + "<", k + 1
+    name = text[scan:n]
+    likely = (likely or closing) and not name.startswith(" ")
+    name = name.lstrip(" ").split(" ", 1)[0]
+    likely = likely and all(c in _LIKELY for c in name)
+    lower = name.lower() if name.isascii() else ""
+    if lower in ("br", "br/"):
+        return shown + "\\N", n + 1
+    if lower == "font" or (len(name) == 1 and lower in "bisu") or likely:
+        return shown, n + 1
+    return shown + "<", k + 1
+
+
 def _ffmpeg(text: str) -> str:
-    """ffmpeg 8.1's subrip decoder, character by character: ``htmlsubtitles.c``'s braces."""
+    """ffmpeg 8.1's subrip decoder, character by character: ``htmlsubtitles.c``'s braces, tags."""
     shown, k, alignments, unclosed = "", 0, 0, False
     while k < len(text):
+        if text[k] == "<":
+            written, k = _ffmpeg_tag(text, k)
+            shown += written
+            continue
         if text[k] == "{":
             alignments += text[k : k + 4] == "{\\an" and text[k + 4 : k + 6] in _ALIGNED
             tags = alignments != 1 and text[k + 1 : k + 2] == "\\"
@@ -162,8 +216,8 @@ def _libass(text: str) -> tuple[str, tuple[str, ...]]:
         if text[k] == "{" and (end := text.find("}", k)) >= 0:
             blocks.append(text[k + 1 : end])
             k = end + 1
-        elif text[k] == "\\" and text[k + 1 : k + 2] in ("N", "h", "{", "}"):
-            shown += {"N": "\n", "h": "\u00a0"}.get(text[k + 1], text[k + 1])
+        elif text[k] == "\\" and text[k + 1 : k + 2] in ("N", "n", "h", "{", "}"):
+            shown += {"N": "\n", "n": " ", "h": "\u00a0"}.get(text[k + 1], text[k + 1])
             k += 2
         else:
             shown += text[k]
@@ -171,10 +225,15 @@ def _libass(text: str) -> tuple[str, tuple[str, ...]]:
     return shown, tuple(blocks)
 
 
-# what a SubRip's braced runs are made of: ASS's tags, MicroDVD's style, escapes
-_RUNS: Final = ("{", "}", "\\", "{\\an8}", "{\\an8", "{\\i1", "y:", "N", "h", "n", "x", " ")
+# what a SubRip's braced runs and tags are made of: ASS's tags, MicroDVD's style, escapes, its
+# tags' names, known and not
+_RUNS: Final = (
+    *("{", "}", "\\", "{\\an8}", "{\\an8", "{\\i1", "y:", "N", "h", "n", "t", "x", " "),
+    *("<", ">", "/", "<<", "b", "br", "font", "c.y", "3"),
+)
 
 
+@settings(max_examples=1000)  # cheap, and a tag needs its < and > in a row
 @given(st.lists(st.sampled_from(_RUNS), max_size=12).map("".join))
 def test_unescaped_is_ffmpeg_then_libass_wherever_they_read(text: str) -> None:
     assert tuple(subverter.unescaped(text)) == _libass(_ffmpeg(text))
@@ -186,9 +245,13 @@ def test_unescaped_is_ffmpeg_then_libass_wherever_they_read(text: str) -> None:
         ("}" + "{" * 200_000, "}" + "{" * 200_000),  # each unclosed {: no scan to the end
         ("}" + "{\\" * 100_000, "}" + "{" * 100_000 + "\\"),  # its \{ a brace
         ("{\\an8}" + "{\\" * 100_000 + "}", ""),  # each kept {\: no scan to its }, one block
+        ("a<" * 200_000, "a<" * 200_000),  # no > after them: no tag sought
+        ("a<" * 200_000 + ">", "a<" * 199_999 + "a"),  # each scan ended by the next <
+        ("<" * 200_000 + ">x", "<" * 200_000 + ">x"),  # a run: guillemets, scanned once
+        ("}" + "{" * 200_000 + ">", "}" + "{" * 200_000 + ">"),  # past the last }, no { sought
     ],
 )
-def test_unescaped_is_bounded_whatever_its_braces(text: str, drawn: str) -> None:
+def test_unescaped_is_bounded_whatever_its_braces_and_lts(text: str, drawn: str) -> None:
     began = time.monotonic()
     assert subverter.unescaped(text).text == drawn
     assert time.monotonic() - began < 1

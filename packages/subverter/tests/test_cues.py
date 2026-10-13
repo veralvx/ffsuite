@@ -914,6 +914,20 @@ def test_highlighted_cues_become_sentences_and_words() -> None:
     )
 
 
+def test_a_highlighted_sentence_keeps_its_markup_but_whisperxs_underline() -> None:
+    # its text as written, for its reader to read as any cue's -- before, every tag off as SubRip
+    # and WebVTT read none: `x < 5 and y > 3` lost `< 5 and y >`
+    data = _srt(
+        [
+            ("00:00:00,000", "00:00:00,500", "<u>if</u> x < 5 and <i>y</i> > 3"),
+            ("00:00:00,500", "00:00:01,000", "if <u>x</u> < 5 and <i>y</i> > 3"),
+        ]
+    )
+    reading = subverter.read("srt", data, "a.srt")
+    assert reading.cues == (Cue(0, 1000, "if x < 5 and <i>y</i> > 3", "0"),)
+    assert reading.words == (Timing("0", 0, 500, "if"), Timing("0", 500, 1000, "x"))
+
+
 def test_an_underline_moving_back_starts_a_sentence_of_the_same_text() -> None:
     data = _srt(
         [
