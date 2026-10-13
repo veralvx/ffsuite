@@ -86,7 +86,7 @@ SCRIPTS: dict[str, str] = {
     "commas in the text": HEAD + dialogue("one, two, three"),
     "no [Events] Format line": INFO + STYLES + "[Events]\n" + dialogue("formatless"),
     "CRLF": (HEAD + dialogue("windows")).replace("\n", "\r\n"),
-    "UTF-8 BOM": "﻿" + HEAD + dialogue("bom"),
+    "UTF-8 BOM": "\ufeff" + HEAD + dialogue("bom"),
     "blank lines first": "\n\n" + HEAD + dialogue("late start"),
     "SSA v4": SSA,
     "v4.00++": HEAD.replace("v4.00+", "v4.00++").replace("[V4+ Styles]", "[V4++ Styles]")
@@ -237,35 +237,36 @@ def packets(path: Path) -> tuple[str, list[tuple[int, int, str]]]:
     return data["format"]["format_name"], found
 
 
-def drawn(work: Path, script: bytes) -> str:
-    """The digest of the frame libass draws of ``script`` (320x180, grey), or why none was."""
+def frames(work: Path, script: bytes, how: str, size: str, seconds: float) -> list[bytes] | str:
+    """The grey frames ``how`` (``ass`` or ``subtitles``) draws of ``script`` on black, ``size``
+    (``WxH``), ``FPS`` a second for ``seconds`` -- or why it drew none."""
     path = work / "drawn.ass"
     _ = path.write_bytes(script)
     r = subprocess.run(
-        [FFMPEG, "-v", "error", "-f", "lavfi", "-i", "color=c=black:s=320x180:d=1", "-vf",
-         f"ass={path}", "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "gray", "-"],
-        capture_output=True, check=False,
-    )  # fmt: skip
-    if r.returncode:
-        return f"[failed: {logged(r.stderr.decode()).replace(str(path), path.name)}]"
-    return hashlib.sha256(r.stdout).hexdigest()
-
-
-def drawn_at(work: Path, script: bytes, times: tuple[float, ...], how: str) -> str:
-    """What ``how`` (``ass`` or ``subtitles``) draws of ``script`` at each time: ``x`` something,
-    ``.`` nothing -- or why it drew no frame."""
-    path = work / "shown.ass"
-    _ = path.write_bytes(script)
-    size, last = 160 * 90, max(times) + 1
-    r = subprocess.run(
-        [FFMPEG, "-v", "error", "-f", "lavfi", "-i", f"color=c=black:s=160x90:r={FPS}:d={last}",
+        [FFMPEG, "-v", "error", "-f", "lavfi", "-i", f"color=c=black:s={size}:r={FPS}:d={seconds}",
          "-vf", f"{how}={path}", "-f", "rawvideo", "-pix_fmt", "gray", "-"],
         capture_output=True, check=False,
     )  # fmt: skip
     if r.returncode or not r.stdout:
         return f"[failed: {logged(r.stderr.decode()).replace(str(path), path.name)}]"
-    frames = [r.stdout[k : k + size] for k in range(0, len(r.stdout), size)]
-    return "".join("x" if max(frames[round(t * FPS)]) > INK else "." for t in times)
+    width, height = map(int, size.split("x"))
+    area = width * height
+    return [r.stdout[k : k + area] for k in range(0, len(r.stdout), area)]
+
+
+def drawn(work: Path, script: bytes) -> str:
+    """The digest of the first frame libass alone draws of ``script``, or why none was."""
+    found = frames(work, script, "ass", "320x180", 1)
+    return found if isinstance(found, str) else hashlib.sha256(found[0]).hexdigest()
+
+
+def drawn_at(work: Path, script: bytes, times: tuple[float, ...], how: str) -> str:
+    """What ``how`` (``ass`` or ``subtitles``) draws of ``script`` at each time: ``x`` something,
+    ``.`` nothing -- or why it drew no frame."""
+    found = frames(work, script, how, "160x90", max(times) + 1)
+    if isinstance(found, str):
+        return found
+    return "".join("x" if max(found[round(t * FPS)]) > INK else "." for t in times)
 
 
 def frame(work: Path, *texts: str) -> str:
@@ -305,10 +306,10 @@ def main() -> None:
         digests = {text: frame(work, text) for text in ("ab", "a{x}b", "a\\{x\\}b")}
         for text, digest in digests.items():
             print(f"{text!r}: {digest[:12]}" + (" -- as 'ab'" if digest == digests["ab"] else ""))
-        alone, up = frame(work, "a"), "{\\an8}up"  # a second event, at the top
+        single, up = frame(work, "a"), "{\\an8}up"  # a second event, at the top
         for texts in (("a", up), ("a\0b", up)):
             digest = frame(work, *texts)
-            print(f"{texts!r}: {digest[:12]}" + (" -- as 'a' alone" if digest == alone else ""))
+            print(f"{texts!r}: {digest[:12]}" + (" -- as 'a' alone" if digest == single else ""))
         utf8 = drawn(work, CAFE.encode("utf-8"))
         for codec in ("utf-16-le", "utf-16-be"):
             digest = drawn(work, UTF16.encode(codec))
@@ -326,13 +327,9 @@ def main() -> None:
         print("\n## libass alone (the ass filter, ffman's burn) against ffmpeg's reading, then")
         print("## libass (the subtitles filter, mpv's path): x drawn, . not, at each time\n")
         for name, (script, times) in READERS.items():
-            alone, read = (
-                drawn_at(work, script, times, "ass"),
-                drawn_at(work, script, times, "subtitles"),
-            )
-            print(
-                f"{name} at {', '.join(f'{t:g}' for t in times)} s: ass {alone}; subtitles {read}"
-            )
+            ass, subtitles = (drawn_at(work, script, times, how) for how in ("ass", "subtitles"))
+            at = ", ".join(f"{t:g}" for t in times)
+            print(f"{name} at {at} s: ass {ass}; subtitles {subtitles}")
 
         ffman(work)
         print("\n## The skill, checked from its own text\n")
@@ -409,8 +406,8 @@ def skill(work: Path) -> bool:
     times = [(start * 10, length * 10) for start, length, _data in found]
     results = [checked("the example, ffmpeg's events", times, EXAMPLE_TIMES)]
     at, stated = EXAMPLE_DRAWN
-    drawn = drawn_at(work, example.encode(), at, "ass")
-    results.append(checked(f"    drawn by libass alone at {at} s", drawn, stated))
+    marks = drawn_at(work, example.encode(), at, "ass")
+    results.append(checked(f"    drawn by libass alone at {at} s", marks, stated))
     written, _warnings = converted(work / "example.srt", "-i", str(work / "in.ass"))
     lines = [line for line in written.splitlines() if line and " --> " not in line]
     results.append(checked("    as SubRip", [ln for ln in lines if not ln.isdigit()], EXAMPLE_SRT))
