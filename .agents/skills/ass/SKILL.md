@@ -41,9 +41,9 @@ fields of the lines after it; colours are `&HAABBGGRR`, alpha `00` opaque. An ev
 (`Comment:` is not drawn): a layer (SSA: `Marked=0`), start and end as `h:mm:ss.cc` --
 centiseconds -- a style's name, a speaker, margins (0: the style's), an effect, and the text, the
 rest of the line, commas and all. In the text, override blocks `{\b1}`, `{\an8}`, `{\pos(x,y)}`,
-`{\k25}` (karaoke, centiseconds) change what follows; `\N` is a line break, `\h` a no-break
-space, `\{` and `\}` braces; a `{` opens a block. The tags and fields, all of them:
-references/format.md.
+`{\k25}` (karaoke, centiseconds) change what follows; `\N` is a line break, `\n` a space (a break
+under `WrapStyle: 2`), `\h` a no-break space, `\{` and `\}` braces; a `{` with a `}` after it
+opens a block. The tags and fields, all of them: references/format.md.
 
 ## The readers
 
@@ -60,7 +60,7 @@ itself. **ffman** passes it through unread: its burn draws its copy with the `as
 
 | Where                                                       | libass alone (`ass` filter)                                     | ffmpeg, mpv (`subtitles` filter, conversions)                                                | VLC 3                                                               | Aegisub                                        | ffman                                              |
 | ----------------------------------------------------------- | --------------------------------------------------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- | ---------------------------------------------- | -------------------------------------------------- |
-| Recognised                                                  | a type: a styles section, else `ScriptType` `v4.00+` or `v4.00` | `[Script Info]` first, in its case, after a BOM and blank lines                              | `ScriptType: v4.00(+)` or `Dialogue:`, any case, in its first 4 KiB | by its extension; another `ScriptType` refused | both libass's and ffmpeg's, else refused, named    |
+| Recognised                                                  | a type: a styles section, else `ScriptType` `v4.00+` or `v4.00` | `[Script Info]` first, in its case, after a BOM and empty lines                              | `ScriptType: v4.00(+)` or `Dialogue:`, any case, in its first 4 KiB | by its extension; another `ScriptType` refused | both libass's and ffmpeg's, else refused, named    |
 | `[script info]`; a comment before it                        | read                                                            | no event (the LRC reader's); no reader, an error                                             | read                                                                | read                                           | refused                                            |
 | No type; `v4.00++`, `[V4++ Styles]`                         | no track: the burn fails                                        | read                                                                                         | read; `v4.00++` as ASS                                              | the type by its extension; `v4.00++` refused   | refused                                            |
 | Fields in another order (`Format: Start, End, Style, Text`) | read by the `Format:` line                                      | no event read, but drawn: libass reads the header's line; converted, no cue                  | the same: no event, drawn                                           | not opened: `0:00:01.00` read as the layer     | burned; attached, no cue -- unnoted                |
@@ -121,8 +121,8 @@ none.
    ```
 
 6. A text of one line, `\N` for a break; no NUL; `\{` and `\}` for a brace meant as text (a `{`
-   opens a block; the escapes reach SubRip and WebVTT as written); a `\` before `N`, `n`, `h`,
-   `{` or `}` only as an escape.
+   with a `}` after it opens a block; the escapes reach SubRip and WebVTT as written); a `\`
+   before `N`, `n`, `h`, `{` or `}` only as an escape.
 7. An event's style by its exact name; `Comment:` for what must not be drawn.
 
 ## Reading one correctly

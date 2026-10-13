@@ -245,7 +245,7 @@ could not read is libass's to read, as through ffmpeg.
 | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------- |
 | Recognised by a line, any case, among the first 256 of the first 4 KiB: `ScriptType: v4.00+` or `Dialogue:` ASS; `ScriptType: v4.00` or `Dialogue: Marked` SSA v4; 16 bytes at least | `Open`                        |
 | A UTF-8 BOM skipped; UTF-16 by its BOM converted to UTF-8; other bytes passed unchanged (libass reads one not UTF-8 as its Latin-1 character)                                        | `Open`, `vlc_stream_ReadLine` |
-| Lines end at an LF, or at a CR in a stretch with none                                                                                                                                | `vlc_stream_ReadLine`         |
+| Lines end at an LF, or at a CR when the next 2 KiB hold none                                                                                                                         | `vlc_stream_ReadLine`         |
 | An event: `Dialogue: %15[^,],%d:%d:%d.%d,%d:%d:%d.%d,` -- the standard order, a `.` before the fraction, read as centiseconds whatever its width; every other line the header        | `ParseSSA`                    |
 | Events sorted by start; one ending before it starts given a negative length: never drawn                                                                                             | `Fix`, `Demux`                |
 
@@ -296,7 +296,7 @@ script (its BOM) recoded, each NUL U+FFFD, noted; refused unless `[Script Info]`
 | Property    | ASS (SSA)                                                                                                                                                        |
 | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Times       | start and end, centiseconds; libass reads more digits as centiseconds too, so ms precision cannot be written                                                     |
-| Text        | one line per event, `\N` for breaks; `\{` and `\}` for literal braces (libass; a bare `{` starts a block); no escape for `\` before `N`, `n` or `h`              |
+| Text        | one line per event, `\N` for breaks; `\{` and `\}` for literal braces (libass; a `{` before a `}` opens a block); no escape for `\` before `N`, `n` or `h`       |
 | Styling     | named styles (font, size, four colours with alpha, bold, italic, underline, strike, scale, spacing, angle, border, shadow) and per-span overrides                |
 | Position    | alignment, margins, `\pos`, `\move`, `\org`, `\clip`, layers; PlayRes as the coordinate space                                                                    |
 | Word timing | `\k` family: syllable durations in centiseconds, from the event's start, consecutive; a gap an empty syllable, or `\kt` (drawn: `subtitle-mappings`' `words.md`) |
