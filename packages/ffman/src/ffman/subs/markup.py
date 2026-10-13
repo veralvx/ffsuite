@@ -8,7 +8,7 @@ from subverter.markup import decoded, unescaped, untagged
 _OVERRIDE: Final = re.compile(r"\{\\[^}]*\}")  # {\an8}: ASS's, off in LRC, CSV, TSV, JSON (bash's)
 # LRC's, CSV's, TSV's and JSON's tab or line break, typed (\t, \n) or not (bash's)
 _BREAK: Final = re.compile(r"\\[tn]|[\t\n\r]")
-_SUBRIP_BREAK: Final = re.compile(r"[\t\n\r]")  # a tab or a line break, as libass reads them
+_SUBRIP_BREAK: Final = re.compile(r"[\t\n]")  # a tab, libass's space; a break (\N, <br>)
 _VTT_BREAK: Final = re.compile(r"[\t\n\f\r]")  # a .vtt's tab, break or FF, written or decoded
 _BLANKS: Final = re.compile(r"[ \t]+")
 _TAG_MARK: Final = "\uffff"  # where a tag was: a noncharacter (a transcript's own, dropped)
