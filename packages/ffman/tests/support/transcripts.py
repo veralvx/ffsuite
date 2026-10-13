@@ -292,6 +292,10 @@ HOSTILE: Final = {
         "utf-16-be", "surrogatepass"
     ),
     "utf-16.vtt": "﻿WEBVTT\n\n00:00.000 --> 00:00.400\ncafé\n".encode("utf-16-le"),
+    # a UTF-16 LRC (the `lrc` box): read, as Navidrome and Jellyfin read it (ffmpeg detects none);
+    # one with a lone surrogate refused by its line. Before: "no timed text found"
+    "utf-16.lrc": "\ufeff[00:00.00]café\r\n[00:00.20]second\r\n".encode("utf-16-le"),
+    "utf-16-bad.lrc": "\ufeff[ti:x]\n[00:00.00]fi\ud800rst\n".encode("utf-16-be", "surrogatepass"),
     # a CP1252 ASS (6.8.2): refused by its line, as a SubRip not UTF-8. Before: burned as libass
     # reads a byte not UTF-8, its Latin-1 character -- the quote's 0x92 a control -- and each
     # event holding one dropped from --add-subs' track by ffmpeg's decoder (measured)

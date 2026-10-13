@@ -1,16 +1,19 @@
-"""LRC: a line's times, its text; the ``[offset:]`` tag moving every time."""
+"""LRC: a line's times, its text; the ``[offset:]`` tag moving every time.
+
+Its encodings and line ends, no standard's, SubRip's (``subrip.file_lines``): UTF-8, or UTF-16 by
+its BOM, as Navidrome and Jellyfin read it (ffmpeg's lrcdec reads none); a CR or an LF ending a
+line (ffmpeg's ends one at an LF alone, dropping each CR -- a CR-only file one line).
+"""
 
 import re
 from typing import Final
 
 from subverter.readers.fields import exact, ms
-from subverter.readers.subrip import split_lines
-from subverter.readers.utf8 import Nuls, by_line, file_text, nul_notes
+from subverter.readers.subrip import file_lines
+from subverter.readers.utf8 import Nuls, by_line, nul_notes
 from subverter.transcript import Cue, Reading
 
-# ``split_lines``, its line ends: no standard's, so SubRip's (ffmpeg's lrcdec ends a line at an
-# LF alone, dropping each CR -- a CR-only file one line)
-__all__ = ["read", "split_lines"]
+__all__ = ["read"]
 
 _TIME: Final = r"\[([0-9]+):([0-9]+(?:[.][0-9]+)?)\]"  # [mm:ss.xx]
 _STAMP: Final = re.compile(_TIME)
@@ -23,7 +26,7 @@ _WHOLE: Final = re.compile(r"[ \t]*[-+]?[0-9]+[ \t]*")
 
 def read(data: bytes, name: str) -> Reading:
     """The cues, every time moved by the offset (``_offset``), and its notes."""
-    lines = split_lines(file_text(data))
+    lines = file_lines(data, name)
     offset, notes = _offset(lines)
     cues, nuls = _rows(lines, name, offset)
     return Reading(".lrc", has_words=False, cues=tuple(cues), notes=notes + nul_notes(nuls))

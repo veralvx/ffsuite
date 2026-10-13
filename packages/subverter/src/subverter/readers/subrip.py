@@ -17,7 +17,7 @@ from subverter.readers.fields import exact, ms
 from subverter.readers.utf8 import file_text, utf16
 from subverter.transcript import Reading
 
-__all__ = ["read", "split_lines"]
+__all__ = ["file_lines", "read", "split_lines"]
 
 # a cue's last line, a number alone, only empty lines between it and a timing line: the next
 # cue's index, as ffmpeg's srt demuxer reads it (which, after a cue's text, drops any line led
@@ -170,17 +170,17 @@ def split_lines(text: str) -> list[str]:
 
 def read(data: bytes, name: str) -> Reading:
     """A SubRip file's cues (``cues.read``), its lines ``split_lines``'s: no signature to it."""
-    return read_cues(split_lines(_text(data, name)), name, _DIALECT)
+    return read_cues(file_lines(data, name), name, _DIALECT)
 
 
-def _text(data: bytes, name: str) -> str:
-    """Its text: UTF-16 by its BOM (``utf16``; VLC 3 alike), else UTF-8 (``file_text``).
+def file_lines(data: bytes, name: str) -> list[str]:
+    """A SubRip's or an LRC's lines (``split_lines``): UTF-16 by its BOM (``utf16``), else UTF-8.
 
-    A refusal's line counted as this reader splits them (``split_lines``). ffmpeg's SubRip
-    reader stops at a lone surrogate's NUL, every later cue lost.
+    A refusal's line counted as they are split here. ffmpeg's SubRip reader recodes UTF-16 (VLC
+    3 alike), stopping at a lone surrogate's NUL, every later cue lost; its LRC one reads none.
     """
     text = utf16(data, name, lambda whole: len(split_lines(whole)))
-    return file_text(data) if text is None else text
+    return split_lines(file_text(data) if text is None else text)
 
 
 # its texts hold ASS's escapes, as ffmpeg's subrip decoder passes them to libass, and no HTML

@@ -5,6 +5,9 @@ Every expectation is worked by hand from a rule, not taken from a run: what the 
 before ffman's normalising (sorted, each line ending where the next starts; no trim, no clamp).
 """
 
+import re
+from typing import Final
+
 import pytest
 import subverter
 from subverter import Cue
@@ -125,3 +128,34 @@ def test_lrc_lines_are_joined_as_written_then_sorted() -> None:
         Cue(1000, 5000, "x"),
         Cue(5000, 8000, " ё"),
     )
+
+
+# --- encodings: UTF-8, or UTF-16 by its BOM, as Navidrome (``ioutils.UTF8Reader``) and Jellyfin
+# (.NET's BOM detection) read it -- ffmpeg 8.1.2 detects no LRC there (``lrc_probe``, measured)
+
+_SONG: Final = "[ti:x]\r\n[00:02.00]caf\u00e9 \U0001f600\r\n[00:01.00]one\r\n"
+
+
+@pytest.mark.parametrize("codec", ["utf-16-le", "utf-16-be"])
+def test_an_lrc_in_utf16_by_its_bom_reads_as_in_utf8(codec: str) -> None:
+    data = ("\ufeff" + _SONG).encode(codec)
+    assert subverter.read("lrc", data, "a.lrc") == subverter.read("lrc", _SONG.encode(), "a.lrc")
+
+
+@pytest.mark.parametrize(
+    ("data", "line"),
+    [
+        pytest.param(  # a lone surrogate
+            ("\ufeff" + _SONG.replace("one", "o\ud800ne")).encode("utf-16-le", "surrogatepass"),
+            3,
+            id="a lone surrogate",
+        ),
+        pytest.param(("\ufeff" + _SONG).encode("utf-16-le") + b"x", 4, id="an odd byte"),
+        pytest.param(  # its lines SubRip's: CR CR LF one end
+            "\ufeff[ti:x]\r\r\n\udc00".encode("utf-16-be", "surrogatepass"), 2, id="BE"
+        ),
+    ],
+)
+def test_an_lrcs_unit_not_utf16_is_refused_by_its_line(data: bytes, line: int) -> None:
+    with pytest.raises(subverter.Error, match=re.escape(f"not UTF-16: a.lrc (line {line})")):
+        _ = subverter.read("lrc", data, "a.lrc")
