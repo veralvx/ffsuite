@@ -3,7 +3,6 @@
 from typing import Final, Never
 
 _SHOWN: Final = 60  # input quoted in a message: its characters, at most
-_ESCAPED: Final = {"\r": "\\r", "\n": "\\n", "\t": "\\t"}
 
 
 class Error(Exception):
@@ -18,10 +17,8 @@ def refuse(message: str) -> Never:
 def shown(text: str) -> str:
     r"""Input quoted in a message: on one line, each character visible, 60 characters at most.
 
-    A line break or tab as its escape; any other character that prints nothing (a NUL, a BOM, a
-    no-break space) as Python writes it, ``\x00``, ``\ufeff``.
+    What prints nothing as Python writes it: a line break ``\n``, a tab ``\t``, a NUL ``\x00``, a
+    BOM ``\ufeff``, a no-break space ``\xa0``.
     """
-    one = "".join(
-        _ESCAPED.get(char, char if char.isprintable() else repr(char)[1:-1]) for char in text
-    )
+    one = "".join(char if char.isprintable() else repr(char)[1:-1] for char in text)
     return one if len(one) <= _SHOWN else one[: _SHOWN - 3] + "..."

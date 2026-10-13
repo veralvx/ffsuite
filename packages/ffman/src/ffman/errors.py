@@ -8,7 +8,6 @@ import subverter
 
 PROG: Final = "ffman"  # the program's name, in its messages
 _SHOWN: Final = 60  # input quoted in a message: its characters, at most
-_ESCAPED: Final = {"\r": "\\r", "\n": "\\n", "\t": "\\t"}
 # Unicode's Cc: C0, DEL, C1 -- a terminal's commands (ECMA-48: ESC, CSI), not text
 _CONTROL: Final = re.compile(r"[\x00-\x1f\x7f-\x9f]")
 
@@ -30,12 +29,10 @@ def refuse(message: str) -> Never:
 def shown(text: str) -> str:
     r"""Input quoted in a message: on one line, each character visible, 60 characters at most.
 
-    A line break or tab as its escape; any other character that prints nothing (a NUL, a BOM, a
-    no-break space) as Python writes it, ``\x00``, ``\ufeff``.
+    What prints nothing as Python writes it: a line break ``\n``, a tab ``\t``, a NUL ``\x00``, a
+    BOM ``\ufeff``, a no-break space ``\xa0``.
     """
-    one = "".join(
-        _ESCAPED.get(char, char if char.isprintable() else repr(char)[1:-1]) for char in text
-    )
+    one = "".join(char if char.isprintable() else repr(char)[1:-1] for char in text)
     return one if len(one) <= _SHOWN else one[: _SHOWN - 3] + "..."
 
 
