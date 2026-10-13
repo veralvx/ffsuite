@@ -123,8 +123,8 @@ As the specification's parser does: a UTF-8 BOM skipped; LF, CRLF or CR; the sig
 no cue; blocks between blank lines; a line holding `-->` a timing line, or no cue if it is not
 one -- the cue dropped, the reading going on; the text up to an empty line or a line holding
 `-->`; every character reference decoded, each tag by its name, up to its `>` or the text's
-end. Sort by start. A file not UTF-8 is
-not WebVTT: the specification decodes it as UTF-8, a byte not UTF-8 a U+FFFD.
+end. Sort by start. A file not UTF-8 is not WebVTT: the specification decodes it as UTF-8, a
+byte not UTF-8 a U+FFFD.
 
 ## Converting, muxing and burning with ffmpeg
 
