@@ -3713,8 +3713,12 @@ tests with 6.8.3's converters.*
       `unescaped` is `drawn` (unreleased: 0.1.1 has neither). Tests: 14 failing first; 12
       mutations of the grammar, each caught. Measured: 15492 generated lines read as ffmpeg
       8.1.2's demuxer reads them, but 338 without a fraction (VLC's) and 154 past 2^31 ms
-      (ffmpeg's `int` wraps). Outcome report: 486 identical, `no-newline.srt` refused, `years.srt`
-      new, on 3.13 and 3.14. Left: the 199 texts, each a tag beside the text's own `{` or `\`
+      (ffmpeg's `int` wraps). Before, on those lines, 12876 read alike: 2377 text lines taken for
+      timing lines, 33 timing lines for text, 196 other times; after, 14990, the rest those two
+      and 10 of no length (ffprobe prints no duration; alike). Whole files, 6000: the same 280
+      differences before and after (Index lines). A blank run's failed match given back blank by
+      blank, 14 times the old cost -- possessive now, at or under it. Outcome report: 486
+      identical, `no-newline.srt` refused, `years.srt` new, on 3.13 and 3.14. Left: the 199 texts, each a tag beside the text's own `{` or `\`
       (ffmpeg's exact b/i/s/u blocks leave 41, each a font's -- the owner's, not taken); a cue's
       only line `2 ` (ffmpeg's two-case rule, rare); `Dialect.blank`; `Reading`'s two booleans,
       one value with the ASS reader (6.8.3, the model).*

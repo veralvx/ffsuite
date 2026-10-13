@@ -30,8 +30,9 @@ _BLANK: Final = re.compile(" *")
 _SSCANF_BLANKS: Final = " \t\v\f"  # C's isspace, no line end: sscanf's (srtdec.c)
 _MS_DIGITS: Final = 3  # a fraction of seconds, as SubRip writes one: milliseconds
 # sscanf's %d, ffmpeg's ``get_event_info`` reads each of a time's numbers by: blanks, a sign,
-# ASCII digits -- all of them (possessive: ``(?![,.])`` may not split a run)
-_NUMBER: Final = rf"[{_SSCANF_BLANKS}]*[-+]?[0-9]++"
+# ASCII digits -- each run whole (possessive: ``(?![,.])`` splits no digits, a failed match
+# gives back no blanks one by one)
+_NUMBER: Final = rf"[{_SSCANF_BLANKS}]*+[-+]?[0-9]++"
 # hours:minutes:seconds, then a fraction's mark and its number -- or no mark: the fraction
 # optional, as VLC 3 reads it (ffmpeg's needs one); a mark without its number, no time
 _TIME: Final = re.compile(rf"({_NUMBER}):({_NUMBER}):({_NUMBER})(?:[,.]({_NUMBER})|(?![,.]))")
