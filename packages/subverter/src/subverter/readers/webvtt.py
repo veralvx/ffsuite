@@ -18,6 +18,7 @@ from subverter._errors import refuse, shown
 from subverter.readers.cues import Dialect, Found, Timed
 from subverter.readers.cues import read as read_cues
 from subverter.readers.fields import exact, ms
+from subverter.readers.utf8 import file_text
 from subverter.transcript import Reading
 
 __all__ = ["read", "split_lines"]
@@ -89,14 +90,15 @@ def split_lines(text: str) -> list[str]:
     return _LINE_END.split(text)
 
 
-def read(lines: list[str], name: str) -> Reading:
-    """A WebVTT file's cues (``cues.read``); refused unless it opens with its signature.
+def read(data: bytes, name: str) -> Reading:
+    """A WebVTT file's cues (``cues.read``), its lines ``split_lines``'s; refused unsigned.
 
     "WebVTT parser algorithm": ``WEBVTT`` first -- a BOM before it decoded away, a second one
     not -- then nothing on its line, or a space or a tab before anything; else the file is
     not processed. Its line is then skipped whole, an arrow on it no timing line.
     """
-    first = lines[0] if lines else ""
+    lines = split_lines(file_text(data))
+    first = lines[0]  # one at least: a split's
     rest = first.removeprefix(_SIGNATURE)
     if rest == first or rest[:1] not in _AFTER:
         refuse(f"not a WebVTT file: {name} (its first line is not WEBVTT)")

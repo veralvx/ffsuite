@@ -5,6 +5,7 @@ from typing import Final
 
 from subverter._errors import refuse
 from subverter.readers import lrc, subrip, table, webvtt, whisper
+from subverter.readers.utf8 import file_text
 from subverter.transcript import Reading
 
 __all__ = ["FORMATS", "read"]
@@ -21,25 +22,16 @@ def read(fmt: str, data: bytes, name: str) -> Reading:
         refuse(f"unsupported subtitle format '.{fmt}' ({', '.join(FORMATS)})")
     match fmt:
         case "srt":
-            return subrip.read(subrip.split_lines(_text(data)), name)
+            return subrip.read(data, name)
         case "vtt":
-            return webvtt.read(webvtt.split_lines(_text(data)), name)
+            return webvtt.read(data, name)
         case "lrc":
-            return lrc.read(lrc.split_lines(_text(data)), name)
+            return lrc.read(data, name)
         case "csv" | "tsv":
             try:
-                rows, notes = table.rows(fmt, _text(data), name)
+                rows, notes = table.rows(fmt, file_text(data), name)
             except csv.Error as error:  # a field past csv's limit (128 KiB): no subtitle's text
                 refuse(f"unreadable .{fmt}: {name}: {error}")
             return Reading(f".{fmt}", has_words=False, cues=tuple(rows), notes=notes)
         case _:
             return whisper.read(data, name)
-
-
-def _text(data: bytes) -> str:
-    """The bytes as UTF-8, a BOM off; each byte no character takes kept as a surrogate.
-
-    The readers join a character split across their texts (``utf8.joined``), as whisper-cli's
-    ``-ml`` writes one, and refuse what still is not UTF-8 by its line.
-    """
-    return data.decode("utf-8", "surrogateescape").removeprefix("\ufeff")

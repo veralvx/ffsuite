@@ -14,6 +14,7 @@ from subverter._errors import shown
 from subverter.readers.cues import Dialect, Found, Timed
 from subverter.readers.cues import read as read_cues
 from subverter.readers.fields import DECIMAL, NUMBER, exact, is_decimal, ms
+from subverter.readers.utf8 import file_text
 from subverter.transcript import Reading
 
 __all__ = ["read", "split_lines"]
@@ -161,9 +162,9 @@ def split_lines(text: str) -> list[str]:
     return [line for part in ended for line in part.rstrip("\r").split("\r")] + last.split("\r")
 
 
-def read(lines: list[str], name: str) -> Reading:
-    """A SubRip file's cues (``cues.read``): no signature to it."""
-    return read_cues(lines, name, _DIALECT)
+def read(data: bytes, name: str) -> Reading:
+    """A SubRip file's cues (``cues.read``), its lines ``split_lines``'s: no signature to it."""
+    return read_cues(split_lines(file_text(data)), name, _DIALECT)
 
 
 # its texts hold ASS's escapes, as ffmpeg's subrip decoder passes them to libass, and no HTML

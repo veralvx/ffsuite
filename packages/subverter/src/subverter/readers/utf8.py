@@ -19,7 +19,7 @@ from typing import Literal, NamedTuple
 
 from subverter._errors import refuse
 
-__all__ = ["Errors", "Joined", "Nuls", "Source", "by_line", "joined", "nul_notes"]
+__all__ = ["Errors", "Joined", "Nuls", "Source", "by_line", "file_text", "joined", "nul_notes"]
 
 # how a file's strings give back their bytes: as UTF-8, or each surrogate U+DC80-DCFF its byte
 type Errors = Literal["strict", "surrogateescape"]
@@ -84,10 +84,19 @@ def joined(texts: Sequence[str], source: Source, where: Callable[[int], str]) ->
 def by_line(texts: Sequence[tuple[int, str]], name: str) -> Joined:
     """``joined`` on a text file's texts, each with its line (from 1): refused by ``line N``.
 
-    The file read as ``readers._text`` reads it: each byte no character takes a surrogate.
+    The file read as ``file_text`` reads it: each byte no character takes a surrogate.
     """
     source = Source(name, "surrogateescape")
     return joined([text for _, text in texts], source, lambda k: f"line {texts[k][0]}")
+
+
+def file_text(data: bytes) -> str:
+    """A text file's bytes as UTF-8, a BOM off; each byte no character takes kept as a surrogate.
+
+    Its reader joins a character split across its texts (``joined``), as whisper-cli's ``-ml``
+    writes one, and refuses what still is not UTF-8 by its line (``by_line``).
+    """
+    return data.decode("utf-8", "surrogateescape").removeprefix("\ufeff")
 
 
 def nul_notes(*nuls: Nuls) -> tuple[str, ...]:
