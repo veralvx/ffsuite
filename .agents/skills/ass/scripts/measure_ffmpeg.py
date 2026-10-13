@@ -145,7 +145,14 @@ MARKUP = (
     + dialogue("other", "0:00:02.00", "0:00:03.00", style="Other")
     + dialogue("{\\b1}b {\\i1}i {\\u1}u {\\s1}s", "0:00:03.00", "0:00:04.00")
     + dialogue("a\\hb\\nc\\Nd \\{x\\}", "0:00:04.00", "0:00:05.00")
+    + dialogue("e\\N\\Nf", "0:00:05.00", "0:00:06.00")
 )
+# a CP1252 script whose style's name is not ASCII: what -sub_charenc recodes of it
+CAFE_STYLE = STYLES.replace(
+    "Style: Default,Arial,16,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0",
+    "Style: Café,Arial,16,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,-1",
+)
+NAMED = INFO + CAFE_STYLE + EVENTS + dialogue("thé", style="Café")
 
 
 # a script each, and the times (s) to look at it: what libass alone draws of it (the `ass` filter,
@@ -382,6 +389,14 @@ def filtered(work: Path) -> None:
     written, _warnings = converted(work / "cp1252.srt", "-sub_charenc", "CP1252", "-i", str(src))
     recoded = drawn_at(work, *quoted, "subtitles", ":charenc=CP1252")
     print(f"CP1252 given -sub_charenc CP1252: {cue_texts(written)!r}; charenc=CP1252: {recoded}")
+    _ = src.write_bytes(NAMED.encode("cp1252"))
+    written, _warnings = converted(work / "cp1252.srt", "-sub_charenc", "CP1252", "-i", str(src))
+    _ = (work / "utf8.ass").write_text(NAMED, encoding="utf-8")
+    whole, _warnings = converted(work / "utf8.srt", "-i", str(work / "utf8.ass"))
+    print(
+        f"CP1252, its style Café, given -sub_charenc CP1252: {cue_texts(written)!r}; "
+        f"recoded whole first: {cue_texts(whole)!r}"
+    )
 
 
 def readers(work: Path) -> None:
@@ -394,13 +409,16 @@ def readers(work: Path) -> None:
         print(f"{name} at {at} s: ass {ass}; subtitles {subtitles}")
 
 
+# a cue's head as ffmpeg writes it: SubRip's index, then the timing line; WebVTT's timing line
+CUE_HEAD = re.compile(
+    r"^(?:[0-9]+\n)?[0-9:]+[.,][0-9]{3} --> [0-9:]+[.,][0-9]{3}[^\n]*\n", re.MULTILINE
+)
+
+
 def cue_texts(written: str) -> list[str]:
-    """A SubRip's or WebVTT's cue texts: what follows each timing line."""
-    return [
-        cue.partition(" --> ")[2].partition("\n")[2].rstrip("\n")  # an empty text too
-        for cue in written.split("\n\n")
-        if " --> " in cue
-    ]
+    """A SubRip's or WebVTT's cue texts: what follows each cue's head, to the next (``\\N\\N``'s
+    empty line kept; an empty text too); none of a failure's message."""
+    return [text.rstrip("\n") for text in CUE_HEAD.split(written)[1:]]
 
 
 def cues(work: Path, script: bytes) -> int:

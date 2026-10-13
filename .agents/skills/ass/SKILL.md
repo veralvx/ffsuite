@@ -65,7 +65,7 @@ copy with the `ass` filter, `--add-subs` gives the copy to ffmpeg.
 | No type; `v4.00++`, `[V4++ Styles]`                         | no track: the burn fails                                        | read                                                                                         | read; `v4.00++` as ASS                                              | the type by its extension; `v4.00++` refused   | refused                                            |
 | Fields in another order (`Format: Start, End, Style, Text`) | read by the `Format:` line                                      | no event read, but drawn: libass reads the header's line; converted, no cue                  | no event: nothing drawn                                             | not opened: `0:00:01.00` read as the layer     | burned; attached, no cue -- unnoted                |
 | A time's fraction (`0:00:01.5`; `0:00:01.500`)              | centiseconds, whatever its width: 1.05 s; 6 s                   | the same                                                                                     | the same                                                            | a decimal: 1.5 s; 1.5 s                        | as libass                                          |
-| A comma before it (`0:00:01,50`)                            | "Bad timestamp": not drawn, the fields after it shifted         | read: 1.5 s                                                                                  | not drawn (libass's reading)                                        | not opened: the comma splits the fields        | not burned; attached -- unnoted                    |
+| A comma before it (`0:00:01,50`)                            | "Bad timestamp": not drawn, the fields after it shifted         | read: 1.5 s                                                                                  | not read (a `.` wanted): not drawn                                  | not opened: the comma splits the fields        | not burned; attached -- unnoted                    |
 | End before start                                            | never drawn                                                     | drawn to the next start; the last, to the end (mpv: never, by source)                        | never drawn                                                         | kept                                           | not burned; attached, to the next start -- unnoted |
 | Line ends                                                   | LF, CRLF, CR                                                    | LF, CRLF; CR alone: no event read, drawn from the header; converted, no cue                  | LF, CRLF; CR alone in a file without LF                             | LF, CRLF; CR alone, one line                   | as libass; attached, CR alone no cue -- unnoted    |
 | A section of its own (`[Aegisub Project Garbage]`)          | its lines read as the section's before                          | the header's, kept                                                                           | the header's, libass's reading                                      | its own: project settings; another skipped     | as libass                                          |
@@ -144,15 +144,17 @@ ffmpeg -i video.mp4 -vf ass=in.ass -c:a copy out-burn.mp4                 # liba
 ffmpeg -i video.mp4 -vf subtitles=in.ass -c:a copy out-sub.mp4            # ffmpeg's reading, then libass
 ffmpeg -i video.mkv -i in.ass -map 0 -map 1 -c copy out.mkv               # the script kept whole
 ffmpeg -i video.mp4 -i in.ass -map 0 -map 1 -c copy -c:s mov_text out.mp4 # its text alone
-ffmpeg -i in.ass out.srt                                                  # b, i, u, s, font, colour
+ffmpeg -i in.ass out.srt                                                  # b, i, u, \s1, font, colour
 ffmpeg -i in.srt out.ass                                                  # PlayRes 384x288, one style
 ```
 
 A burn draws with the fonts the system has, or a folder's (`ass=in.ass:fontsdir=fonts`); a script's
-`[Fonts]` are used by both filters. A script not UTF-8 (CP1252, say): `-sub_charenc CP1252` before
-its `-i` recodes it for a conversion, `subtitles=in.ass:charenc=CP1252` for a burn; the `ass` filter
-has none. ffman burns an ASS with `--burn-subs` (plain mode alone: its own styling does not apply)
-and attaches one with `--add-subs` -- Matroska keeping it as ASS, MP4 and WebM converting it.
+`[Fonts]` are used by both filters. A script not UTF-8 (CP1252, say): recode it whole first,
+`iconv -f CP1252 -t UTF-8 in.ass > in-utf8.ass`; `-sub_charenc CP1252` before its `-i`
+(`subtitles=in.ass:charenc=CP1252` for a burn) recodes its events alone, so a style's name not ASCII
+then matches none; the `ass` filter has neither. ffman burns an ASS with `--burn-subs` (plain mode
+alone: its own styling does not apply) and attaches one with `--add-subs` -- Matroska keeping it as
+ASS, MP4 and WebM converting it.
 
 ## Example
 
