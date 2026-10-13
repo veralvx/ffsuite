@@ -3,6 +3,9 @@
 whether libass (through ffmpeg's `ass` filter) draws `\\{` and `\\}` as braces, what of a
 script after a NUL, whether it draws a UTF-16 one, how a CP1252 one, and one of no type.
 
+Then the skill checked from its own text -- its example's readings and the prose stating them,
+its time rule, its commands -- a mismatch failing the run.
+
 Usage: python3 measure_ffmpeg.py [FFMPEG [PYTHON]]  (default: ffmpeg on PATH; ffprobe beside it;
 PYTHON an interpreter that imports ffman, for its reading). Prints what it found;
 references/format.md's "ffmpeg" and "ffman" tables are this output, at ffmpeg n8.1.2.
@@ -11,14 +14,17 @@ references/format.md's "ffmpeg" and "ffman" tables are this output, at ffmpeg n8
 import hashlib
 import json
 import re
+import shlex
 import subprocess
 import sys
 import tempfile
+import textwrap
 from pathlib import Path
 
 FFMPEG = sys.argv[1] if len(sys.argv) > 1 else "ffmpeg"
 FFPROBE = str(Path(FFMPEG).with_name("ffprobe")) if "/" in FFMPEG else "ffprobe"
 PYTHON = sys.argv[2] if len(sys.argv) > 2 else None  # noqa: PLR2004 -- FFMPEG, then PYTHON
+SKILL = Path(__file__).resolve().parents[1] / "SKILL.md"
 
 INFO = "[Script Info]\nScriptType: v4.00+\nPlayResX: 384\nPlayResY: 288\n\n"
 STYLES = (
@@ -329,6 +335,9 @@ def main() -> None:
             )
 
         ffman(work)
+        print("\n## The skill, checked from its own text\n")
+        ok = skill(work)
+    sys.exit(0 if ok else 1)
 
 
 def cues(work: Path, script: bytes) -> int:
@@ -356,6 +365,97 @@ def ffman(work: Path) -> None:
         said = f" ({'; '.join(found['notes'])})" if found["notes"] else ""
         burned = drawn_at(work, copy, times, "ass")
         print(f"{name}{said}: burned {burned}; attached, {cues(work, copy)} cues")
+
+
+def fenced(text: str, lang: str) -> list[str]:
+    """The skill's code blocks in ``lang``, as written (a list item's indentation off)."""
+    found = re.finditer(rf"^( *)```{lang}\n(.*?)^\1```$", text, re.MULTILINE | re.DOTALL)
+    return [textwrap.dedent(m[2]) for m in found]
+
+
+# what the skill states of its example and commands (SKILL.md, "Example" and "Converting")
+EXAMPLE_TIMES = [(1000, 2500), (2000, 2250), (62050, 1950)]  # ms: start, length
+EXAMPLE_DRAWN = (0.5, 1.5, 3.0, 4.0, 4.5, 62.5), ".xxx.x"  # libass alone, at each time (s)
+EXAMPLE_SRT = [
+    '<font size="64"><i>Last stop</i>, the harbour',
+    "end of the line</font>",
+    '<font size="48" color="#ffff00"><b>{\\an8}PLATFORM \\{2\\}</b></font>',
+    '<font size="64">Tea & toast, 2,50 €</font>',
+]
+STREAMS = {  # each command's output: its streams (the inputs' audio kept)
+    "out-burn.mp4": ["h264,video", "aac,audio"],  # the build's default encoder: libx264
+    "out-sub.mp4": ["h264,video", "aac,audio"],
+    "out.mkv": ["mpeg4,video", "aac,audio", "ass,subtitle"],
+    "out.mp4": ["mpeg4,video", "aac,audio", "mov_text,subtitle"],
+    "out.srt": ["subrip,subtitle"],
+    "out.ass": ["ass,subtitle"],
+}
+
+
+def checked(what: str, found: object, stated: object) -> bool:
+    """One of the skill's claims against its measurement, printed either way."""
+    print(f"{'ok' if found == stated else 'MISMATCH'}: {what}: {found!r}")
+    if found != stated:
+        print(f"    stated: {stated!r}")
+    return found == stated
+
+
+def skill(work: Path) -> bool:
+    """The skill's example read and its prose on it, its time rule, its commands run."""
+    text = SKILL.read_text(encoding="utf-8")
+    example = fenced(text, "ass")[0]
+    _ = (work / "in.ass").write_text(example, encoding="utf-8")
+    _fmt, found = packets(work / "in.ass")
+    times = [(start * 10, length * 10) for start, length, _data in found]
+    results = [checked("the example, ffmpeg's events", times, EXAMPLE_TIMES)]
+    at, stated = EXAMPLE_DRAWN
+    drawn = drawn_at(work, example.encode(), at, "ass")
+    results.append(checked(f"    drawn by libass alone at {at} s", drawn, stated))
+    written, _warnings = converted(work / "example.srt", "-i", str(work / "in.ass"))
+    lines = [line for line in written.splitlines() if line and " --> " not in line]
+    results.append(checked("    as SubRip", [ln for ln in lines if not ln.isdigit()], EXAMPLE_SRT))
+
+    space: dict[str, object] = {}
+    exec(fenced(text, "python")[0], space)  # noqa: S102 -- the skill's own rule, run as written
+    ass_time = space["ass_time"]
+    if not callable(ass_time):
+        raise TypeError(ass_time)
+    edges = [0, 4, 5, 994, 995, 999, 1000, 59995, 3599995, 3600000, 35999994, 359999999]
+    every = sorted({*edges, *range(0, 7200000, 997)})
+    events = "".join(
+        f"Dialogue: 0,{ass_time(t)},{ass_time(t + 10)},Default,,0,0,0,,t\n" for t in every
+    )
+    _ = (work / "rule.ass").write_text(HEAD + events, encoding="utf-8")
+    read = sorted(start for start, _length, _data in packets(work / "rule.ass")[1])
+    what = f"the time rule: {len(every)} times to 2 h and the edges to 100 h, as ffmpeg reads them"
+    results.append(checked(what, found=read == sorted((t + 5) // 10 for t in every), stated=True))
+
+    for video in ("video.mp4", "video.mkv"):
+        _ = run(FFMPEG, "-v", "error", "-y", "-f", "lavfi", "-i", "color=black:s=64x64:d=70",
+                "-f", "lavfi", "-i", "sine=d=70", "-c:v", "mpeg4", "-c:a", "aac",
+                str(work / video))  # fmt: skip
+    for line in fenced(text, "sh")[0].splitlines():
+        args = shlex.split(line, comments=True)
+        if args[-1] == "out.ass":  # its input, the SubRip the line before wrote
+            _ = (work / "in.srt").write_bytes((work / "out.srt").read_bytes())
+        r = subprocess.run([FFMPEG, "-v", "error", "-y", *args[1:]], cwd=work,
+                           capture_output=True, text=True, check=False)  # fmt: skip
+        probe = run(FFPROBE, "-v", "error", "-show_entries", "stream=codec_name,codec_type",
+                    "-of", "csv=p=0", str(work / args[-1]))  # fmt: skip
+        found_streams = probe.stdout.split() if r.returncode == 0 else r.stderr.strip()
+        results.append(checked(" ".join(args), found_streams, STREAMS[args[-1]]))
+    results.append(checked("missing from the prose", missing(text), []))
+    return all(results)
+
+
+def missing(text: str) -> list[str]:
+    """What the skill's prose must say of its example, from the measured values: those missing."""
+    prose = " ".join(text.split())
+    said = [f"{a / 1000:g} s for {d / 1000:g} s" for a, d in EXAMPLE_TIMES]
+    said += [f"`{line}`" for line in (EXAMPLE_SRT[0], EXAMPLE_SRT[1], EXAMPLE_SRT[2])]
+    said.append(" ".join(f"`{EXAMPLE_SRT[3]}`".split()))
+    whole = r"(?<![\w.]){}(?![\w]|\.\d)"  # no digit nor word glued to it
+    return [x for x in said if not re.search(whole.format(re.escape(x)), prose)]
 
 
 if __name__ == "__main__":

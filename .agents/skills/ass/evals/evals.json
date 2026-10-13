@@ -1,0 +1,23 @@
+{
+  "skill_name": "ass",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "My .ass file burns fine with ffmpeg -vf subtitles=talk.ass, but with -vf ass=talk.ass one line never shows up:\n\nDialogue: 0,0:00:12,40,0:00:15.00,Default,,0,0,0,,Watch the door\n\nEvery other line is fine. Why, and how do I fix it?",
+      "expected_output": "The start time has a comma before its fraction. libass (the ass filter reads the file itself) splits an event's fields at commas and reads a time as h:mm:ss.cc with a '.', so '0:00:12' and '40' become separate fields: 'Bad timestamp', every later field shifted, the event never drawn. The subtitles filter goes through ffmpeg's ass demuxer, which takes any one character before the fraction, so it reads 12.40 s and libass draws it. Fix: write 0:00:12.40. Run (ffmpeg 8.1.2): as given, at 13 s the ass filter draws nothing, the subtitles filter the line; fixed, both draw it from 12.4 s.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "I tried ffmpeg -i song.ass song.srt and got 'Output file is empty, nothing was encoded', though mpv shows the karaoke fine. The [Events] section is:\n\nFormat: Start, End, Style, Name, Text\nDialogue: 0:00:03.00,0:00:05.00,Default,Kim,la la la\n\nWhat's wrong?",
+      "expected_output": "ffmpeg's ass demuxer reads a Dialogue line only in the standard field order -- 'Dialogue: <layer>,<start>,<end>,...' -- whatever the Format line says, so it reads no event here: each line goes to the header, and a conversion has nothing to write. mpv shows them because libass reads the Format line and draws the Dialogue lines left in the header. Aegisub, which reads fields by position, would not open it either. Fix: rewrite the events with the standard Format line, 'Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text', e.g. 'Dialogue: 0,0:00:03.00,0:00:05.00,Default,Kim,0,0,0,,la la la'. Run (ffmpeg 8.1.2): as given, no cue; fixed, one cue, 3 s to 5 s.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "In Aegisub my line 'Dialogue: 0,0:00:07.3,0:00:09.00,Default,,0,0,0,,Over here' starts at 7.3 seconds, but mpv shows it at about 7.03. Which one is right?",
+      "expected_output": "libass (mpv's renderer) and ffmpeg read the digits after the '.' as a count of centiseconds whatever their number, so '.3' is 3 cs: 7.03 s; Aegisub reads them as a decimal fraction, 7.3 s. ASS times have exactly two fraction digits, so neither is wrong about '.30': write 0:00:07.30 and every reader agrees on 7.3 s. Run (ffmpeg 8.1.2): as given, a start of 703 cs; with '.30', 730 cs.",
+      "files": []
+    }
+  ]
+}

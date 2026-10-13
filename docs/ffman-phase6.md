@@ -3744,9 +3744,35 @@ tests with 6.8.3's converters.*
       identical, `bare.srt` and `dropped.srt` new, on 3.13 and 3.14. Left: an untimed cue
       dropped unnoted (the owner's, Transcript values); ffmpeg's 4095-byte line split (its
       buffer's; ffman reads the line whole).*
-- [ ] `ass`: the same, SSA (v4) through it.
+- [x] `ass`: the same, SSA (v4) through it.
       Found by the SubRip and WebVTT review: ffman's UTF-16 reading of an ASS (`subs/ingest.py`,
       `_utf8`) and subverter's of a SubRip (`subrip._text`, `utf8.UTF16_BOMS`), one.
+      *Done: `.agents/skills/ass/` -- `SKILL.md` (the format; its readers -- libass alone,
+      ffmpeg's demuxer then libass (mpv, the `subtitles` filter, every conversion), VLC 3,
+      Aegisub, ffman -- side by side, 13 rows; what ffmpeg makes of it in SubRip and WebVTT; the
+      writers; the rules for a script all of them read alike, the time rule as code; reading
+      one; converting, muxing and burning; an example; sources); `references/format.md` gains
+      libass alone against ffmpeg's reading then libass (the `ass` and `subtitles` filters, 13
+      scripts drawn), the demuxer's field order and separator, VLC 3's and Aegisub's readings
+      (by source) and ffman's (measured); `scripts/measure_ffmpeg.py` those cases, ffman's with a
+      PYTHON, and the skill checked from its own text -- the example's events, its drawing by
+      libass alone, its SubRip, the prose stating them, the time rule over 7233 times to 100 h as
+      ffmpeg reads them, the six commands' streams -- exiting 1 on a difference (five dosed
+      mutations, each caught alone; one underdosed first, `.05` to `.5` reading alike, then
+      `.50`).
+      libass 0.17.4, nixpkgs' pin, built from its tag: `measure.py`'s and the drawings alike to
+      0.17.1's. VLC 3.0.24, mpv 0.41.0 and Aegisub 3.4.2 by source. `quick_validate.py`: valid
+      (description 983 of 1024). Three evals (`evals/evals.json`, new instances, measured)
+      answered cold from the skill alone: a comma before a fraction drawn by the `subtitles`
+      filter, not the `ass` one; fields in another order, no cue converted; one fraction digit
+      7.03 s in mpv, 7.3 s in Aegisub -- each right; the third read `.500` as 5 s, the row's
+      example ambiguous, now `0:00:01.500`. The UTF-16 reading one: `utf8.utf16`, SubRip's and
+      ffman's ASS copy's, each counting its lines as its reader splits them (`b98da2a`).*
+- [ ] Found by the `ass` box: ffman passes an ASS through unread, so where libass alone (its
+      burn) and ffmpeg's reading (`--add-subs`) differ, the two differ, unnoted -- measured:
+      fields in another order or CR line ends alone, burned, attached with no cue; a comma
+      before a fraction or an event ending before it starts, attached, not burned. To decide
+      with 6.8.3's ASS reader: refuse, write the copy as both read it, or note.
 - [ ] `lrc`: the same.
       Found by the SubRip and WebVTT review: an LRC in UTF-16, which ffmpeg's reader recodes as a
       SubRip's; its typed `\t` and `\n` spaces and every `<...>` a tag (bash's rules, for jq's
