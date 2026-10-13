@@ -153,9 +153,9 @@ def unstamped(text: str) -> str:
 
     As Jellyfin 12.2 (LrcParser 2025.623.0) shows it, reading them as word times -- Navidrome
     0.64.2 alike, but for the text before a line's first, which it drops; ffmpeg 8.1.2 shows them
-    as text. Their grammar the line stamps' (``LRC_TIME``).
-    Every other character as written -- a tag, a brace, a backslash, a reference -- as ffmpeg's,
-    Jellyfin's and, but for the HTML it takes off, Navidrome's.
+    as text. Their grammar the line stamps' (``LRC_TIME``). Every other character as written -- a
+    tag, a brace, a backslash, a reference -- as ffmpeg's, Jellyfin's and, but for the HTML it
+    takes off, Navidrome's.
     """
     return _WORD_STAMP.sub("", text)
 

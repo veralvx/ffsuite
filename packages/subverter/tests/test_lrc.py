@@ -145,7 +145,7 @@ def test_an_lrc_in_utf16_by_its_bom_reads_as_in_utf8(codec: str) -> None:
 @pytest.mark.parametrize(
     ("data", "line"),
     [
-        pytest.param(  # a lone surrogate
+        pytest.param(
             ("\ufeff" + _SONG.replace("one", "o\ud800ne")).encode("utf-16-le", "surrogatepass"),
             3,
             id="a lone surrogate",
