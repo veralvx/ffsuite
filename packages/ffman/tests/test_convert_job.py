@@ -28,6 +28,7 @@ from ffman.subs.layout import CROPDETECT
 from tests.support.fonts import font
 from tests.support.measures import frames
 from tests.support.media import tool
+from tests.support.terminal import Terminal
 from tests.support.transcripts import HOSTILE
 
 pytestmark = pytest.mark.ffmpeg
@@ -183,6 +184,17 @@ def test_a_failing_optimiser_ends_the_job(
     assert main(["convert", "-i", str(png), "-w", "32", "-o", str(tmp_path / "b.png")]) == 1
     assert capsys.readouterr().err == "ffman: error: oxipng failed (its message is above)\n"
     assert sorted(p.name for p in tmp_path.iterdir()) == ["a.png", "bin"]  # no output, no partial
+
+
+def test_the_written_path_to_a_terminal_escapes_its_control_characters(
+    clip: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = clip.with_name("o\x1b[31m.mkv")
+    terminal = Terminal()
+    monkeypatch.setattr(sys, "stdout", terminal)
+    assert main(["convert", "-i", str(clip), "-w", "160", "-o", str(target)]) == 0
+    assert terminal.getvalue() == f"{clip.parent}/o\\x1b[31m.mkv\n"
+    assert target.exists()
 
 
 def test_a_dry_run_prints_the_optimiser_too(clip: Path, capsys: pytest.CaptureFixture[str]) -> None:

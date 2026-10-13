@@ -3643,10 +3643,21 @@ tests with 6.8.3's converters.*
       found a box: standard output, as written. Its review: a refusal's line written by `note`
       too, one writer escaping (`cli.main` had its own two); the decision's and `AGENTS.md`'s
       cells kept within their tables' widths (172 lines realigned, back to 2).*
-- [ ] Found by the control-character box: standard output writes its control characters as
+- [x] Found by the control-character box: standard output writes its control characters as
       they are -- the output's path, `--dry-run`'s commands (`shlex.join` quotes, not escapes),
       `meta -o -`'s file. Data a script reads: `ls` escapes only to a terminal (GNU coreutils 9.4,
-      measured: `'x'$'\033''[31m.vtt'` there, the bytes in a pipe). To decide: escaped to a terminal alone; or as now.
+      measured: `'x'$'\033''[31m.vtt'` there, the bytes in a pipe). To decide: escaped to a
+      terminal alone; or as now.
+      *Done (escaped to a terminal alone -- the owner's standing rule: better by proof, so not
+      asked): the output's path and `--dry-run`'s commands written by `put` (`media/run.py`):
+      to a terminal, each control character as `note` writes one; to a pipe or a file, exactly,
+      as `ls` -- the outcome report, its stdout a pipe, unchanged. `meta -o -`'s file stays as
+      it is: content, as `cat` writes it, its line breaks text. Weighed: `$'...'` quoting, which
+      would paste (POSIX.1-2024, 2.2.4: its octal escapes bytes), but dash 0.5.12 -- Ubuntu's
+      `sh` -- reads it as text (measured: `$a\033b`), so a command shown escaped is shown, not
+      pasted. Tests: 3 failing first (the commands', the convert path's, `meta`'s path), 1
+      guard (the pipe's); five mutations, each caught. Suite 2296, 100%; matrix 770; outcome
+      report: 482 identical, on 3.13 and 3.14.*
 - [ ] Found by the note-quote box: ffmeta's notes quote names and values whole -- a tag's
       name, a CATALOG or ISRC value, a FILE's name (eleven notes, not by `shown`) -- unbounded,
       as the transcripts' were; their control characters now escaped on stderr. To decide: by

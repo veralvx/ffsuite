@@ -1,4 +1,5 @@
 import contextlib
+import io
 import os
 import signal
 import subprocess
@@ -19,6 +20,7 @@ from ffman.media.run import (
     install_signal_handlers,
 )
 from tests.support.processes import marked
+from tests.support.terminal import Terminal
 
 
 def test_ffmpeg_args_below_the_cap_unchanged() -> None:
@@ -124,6 +126,20 @@ def test_dry_run_prints_what_writes_and_runs_what_reads(
         assert runner.capture(["echo", "read"]).stdout == "read\n"
     assert not made.exists()
     assert capsys.readouterr().out == f"touch {made}\n"
+
+
+@pytest.mark.parametrize(("terminal", "printed"), [(True, "\\x1b"), (False, "\x1b")])
+def test_a_dry_runs_command_to_a_terminal_escapes_its_control_characters(
+    monkeypatch: pytest.MonkeyPatch,
+    terminal: bool,
+    printed: str,
+) -> None:
+    """To a terminal, as ``note`` writes them; to a pipe, the exact command a script reads."""
+    stdout = Terminal() if terminal else io.StringIO()
+    monkeypatch.setattr(sys, "stdout", stdout)
+    with Runner(dry_run=True, cores=1) as runner:
+        assert runner.run(["touch", "a\x1b[31m.mkv"]) == 0
+    assert stdout.getvalue() == f"touch 'a{printed}[31m.mkv'\n"
 
 
 def test_ffmpeg_command_and_failure(

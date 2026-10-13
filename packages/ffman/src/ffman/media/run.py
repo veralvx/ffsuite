@@ -46,6 +46,16 @@ def note(message: str) -> None:
     _ = sys.stderr.write(f"{PROG}: {escaped(message)}\n")
 
 
+def put(line: str) -> None:
+    """A line on standard output: the path written, a command ``--dry-run`` shows.
+
+    To a terminal, each control character escaped, as ``note`` writes one; to a pipe or a file,
+    as it is -- the exact name or command a script reads (GNU ``ls`` alike: measured, coreutils
+    9.4 escapes a name to a terminal alone).
+    """
+    _ = sys.stdout.write(f"{escaped(line) if sys.stdout.isatty() else line}\n")
+
+
 class Interrupted(BaseException):
     """A signal arrived; ffman exits ``128 + signum`` once everything is cleaned up.
 
@@ -168,7 +178,7 @@ class Runner:
     def run(self, argv: Sequence[str]) -> int:
         """Run a tool that writes; its output goes to the terminal. Returns its status."""
         if self.dry_run:
-            _ = sys.stdout.write(f"{shlex.join(argv)}\n")
+            put(shlex.join(argv))
             return 0
         return _child(argv, capture=False).returncode
 

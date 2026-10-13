@@ -14,7 +14,7 @@ from ffmeta.model import Metadata, Tag, folded
 from ffman.errors import refuse
 from ffman.media.paths import ext_of, file_url, partial_output, read_file
 from ffman.media.probe import read as probe
-from ffman.media.run import Runner, note
+from ffman.media.run import Runner, note, put
 
 # ffmpeg's ffmetadata export: +bitexact, or ffmpeg adds its own encoder (mux.c) to the tags
 _EXPORT = ("-fflags", "+bitexact", "-f", "ffmetadata", "-")
@@ -56,7 +56,7 @@ def write_output(
         return
     with partial_output(target) as partial:
         _ = partial.write_text(text, encoding="utf-8")
-    _ = sys.stdout.write(f"{target}\n")
+    put(str(target))
 
 
 def print_output(text: str, notes: Iterable[str], runner: Runner) -> None:

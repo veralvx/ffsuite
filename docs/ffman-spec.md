@@ -66,7 +66,8 @@ all):
 - **Global options on every command:** `-h/--help`, `-y/--overwrite`,
   `--dry-run` (New). `--dry-run` prints each command that
   writes, shell-quoted, one per line, and runs none of them; the read-only
-  analyses its commands depend on still run; nothing is written.
+  analyses its commands depend on still run; nothing is written. To a
+  terminal, a command's control characters are escaped, as on stderr (New).
   `-v/--verbose` waits for stage B and a meaning: this spec gave it none, and
   stage A had accepted it and done nothing with it (vulture found the field
   never read) -- an option that does nothing is not offered.
@@ -108,6 +109,8 @@ acts at once. A signal exits silently (bash printed nothing).
   implicitly): `the output is the input: use --in-place to replace it: X`.
   `--in-place` writes through the input's real path, so a symlinked input's
   target is replaced, not the link (A).
+- The output's path, once written, is printed on stdout; to a terminal, each control
+  character escaped, as on stderr -- to a pipe or a file, exactly (New).
 
 ### 3.2 Picture (A)
 

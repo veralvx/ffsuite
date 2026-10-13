@@ -2,7 +2,6 @@
 
 import os
 import shutil
-import sys
 import tempfile
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -11,7 +10,7 @@ from pathlib import Path
 from ffman.errors import refuse
 from ffman.media.paths import ext_of, partial_output
 from ffman.media.probe import Audio, Media, Video, tag_names
-from ffman.media.run import Runner, missing, note
+from ffman.media.run import Runner, missing, note, put
 from ffman.plan.encode import (
     FDK_AAC,
     container_flags,
@@ -44,7 +43,7 @@ def write(
         return
     with partial_output(target) as partial:
         _produce(runner, args, str(partial), ext, finish)
-    _ = sys.stdout.write(f"{target}\n")
+    put(str(target))
 
 
 def _produce(

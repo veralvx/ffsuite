@@ -8,6 +8,7 @@ import pytest
 
 from ffman.cli import main
 from ffman.errors import shown
+from tests.support.terminal import Terminal
 
 SHEET = 'REM GENRE Ska\nTITLE "Old"\nFILE "album.flac" WAVE\n  TRACK 01 AUDIO\n    TITLE "One"\n    INDEX 01 00:00:00\n'
 
@@ -280,3 +281,14 @@ def test_stdout_is_utf8_whatever_the_locale(
     )  # a non-UTF-8 locale's
     assert main(["meta", "-i", str(sheet), "-o", "-"]) == 0
     assert raw.getvalue() == ";FFMETADATA1\ntitle=日本の歌\n".encode()  # not an encoding error
+
+
+def test_a_printed_path_to_a_terminal_escapes_its_control_characters(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    out = tmp_path / "n\x1b[31m.txt"
+    terminal = Terminal()
+    monkeypatch.setattr(sys, "stdout", terminal)
+    assert main(["meta", "-o", str(out), "-p", "vorbiscomment", "--set", "title=x"]) == 0
+    assert terminal.getvalue() == f"{tmp_path}/n\\x1b[31m.txt\n"
+    assert out.read_text() == "TITLE=x\n"  # the file its own name
