@@ -3816,11 +3816,33 @@ tests with 6.8.3's converters.*
       for every reader holds no `{` (`e92e17f`). The owner's review: ingest names the markup
       `markup`; 11 planted mutations of the box's code, each caught by its tests (`54ad39b`).
       Found: the next box.*
-- [ ] Found by the `lrc` box: an LRC line ffman drops is unnoted -- one with blanks before its
+- [x] Found by the `lrc` box: an LRC line ffman drops is unnoted -- one with blanks before its
       stamp (` [00:02.00]two`), which Navidrome and Jellyfin read and ffmpeg 8.1.2 drops only
       because `read_ts` skips the blanks but hands `sscanf` the line from its start; one of hours
       (`[1:02:03.00]`), which Navidrome reads; a sign, a comma before the fraction. To decide: read
       the first (and the second?), note the rest; or as now.
+      *Done, better by proof (the owner's standing rule): blanks (a space or a tab, ffmpeg's)
+      before a stamp read, as Navidrome and Jellyfin read them; a minus a time before 0, as
+      ffmpeg's `lrcenc` writes it and its `lrcdec` reads it (measured: `-itsoffset -2` writes
+      `[-00:01.00]`); every other line but a tag or an empty one dropped -- each kind noted,
+      counted, the first named (`be92d5b`; "LRC lines"). Hours not read: no writer found writes
+      them (ffmpeg's `lrcenc`, whisper.cpp's `-olrc`, LrcParser's encoder count minutes past 59),
+      and the readers disagree -- `[1:02:03.00]` 62 s to ffmpeg, 3723 s to Navidrome, no line to
+      Jellyfin; `[a:b:c]` m:s, h:m:s, or ModernLrc 2.0's mm:ss:ff. A plus, a comma, a colon
+      fraction: ffmpeg's text garbled or its fraction lost -- dropped. Kept: `[offset:]` first on
+      its line (the LRC offset row); a CP1252 byte in a line opened by blanks now refused by its
+      line, as in any line read. The skill's ffman column, its reading prose and rule 4
+      re-measured (`c2b5170`). Tests: 5 failing first, then 1 (a minus of 0); 19 planted
+      mutations, each caught (two survivors first, pinned: the blank set, the named line
+      trimmed); suite 2412, coverage 100%; the matrix 770; the outcome report on 3.13 and 3.14,
+      `burn/hostile/lines.lrc` new, the rest identical. Reviewed by an independent reviewer, two
+      rounds, every claim against the sources and binaries: a minus of 0 no longer noted;
+      Navidrome reads the colon form as h:m:s; the README's empty line; a test comment; a
+      docstring. Found: the next box.*
+- [ ] Found by the LRC lines box: a refusal for no timed text (`subs/ingest.py`) drops the
+      reading's notes -- an LRC of hours alone is refused `no timed text found in: x.lrc`, without
+      why; every format alike (a WebVTT whose every cue is dropped). To decide: the notes printed
+      before the refusal, or named in it; or as now.
 - [ ] `whisper-transcripts`: the same -- whisper-cli's and WhisperX's JSON, CSV, TSV and
       plain text.
       Found by the SubRip and WebVTT review: CSV's, TSV's and JSON's typed `\t` and `\n` spaces
