@@ -259,9 +259,10 @@ def test_drawn_is_bounded_whatever_its_braces_and_lts(text: str, as_drawn: str) 
 
 @pytest.mark.parametrize(
     ("text", "shown"),
-    [  # Enhanced LRC's word stamps off, as Navidrome 0.64.2 and Jellyfin 12.2 read them (by source)
+    [  # Enhanced LRC's word stamps off, as Jellyfin 12.2's LrcParser reads them (by source);
+        # Navidrome 0.64.2 alike, but for the text before a line's first stamp, which it drops
         ("<00:12.00>Enhanced <00:12.40>word <00:12.90>times", "Enhanced word times"),
-        ("wo<00:01.00>rd", "word"),  # a stamp inside a word: no space for it
+        ("wo<00:01.00>rd", "word"),  # a stamp inside a word: no space for it (Navidrome: rd)
         ("<00:01>a <00:01.5>b <61:00.000>c <00:01.00>", "a b c "),  # the line stamps' grammar
         # every other character as written: a stamp of hours, unclosed or spaced; a tag
         ("<1:02:03.00>a <00:01.00 b < 00:01.00>c", "<1:02:03.00>a <00:01.00 b < 00:01.00>c"),

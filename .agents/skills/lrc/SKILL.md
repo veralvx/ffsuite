@@ -46,27 +46,27 @@ libass draws them as written; **mpv** reads it the same way (`demux/demux_lavf.c
 `.elrc` through LrcParser (`TimeTagUtils`, `LrcStartTimeUtils`). **ffman** reads it with subverter
 (`readers/lrc.py`) and burns its own ASS.
 
-| Where                                                                      | ffmpeg, mpv                                                                                    | Navidrome                                                                           | Jellyfin                                                       | ffman                                     |
-| -------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- | -------------------------------------------------------------- | ----------------------------------------- |
-| Recognised                                                                 | a `[` first, after a UTF-8 BOM and empty lines (a stamp or a known tag; mpv wants one of them) | a `.lrc` beside the track; synced when a line opens with a stamp                    | `.lrc`, `.elrc`                                                | `.lrc`                                    |
-| A UTF-8 BOM; UTF-16 by its BOM                                             | the BOM kept in the first line, which is lost; UTF-16 no LRC                                   | skipped; recoded                                                                    | skipped; recoded                                               | skipped; recoded                          |
-| Not UTF-8 (CP1252)                                                         | its bytes; the line dropped when decoded, but with `-sub_charenc`                              | each bad byte U+FFFD                                                                | replaced                                                       | refused by its line                       |
-| Line ends                                                                  | LF, CRLF; CR alone: one line, each CR dropped                                                  | LF, CRLF; CR alone: one line                                                        | LF, CRLF, CR                                                   | LF, CRLF, CR                              |
-| A stamp's fraction (`[00:01.5]`; `[00:01]`; `[00:01.234]`)                 | a decimal, any width: 1.5 s; 1 s; 1.234 s                                                      | one to three digits, a decimal: 1.5 s; 1 s; 1.234 s                                 | two or three digits alone: no line; no line; 1.234 s           | any width, a decimal: 1.5 s; 1 s; 1.234 s |
-| Minutes past 99 (`[100:00.00]`)                                            | read                                                                                           | not a stamp: the line joined to the one before                                      | read                                                           | read                                      |
-| Hours (`[1:02:03.00]`); seconds 60+ (`[00:60.50]`); a sign (`[-00:01.00]`) | 62 s, the hours lost; the line dropped; -1 s                                                   | 3723 s; 60.5 s; no stamp                                                            | no line; 60.5 s; no line                                       | no line; 60.5 s; no line                  |
-| Several stamps (`[00:01.00][00:05.00]chorus`); a blank between them        | a line each; after a blank, the stamp dropped                                                  | a line each; blanks read                                                            | a line each; blanks read                                       | a line each; blanks read                  |
-| A stamp after the text (`[00:01.00]a [00:05.00]b`)                         | text                                                                                           | text                                                                                | another start, taken off the text                              | text                                      |
-| Blanks before a line's stamp                                               | the line dropped (`sscanf` given the blanks); its first line: no LRC                           | read                                                                                | read                                                           | the line dropped                          |
-| A line without a stamp, after a lyric line                                 | dropped                                                                                        | joined to the line before, a line break between                                     | dropped                                                        | dropped                                   |
-| Lines out of order                                                         | sorted                                                                                         | sorted only when a line held several stamps                                         | sorted                                                         | sorted                                    |
-| An empty stamped line (`[00:08.00]`)                                       | the line before ends there; an empty event                                                     | the line before ends there; an empty line                                           | the line before ends there; an empty line                      | the line before ends there                |
-| The last line's end                                                        | none: converted, a cue of no length; burned, never drawn; mpv, to the end                      | none: shown on                                                                      | none: shown on                                                 | 3 s on                                    |
-| `[offset:+500]`                                                            | the lines after it, 0.5 ms sooner (µs)                                                         | passed to the client, ms, `+` sooner                                                | ignored                                                        | every line 500 ms sooner, noted           |
-| ID tags (`[ti:]`, `[ar:]`...)                                              | metadata, any lower-case key                                                                   | `ti`, `ar`, `lang` read; any other skipped                                          | dropped                                                        | dropped                                   |
-| Word stamps (`<00:12.40>word`)                                             | text, drawn                                                                                    | word times, taken off the text                                                      | word times, taken off the text -- on a line of one stamp alone | taken off the text                        |
-| Tags, braces, backslashes (`<i>`, `{\an8}`, `a\nb`, `&amp;`)               | as written                                                                                     | HTML: UGCPolicy's elements kept (`<i>`), others off (`<v Bob>`); references decoded | as written                                                     | as written                                |
-| Blanks round the text                                                      | the leading ones off                                                                           | trimmed                                                                             | trimmed                                                        | trimmed, runs squeezed                    |
+| Where                                                                      | ffmpeg, mpv                                                                                                    | Navidrome                                                                           | Jellyfin                                                       | ffman                                     |
+| -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- | -------------------------------------------------------------- | ----------------------------------------- |
+| Recognised                                                                 | a `[` first, after a UTF-8 BOM and empty lines (mpv: a stamp with a fraction, `offset:` or a tag ffmpeg names) | a `.lrc` beside the track; synced when a line opens with a stamp                    | `.lrc`, `.elrc`                                                | `.lrc`                                    |
+| A UTF-8 BOM; UTF-16 by its BOM                                             | the BOM kept in the first line, which is lost; UTF-16 no LRC                                                   | skipped; recoded                                                                    | skipped; recoded                                               | skipped; recoded                          |
+| Not UTF-8 (CP1252)                                                         | its bytes; the line dropped when decoded, but with `-sub_charenc`                                              | each bad byte U+FFFD                                                                | replaced                                                       | refused by its line                       |
+| Line ends                                                                  | LF, CRLF; CR alone: one line, each CR dropped                                                                  | LF, CRLF; CR alone: one line                                                        | LF, CRLF, CR                                                   | LF, CRLF, CR                              |
+| A stamp's fraction (`[00:01.5]`; `[00:01]`; `[00:01.234]`)                 | a decimal, any width: 1.5 s; 1 s; 1.234 s                                                                      | one to three digits, a decimal: 1.5 s; 1 s; 1.234 s                                 | two or three digits alone: no line; no line; 1.234 s           | any width, a decimal: 1.5 s; 1 s; 1.234 s |
+| Minutes past 99 (`[100:00.00]`)                                            | read                                                                                                           | not a stamp: the line joined to the one before                                      | read                                                           | read                                      |
+| Hours (`[1:02:03.00]`); seconds 60+ (`[00:60.50]`); a sign (`[-00:01.00]`) | 62 s, the hours lost; the line dropped; -1 s                                                                   | 3723 s; 60.5 s; no stamp                                                            | no line; 60.5 s; no line                                       | no line; 60.5 s; no line                  |
+| Several stamps (`[00:01.00][00:05.00]chorus`); a blank between them        | a line each; after a blank, the stamp dropped                                                                  | a line each; blanks read                                                            | a line each; blanks read                                       | a line each; blanks read                  |
+| A stamp after the text (`[00:01.00]a [00:05.00]b`)                         | text                                                                                                           | text                                                                                | another start, taken off the text                              | text                                      |
+| Blanks before a line's stamp                                               | the line dropped (`sscanf` given the blanks); its first line: no LRC                                           | read                                                                                | read                                                           | the line dropped                          |
+| A line without a stamp, after a lyric line                                 | dropped                                                                                                        | joined to the line before, a line break between                                     | dropped                                                        | dropped                                   |
+| Lines out of order                                                         | sorted                                                                                                         | sorted only when a line held several stamps                                         | sorted                                                         | sorted                                    |
+| An empty stamped line (`[00:08.00]`)                                       | the line before ends there; an empty event                                                                     | the line before ends there; an empty line                                           | the line before ends there; an empty line                      | the line before ends there                |
+| The last line's end                                                        | none: converted, a cue of no length; burned, never drawn; mpv, to the end                                      | none: shown on                                                                      | none: shown on                                                 | 3 s on                                    |
+| `[offset:+500]`                                                            | the lines after it, 0.5 ms sooner (µs)                                                                         | passed to the client, ms, `+` sooner                                                | ignored                                                        | every line 500 ms sooner, noted           |
+| ID tags (`[ti:]`, `[ar:]`...)                                              | metadata, any lower-case key                                                                                   | `ti`, `ar`, `lang` read; any other skipped                                          | dropped                                                        | dropped                                   |
+| Word stamps (`<00:12.40>word`)                                             | text, drawn                                                                                                    | word times, taken off the text, and the text before the first                       | word times, taken off the text -- on a line of one stamp alone | taken off the text                        |
+| Tags, braces, backslashes (`<i>`, `{\an8}`, `a\nb`, `&amp;`)               | as written                                                                                                     | HTML: UGCPolicy's elements kept (`<i>`), others off (`<v Bob>`); references decoded | as written                                                     | as written                                |
+| Blanks round the text                                                      | the leading ones off                                                                                           | trimmed                                                                             | trimmed                                                        | trimmed, runs squeezed                    |
 
 ## What ffmpeg makes of it
 
@@ -74,13 +74,14 @@ Converted to SubRip, WebVTT or ASS (`ffmpeg -i in.lrc out.srt`), each line becom
 start; the last line, which the demuxer gives no length, becomes a cue of no length -- shown by no
 player -- unless an empty stamped line ends it, itself an empty cue of no length. The text goes
 through the `text` decoder's escaping, kept by every writer: a backslash with a word joiner (U+2060)
-after it, a `{` as `\{{}`; tags and word stamps pass as text, which a SubRip or WebVTT reader then
-takes for tags. ID tags become the file's metadata, written into none of them. Burned (`-vf
-subtitles=in.lrc`), the last line is never drawn unless an empty stamped line ends it. Muxed, `-c
-copy` writes a SubRip track into Matroska; MP4 and WebM refuse a copy (`-c:s mov_text`, `-c:s
-webvtt` convert it). Written as LRC (from SubRip), `[re:Lavf...]` and `[ve:...]` first (`-fflags
-+bitexact` drops them; `-metadata title=T` writes `[ti:T]`), then a line a cue's line, hundredths by
-default (`-precision 1..6`) -- a time ending in .995 s written `.100`, not carried.
+after it, a `{` as `\{{}`; tags pass as text, which a SubRip or WebVTT reader then takes for tags,
+and word stamps, which a WebVTT reader drops and a SubRip one shows. ID tags become the file's
+metadata, written into none of them. Burned (`-vf subtitles=in.lrc`), the last line is never drawn
+unless an empty stamped line ends it. Muxed, `-c copy` writes a SubRip track into Matroska; MP4 and
+WebM refuse a copy (`-c:s mov_text`, `-c:s webvtt` convert it). Written as LRC (from SubRip),
+`[re:Lavf...]` and `[ve:...]` first (`-fflags +bitexact` drops them; `-metadata title=T` writes
+`[ti:T]`), then a line a cue's line, hundredths by default (`-precision 1..6`) -- a time ending in
+.995 s written `.100`, not carried.
 
 ## The writers in use
 
@@ -97,9 +98,10 @@ no LRC (6.8.3's writer, last).
 2. ID tags first, lower case, one a line, nothing else on it; no `[offset:]` -- the readers apply
    it four ways: write the times already moved.
 3. Each lyric line `[mm:ss.xx]` then its text: two-digit minutes, so under 100 minutes (Navidrome
-   reads no third digit); two-digit seconds under 60; a `.` and two digits, hundredths (Jellyfin
-   reads two or three, so none without a fraction); no hours, no sign. From milliseconds, round
-   each start once to the hundredth, half up, then write it:
+   reads no third digit: a start from 99:59.995 rounds to `[100:00.00]`); two-digit seconds under
+   60; a `.` and two digits, hundredths (Jellyfin reads two or three, so none without a fraction);
+   no hours, no sign. From milliseconds, round each start once to the hundredth, half up, then
+   write it:
 
    ```python
    def lrc_time(ms: int) -> str:
@@ -107,17 +109,18 @@ no LRC (6.8.3's writer, last).
        return f"[{cs // 6000:02d}:{cs // 100 % 60:02d}.{cs % 100:02d}]"
    ```
 
-4. The stamp first on its line, no blank before it (ffmpeg and ffman drop the line); several
-   stamps for one text adjacent, no blank between (ffmpeg drops the one after it) -- or each line
-   written out.
+4. The stamp first on its line, no blank before it (ffmpeg and ffman drop the line); several stamps
+   for one text adjacent, no blank between (ffmpeg drops the one after it) -- or each line written
+   out.
 5. Lines in time order (Navidrome sorts only repeated lines).
-6. Every line stamped: a line without one is dropped by three and joined to the line before by
-   Navidrome.
+6. Every lyric line stamped: a lyric line without one is dropped by three and joined to the line
+   before by Navidrome.
 7. An empty stamped line after the last lyric, at the time it ends: ffmpeg gives the last line no
    length -- converted or burned, it is never shown.
 8. Plain text, trimmed: no `<`...`>` (Navidrome takes HTML off, ffmpeg's conversions make them
-   tags), no backslash (ffmpeg's conversions write a word joiner after it), no leading blank.
-   Word stamps only for a player that reads them: ffmpeg and mpv draw them as text.
+   tags), no backslash and no `{` (ffmpeg's conversions write a word joiner after a backslash and a
+   `{` as `\{{}`, which libass alone reads back), no leading blank. Word stamps only for a player
+   that reads them: ffmpeg and mpv draw them as text.
 
 ## Reading one correctly
 

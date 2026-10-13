@@ -1019,7 +1019,7 @@ def test_an_unclosed_override_or_tag_is_read_in_bounded_work(
     assert time.monotonic() - began < 1
 
 
-# what LRC's, CSV's, TSV's and JSON's texts are cleaned of: tags, overrides, breaks typed or not
+# what CSV's, TSV's and JSON's texts are cleaned of: tags, overrides, breaks typed or not
 _MARKS: Final = ("{", "}", "\\", "{\\an8}", "<", ">", "<i>", "t", "n", "a", " ", "\t", "\n")
 
 
@@ -1036,7 +1036,7 @@ def test_an_lrcs_clean_is_its_word_stamps_off_alone(text: str) -> None:
 
 @given(st.lists(st.sampled_from(_MARKS), max_size=12).map("".join))
 def test_clean_is_its_regexes_wherever_they_read_the_text(text: str) -> None:
-    """LRC's, CSV's, TSV's and JSON's: the regexes alone, unbounded -- tags, overrides, breaks."""
+    """CSV's, TSV's and JSON's: the regexes alone, unbounded -- tags, overrides, breaks."""
     plain = re.sub(
         r"\\[tn]|[\t\n\r]", " ", re.sub(r"\{\\[^}]*\}", "", re.sub(r"<[^>]*>", "", text))
     )

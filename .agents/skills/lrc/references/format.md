@@ -38,14 +38,15 @@ Navidrome 0.64.2's (`model/lyrics_lrc.go`, `lyrics_parse.go`, `core/lyrics/sourc
 
 ## ffmpeg's reading and writing
 
-The probe (`lrc_probe`) skips a UTF-8 BOM and CRs and LFs, then wants a `[`: 50 for a stamp, 40
-for `offset:` or a known tag, 5 for any other `[` (mpv takes 26 at least: not that one). Each line
-is read to an LF, every CR dropped (`read_line`), its BOM kept; a line opening with `[` and a
-lower-case letter is a tag (`find_header`), else each stamp at its start an event of the text
-after them (`count_ts`, `read_ts`). `read_ts` skips blanks before a stamp, but hands `sscanf` the
-line from its start: a stamp after a blank is no stamp. The `text` decoder passes a line's text
-to ASS (`ff_ass_bprint_text_event`): a `{` as `\{{}`, a backslash with a word joiner (U+2060)
-after it, so libass draws each as written; the trailing LF off.
+The probe (`lrc_probe`) skips a UTF-8 BOM and CRs and LFs, then wants a `[`: 50 for a stamp with a
+fraction, 40 for `offset:` or a tag it names (`ti`, `al`, `ar`, `au`, `by`, `re`, `ve`), 5 for any
+other `[` (mpv takes 26 at least: not that one). Each line is read to an LF, every CR dropped
+(`read_line`), its BOM kept; a line opening with `[` and a lower-case letter is a tag
+(`find_header`), else each stamp at its start an event of the text after them (`count_ts`,
+`read_ts`). `read_ts` skips blanks before a stamp, but hands `sscanf` the line from its start: a
+stamp after a blank is no stamp. The `text` decoder passes a line's text to ASS
+(`ff_ass_bprint_text_event`): a `{` as `\{{}`, a backslash with a word joiner (U+2060) after it, so
+libass draws each as written; the trailing LF off.
 
 *Measured* -- the demuxer (start and duration in microseconds, the text), and ffman (start and
 end in ms, the text):
@@ -91,7 +92,7 @@ end in ms, the text):
 | `[00:01.00]one` `[00:02.50]two`                      | `one` 1-2.5 s; `two` 2.5-2.5 s: the last line of no length, in all three                                                     |
 | the same, then `[00:04.00]` (an empty stamped line)  | the last line to 4 s; an empty cue of no length after it                                                                     |
 | `x<3 and y>2 <i>i</i> a\nb {\an8}c &amp;`            | in all three as written but for the decoder's escapes for libass: a word joiner (U+2060) after each backslash, `{` as `\{{}` |
-| `<00:01.00>one <00:01.50>two`                        | the stamps as text (a SubRip or WebVTT reader then takes them for tags)                                                      |
+| `<00:01.00>one <00:01.50>two`                        | the stamps as text: a WebVTT reader drops them as tags, a SubRip one shows them                                              |
 | CP1252 (`café ’x’`)                                  | the line dropped: "Invalid UTF-8 in decoded subtitles text"; with `-sub_charenc CP1252`, `café ’x’`                          |
 | the `subtitles` filter, `[00:01.00]x`, `[00:02.00]y` | `x` drawn at 1.5 s; `y` never (2.5, 5, 9.5 s): the last line drawn by no burn; with `[00:04.00]` after it, at 2.5 s          |
 
@@ -134,7 +135,7 @@ OpenSubsonic clients as structured lyrics.
 | A line's stamps at its start, blanks between them, each a line of its text; a stamp after the text is text                                                           | `parseLRC`                      |
 | A line without a stamp at its start, after a timed one: joined to it, a line break before it (`[100:00.00]`, `[00:02,50]` alike)                                     | `parseLRC`                      |
 | `[ar:]`, `[ti:]`, `[lang:]`, `[offset:]` read -- the offset passed on, OpenSubsonic's (ms, `+` sooner, the client's to apply); any other `[name:value]` line skipped | `lrcIdRegex`, `unknownTagRegex` |
-| Enhanced LRC `<[h:]mm:ss[.f]>`: each a word's start, taken off the text                                                                                              | `parseEnhancedLine`             |
+| Enhanced LRC `<[h:]mm:ss[.f]>`: each a word's start, taken off the text, and the text before the first (`Every <00:07.56> night` is `night`)                         | `parseEnhancedLine`             |
 | HTML in the text: UGCPolicy's elements kept (`<b>`, `<i>`, `<u>`...), others off; references decoded (`&amp;` is `&`)                                                | `str.SanitizeText`              |
 | Lines sorted when a line held several stamps; the last line no end                                                                                                   | `parseLRC`                      |
 

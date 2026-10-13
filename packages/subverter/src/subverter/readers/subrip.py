@@ -1,6 +1,6 @@
 """SubRip's grammar, as ffmpeg's srt demuxer reads it (``cues.Dialect``).
 
-Its encoding, UTF-8 or UTF-16 by its BOM (``_text``); its line ends (``split_lines``); its
+Its encoding, UTF-8 or UTF-16 by its BOM (``file_lines``); its line ends (``split_lines``); its
 timing line, each time hours:minutes:seconds of whole numbers, a fraction a count of ms
 (``_TIME``); an empty line or a line of spaces skipped, the cue going on (``_BLANK``); a number
 alone, only empty lines between it and a timing line, the next cue's index; a line holding
