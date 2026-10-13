@@ -3636,11 +3636,13 @@ tests with 6.8.3's converters.*
       (C0, DEL, C1), as Python does (`errors.escaped`), uncut: a file's name stays whole.
       Python's escape names the character, where ffmpeg's `?` loses it. Tests: 20 failing first
       (5 `escaped`'s, 7 the readers' notes, 2 the fractions', 4 ffman's notes, the outlets'
-      one, the copies' one), 1 guard; seventeen mutations, sixteen caught -- the sixteenth
+      one, the copies' one), 1 guard; seventeen mutations, sixteen caught -- the one left
       the tab's own escape in `_ESCAPED`, which Python's `repr` writes alike (dead in each
       copy: the next commit). Suite 2292, 100%; matrix 770; outcome report: 480 identical,
       `quoted.srt` changed (its first 57 and `...`), `controls.vtt` new, on 3.13 and 3.14. It
-      found a box: standard output, as written.*
+      found a box: standard output, as written. Its review: a refusal's line written by `note`
+      too, one writer escaping (`cli.main` had its own two); the decision's and `AGENTS.md`'s
+      cells kept within their tables' widths (172 lines realigned, back to 2).*
 - [ ] Found by the control-character box: standard output writes its control characters as
       they are -- the output's path, `--dry-run`'s commands (`shlex.join` quotes, not escapes),
       `meta -o -`'s file. Data a script reads: `ls` escapes only to a terminal (GNU coreutils 9.4,
