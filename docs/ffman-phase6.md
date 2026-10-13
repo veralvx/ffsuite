@@ -3593,7 +3593,11 @@ tests with 6.8.3's converters.*
       Its review found `untagged` seeking a tag from each `<` past the last `>`, squared steps
       -- 35 s at 200,000 of them: a SubRip of that one cue ingested in 104 s, a WebVTT in 34 s
       (WhisperX's test), now 0.01 s -- fixed apart: none sought there, equal to its regexes (a
-      property test), bounded (3 cases, 2 failing first); five mutations, each caught.*
+      property test), bounded (3 cases, 2 failing first); five mutations, each caught. Its
+      second review found `clean`'s overrides alike, in LRC, CSV, TSV and JSON -- an LRC line of
+      200,000 `{\` read in 34 s, now 0.01 s -- fixed apart: none sought past the last `}`, equal
+      to its regexes (a property test), bounded in every format (6 cases, 4 failing first); four
+      mutations, each caught.*
 - [ ] Found by the `<` box: a note quotes its text whole -- a cut rest, a stray block's first
       line, a dropped line -- so a 400,000-character line is that much on stderr. To decide:
       cut at a length, marked; or as now.

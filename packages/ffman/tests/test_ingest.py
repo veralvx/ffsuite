@@ -14,6 +14,7 @@ from subverter.transcript import Chunk, Word
 from ffman.errors import REFUSALS
 from ffman.subs.ass import Style, script
 from ffman.subs.ingest import passed
+from ffman.subs.markup import clean
 from ffman.subs.srt import srt
 from tests.support.ingesting import ingested
 from tests.support.transcripts import HOSTILE, encoded
@@ -867,6 +868,48 @@ def test_a_huge_or_long_number_is_read_in_bounded_work(
     began = time.monotonic()
     assert [c.text for c in ingested(put(tmp_path, name, BOUNDLESS[name])).chunks] == texts
     assert time.monotonic() - began < 2  # 10**999999999 never built
+
+
+_OPEN: Final = "{\\" * 60_000  # each {\ no } closes: a CSV field, under csv's 131072
+_LT: Final = "a<" * 200_000  # each < no > closes
+
+
+@pytest.mark.parametrize(
+    ("name", "data", "text"),
+    [
+        ("x.lrc", f"[00:01.00]x{_OPEN}\n", f"x{_OPEN}"),
+        ("x.csv", f"start,end,text\n0,1000,x{_OPEN}\n", f"x{_OPEN}"),
+        ("x.tsv", f"start\tend\ttext\n0\t1000\tx{_OPEN}\n", f"x{_OPEN}"),
+        (
+            "x.json",
+            json.dumps({"segments": [{"start": 0, "end": 1, "text": f"x{_OPEN}"}]}),
+            f"x{_OPEN}",
+        ),
+        ("x.srt", f"1\n00:00:00,000 --> 00:00:01,000\n{_LT}\n", _LT),
+        ("x.vtt", f"WEBVTT\n\n00:00.000 --> 00:01.000\n{_LT}\n", "a"),
+    ],
+    ids=["lrc", "csv", "tsv", "json", "srt", "vtt"],
+)
+def test_an_unclosed_override_or_tag_is_read_in_bounded_work(
+    tmp_path: Path, name: str, data: str, text: str
+) -> None:
+    """No closer sought from each opener past the last one: squared steps, so many of them."""
+    began = time.monotonic()
+    assert [c.text for c in ingested(put(tmp_path, name, data)).chunks] == [text]
+    assert time.monotonic() - began < 1
+
+
+# what LRC's, CSV's, TSV's and JSON's texts are cleaned of: tags, overrides, breaks typed or not
+_MARKS: Final = ("{", "}", "\\", "{\\an8}", "<", ">", "<i>", "t", "n", "a", " ", "\t", "\n")
+
+
+@given(st.lists(st.sampled_from(_MARKS), max_size=12).map("".join))
+def test_clean_is_its_regexes_wherever_they_read_the_text(text: str) -> None:
+    """LRC's, CSV's, TSV's and JSON's: the regexes alone, unbounded -- tags, overrides, breaks."""
+    plain = re.sub(
+        r"\\[tn]|[\t\n\r]", " ", re.sub(r"\{\\[^}]*\}", "", re.sub(r"<[^>]*>", "", text))
+    )
+    assert clean(text, references=False, escapes=False) == re.sub(r"[ \t]+", " ", plain).strip(" ")
 
 
 def test_an_lrc_time_its_parts_in_range_past_a_double_is_none(tmp_path: Path) -> None:

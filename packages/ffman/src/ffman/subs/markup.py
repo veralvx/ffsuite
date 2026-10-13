@@ -30,8 +30,17 @@ def clean(text: str, *, references: bool, escapes: bool) -> str:
     elif escapes:
         text = _BREAK.sub(" ", unescaped(untagged(text)).text)
     else:
-        text = _BREAK.sub(" ", _OVERRIDE.sub("", untagged(text)))
+        text = _BREAK.sub(" ", _overrides_off(untagged(text)))
     return _BLANKS.sub(" ", text).removeprefix(" ").removesuffix(" ")
+
+
+def _overrides_off(text: str) -> str:
+    r"""``text`` without its ``{\...}`` overrides (``_OVERRIDE``), none sought past its last ``}``.
+
+    Past it none closes: sought from each ``{\`` there, the steps are the square of their count.
+    """
+    end = text.rfind("}") + 1
+    return _OVERRIDE.sub("", text[:end]) + text[end:]
 
 
 def hidden(text: str) -> list[str]:
