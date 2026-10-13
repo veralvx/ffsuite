@@ -303,6 +303,11 @@ HOSTILE: Final = {
     # one with a lone surrogate refused by its line. Before: "no timed text found"
     "utf-16.lrc": "\ufeff[00:00.00]café\r\n[00:00.20]second\r\n".encode("utf-16-le"),
     "utf-16-bad.lrc": "\ufeff[ti:x]\n[00:00.00]fi\ud800rst\n".encode("utf-16-be", "surrogatepass"),
+    # an LRC line past its form (the `lrc` box's found box): blanks before its stamp read, as
+    # Navidrome and Jellyfin read them; a minus a time before 0, as ffmpeg writes it; a line of no
+    # stamp ffman reads dropped -- each noted. Before: all dropped, unnoted, `blank` and `before 0`
+    "lines.lrc": "[ti:x]\n [00:00.10]blank\n[-00:00.50]before 0\n[00:00.20]two\nno stamp\n"
+    + "[1:02:03.00]hours\n[00:00.40]\n",
     # a CP1252 ASS (6.8.2): refused by its line, as a SubRip not UTF-8. Before: burned as libass
     # reads a byte not UTF-8, its Latin-1 character -- the quote's 0x92 a control -- and each
     # event holding one dropped from --add-subs' track by ffmpeg's decoder (measured)

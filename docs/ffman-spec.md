@@ -208,6 +208,10 @@ camcorder:date=D,time=T`.
 - An LRC text is as written -- its tags, braces and backslashes too, as ffmpeg and Jellyfin show
   them -- but for Enhanced LRC's word stamps, `<mm:ss.xx>`, taken off, as Navidrome and Jellyfin
   read them: `x<3 and y>2` as written (New).
+- An LRC line whose stamps follow blanks is read, as Navidrome and Jellyfin read it (ffmpeg drops
+  it), and a stamp's minus as a time before 0, as ffmpeg writes and reads it -- each noted; any
+  other line but a tag or an empty one is dropped, noted: `2 LRC lines dropped, opened by no stamp
+  ffman reads nor a tag: the first, no stamp on line 5` (New).
 - A WebVTT text's `<` with no `>` after it opens a tag to the text's end (W3C), as Chromium and
   ffmpeg show it, noted: `1 texts cut at a < with no > after it, a tag to their end (W3C): the
   first, <3 you`; a SubRip's is text (New).

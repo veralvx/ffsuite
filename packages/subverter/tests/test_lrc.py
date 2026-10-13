@@ -55,16 +55,73 @@ def test_lrc_lines_sorted_each_ending_at_the_next_the_last_3_s_later() -> None:
             ("LRC offset on line 1 applied: every line 500 ms sooner",),
             id="the rest of its line",
         ),
-        pytest.param(  # no offset tag: lower case, first on its line (ffmpeg's)
+        pytest.param(  # no offset tag: lower case, first on its line (ffmpeg's); no tag at all
+            # without its colon (Navidrome joins it, as text, to a timed line before it): a line dropped
             "[OFFSET:+500]\n [offset:+500]\n[offset+500]\n[00:01.00]a\n",
             (Cue(1000, 4000, "a"),),
-            (),
+            (
+                "1 LRC lines dropped, opened by no stamp ffman reads nor a tag: the first, [offset+500] on line 3",
+            ),
             id="no offset tag",
         ),
         pytest.param("[offset:+0]\n[00:01.00]a\n", (Cue(1000, 4000, "a"),), (), id="zero"),
     ],
 )
 def test_an_lrc_offset_moves_every_time(
+    data: str, cues: tuple[Cue, ...], notes: tuple[str, ...]
+) -> None:
+    reading = subverter.read("lrc", data.encode(), "a.lrc")
+    assert (reading.cues, reading.notes) == (cues, notes)
+
+
+_BLANKED: Final = "had blanks before their stamp, read as Navidrome and Jellyfin read them"
+_SIGNED: Final = "had a stamp with a minus, a time before 0, read as ffmpeg writes and reads it"
+_DROPPED: Final = "dropped, opened by no stamp ffman reads nor a tag"
+
+
+@pytest.mark.parametrize(
+    ("data", "cues", "notes"),
+    [
+        pytest.param(  # Navidrome trims a line, Jellyfin finds a stamp anywhere (ffmpeg's sscanf
+            # is given the blanks read_ts skipped: no stamp)
+            " [00:02.00]two\n\t[00:03.00] \t[00:04.00]three\n",
+            (Cue(2000, 3000, "two"), Cue(3000, 4000, "three"), Cue(4000, 7000, "three")),
+            (f"2 LRC lines {_BLANKED} (ffmpeg drops them): the first, [00:02.00]two on line 1",),
+            id="blanks before",
+        ),
+        pytest.param(  # ffmpeg's lrcenc writes a time before 0 so, its lrcdec reads it (measured)
+            "[00:02.00][-00:01.50]a\n[offset:-500]\n[-1:00.00]b\n",
+            (Cue(-59500, -1000, "b"), Cue(-1000, 2500, "a"), Cue(2500, 5500, "a")),
+            (
+                "LRC offset on line 2 applied: every line 500 ms later",
+                f"2 LRC lines {_SIGNED} (Navidrome and Jellyfin read none): the first, "
+                + "[00:02.00][-00:01.50]a on line 1",
+            ),
+            id="a minus",
+        ),
+        pytest.param(  # a minus of no time is 0: no time before it (ffmpeg's lrcenc writes none)
+            "[-00:00.00]zero\n", (Cue(0, 3000, "zero"),), (), id="a minus of 0"
+        ),
+        pytest.param(  # no stamp ffman reads: hours (Navidrome's), a plus, a comma, a colon
+            # before the fraction, text before the stamp (Jellyfin's) or none (Navidrome joins it
+            # to the line before), a time past a double's range, a blank not ffmpeg's (a space or a
+            # tab) before the stamp; the line named without its trailing blanks
+            "[00:01.00]a\n[1:02:03.00]hours \t\n[+00:05.00]plus\n[00:06,00]comma\n"
+            + f"[00:07:50]colon\nno stamp\nx [00:08.00]after text\n[{'9' * 306}:00.00]far\n"
+            + "\u00a0[00:09.00]no-break space\n",
+            (Cue(1000, 4000, "a"),),
+            (f"8 LRC lines {_DROPPED}: the first, [1:02:03.00]hours on line 2",),
+            id="dropped",
+        ),
+        pytest.param(  # a tag (a letter or Wikipedia's # first, then a colon), or no text
+            "[ti:t]\n[Ar:a]\n[#:comment]\n [la:en] x\n\n \t\n[00:01.00]a\n",
+            (Cue(1000, 4000, "a"),),
+            (),
+            id="tags and empty lines",
+        ),
+    ],
+)
+def test_an_lrc_line_read_past_its_form_or_dropped_is_noted(
     data: str, cues: tuple[Cue, ...], notes: tuple[str, ...]
 ) -> None:
     reading = subverter.read("lrc", data.encode(), "a.lrc")

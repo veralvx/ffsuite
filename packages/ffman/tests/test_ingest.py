@@ -182,6 +182,24 @@ def test_a_utf16_lrc_is_read_as_navidrome_and_jellyfin_read_it(tmp_path: Path) -
     assert t.notes == ()
 
 
+def test_an_lrc_line_read_past_its_form_or_dropped_is_noted(tmp_path: Path) -> None:
+    t = ingested(put(tmp_path, "lines.lrc", HOSTILE["lines.lrc"]))
+    # the line before 0 clamped, as any cue's; the empty last one ends `two`
+    assert [(c.start, c.end, c.text) for c in t.chunks] == [
+        (0, 100, "before 0"),
+        (100, 200, "blank"),
+        (200, 400, "two"),
+    ]
+    assert t.notes == (
+        "1 LRC lines had blanks before their stamp, read as Navidrome and Jellyfin read them "
+        + "(ffmpeg drops them): the first, [00:00.10]blank on line 2",
+        "1 LRC lines had a stamp with a minus, a time before 0, read as ffmpeg writes and reads it "
+        + "(Navidrome and Jellyfin read none): the first, [-00:00.50]before 0 on line 3",
+        "2 LRC lines dropped, opened by no stamp ffman reads nor a tag: the first, no stamp on "
+        + "line 5",
+    )
+
+
 def test_a_utf16_subrip_is_read_as_ffmpeg_recodes_it(tmp_path: Path) -> None:
     t = ingested(put(tmp_path, "utf-16.srt", HOSTILE["utf-16.srt"]))
     assert [(c.start, c.end, c.text) for c in t.chunks] == [(0, 200, "café"), (200, 400, "second")]
