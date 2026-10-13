@@ -18,6 +18,8 @@ from ffman.media.run import (
     cores,
     ffmpeg_args,
     install_signal_handlers,
+    note,
+    put,
 )
 from tests.support.processes import marked
 from tests.support.terminal import Terminal
@@ -140,6 +142,18 @@ def test_a_dry_runs_command_to_a_terminal_escapes_its_control_characters(
     with Runner(dry_run=True, cores=1) as runner:
         assert runner.run(["touch", "a\x1b[31m.mkv"]) == 0
     assert stdout.getvalue() == f"touch 'a{printed}[31m.mkv'\n"
+
+
+def test_a_line_to_a_terminal_is_written_as_a_note_is(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A control character, and a name's byte not UTF-8 (``os.fsdecode``'s), escaped alike."""
+    terminal = Terminal()
+    monkeypatch.setattr(sys, "stdout", terminal)
+    put("a\udc9bb\x1b")
+    note("a\udc9bb\x1b")
+    assert terminal.getvalue() == "a\\udc9bb\\x1b\n"
+    assert capsys.readouterr().err == f"ffman: {terminal.getvalue()}"
 
 
 def test_ffmpeg_command_and_failure(

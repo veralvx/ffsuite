@@ -3657,7 +3657,11 @@ tests with 6.8.3's converters.*
       `sh` -- reads it as text (measured: `$a\033b`), so a command shown escaped is shown, not
       pasted. Tests: 3 failing first (the commands', the convert path's, `meta`'s path), 1
       guard (the pipe's); five mutations, each caught. Suite 2296, 100%; matrix 770; outcome
-      report: 482 identical, on 3.13 and 3.14.*
+      report: 482 identical, on 3.13 and 3.14. Its review found a terminal shown a name's byte
+      not UTF-8 raw (`os.fsdecode`'s lone surrogate, written back by stdout: 0x9B, an 8-bit
+      terminal's CSI) where stderr wrote `\udc9b`: `escaped` takes lone surrogates too, so both
+      write them alike (measured on a pseudo-terminal), stderr's bytes unchanged; and the spec
+      marks the printed path's escaping new, not the path.*
 - [ ] Found by the note-quote box: ffmeta's notes quote names and values whole -- a tag's
       name, a CATALOG or ISRC value, a FILE's name (eleven notes, not by `shown`) -- unbounded,
       as the transcripts' were; their control characters now escaped on stderr. To decide: by

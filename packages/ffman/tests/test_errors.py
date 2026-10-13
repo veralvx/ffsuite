@@ -37,9 +37,10 @@ def test_shown_puts_input_on_one_line_of_60_characters_at_most() -> None:
         ("\x1b[31mred", "\\x1b[31mred"),  # an SGR: no colour
         ("a\tb\nc\rd", "a\\tb\\nc\\rd"),  # C0's line controls too: one line
         ("\x00\x7f\x85\x9b", "\\x00\\x7f\\x85\\x9b"),  # NUL, DEL, C1's NEL and CSI
+        ("a\udc9bb", "a\\udc9bb"),  # a name's byte not UTF-8 (fsdecode's): stdout wrote it raw
         ("C:\\new caf\u00e9 \u00a0\u200f", "C:\\new caf\u00e9 \u00a0\u200f"),  # no control: as is
     ],
-    ids=["osc", "sgr", "line-controls", "nul-del-c1", "kept"],
+    ids=["osc", "sgr", "line-controls", "nul-del-c1", "surrogate", "kept"],
 )
 def test_escaped_writes_each_control_character_as_python_does(message: str, written: str) -> None:
     assert escaped(message) == written

@@ -8,8 +8,9 @@ import subverter
 
 PROG: Final = "ffman"  # the program's name, in its messages
 _SHOWN: Final = 60  # input quoted in a message: its characters, at most
-# Unicode's Cc: C0, DEL, C1 -- a terminal's commands (ECMA-48: ESC, CSI), not text
-_CONTROL: Final = re.compile(r"[\x00-\x1f\x7f-\x9f]")
+# Unicode's Cc: C0, DEL, C1 -- a terminal's commands (ECMA-48: ESC, CSI), not text; and a lone
+# surrogate, a name's byte not UTF-8 (os.fsdecode's), which stdout writes back raw: 0x9B is CSI
+_UNSAFE: Final = re.compile(r"[\x00-\x1f\x7f-\x9f\ud800-\udfff]")
 
 
 class FfmanError(Exception):
@@ -37,13 +38,14 @@ def shown(text: str) -> str:
 
 
 def escaped(message: str) -> str:
-    r"""``message`` as ffman writes it on stderr: each control character as Python writes it.
+    r"""``message`` as ffman writes it to a terminal: each control character as Python writes it.
 
-    A transcript's line or a file's name, in a note or a refusal, commands no terminal: an ESC
-    is ``\x1b``, a tab ``\t`` -- the message one line. ffmpeg's log writes ``?`` for most C0
-    controls (``libavutil/log.c``, ``sanitize``); ``shown`` cuts what it quotes, this nothing.
+    A transcript's line or a file's name, in a note, a refusal or a path printed, commands no
+    terminal: an ESC is ``\x1b``, a tab ``\t``, a name's byte not UTF-8 ``\udc9b`` -- the message
+    one line. ffmpeg's log writes ``?`` for most C0 controls (``libavutil/log.c``,
+    ``sanitize``); ``shown`` cuts what it quotes, this nothing.
     """
-    return _CONTROL.sub(lambda found: repr(found[0])[1:-1], message)
+    return _UNSAFE.sub(lambda found: repr(found[0])[1:-1], message)
 
 
 def refuse_at(source: str, line: int, message: str) -> Never:
