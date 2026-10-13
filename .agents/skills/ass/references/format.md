@@ -50,7 +50,7 @@ Dialogue: 0,0:00:01.00,0:00:02.50,Default,Bob,0,0,0,,{\an8}Hello,\Nworld
 | Key                        | Value, default                                                                                                                           |
 | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | `ScriptType`               | `v4.00+` ASS, `v4.00` SSA                                                                                                                |
-| `PlayResX`, `PlayResY`     | the script's coordinate space. Neither: 384x288; one: the other at 4:3 (X 1280 gives Y 1024, Y 1024 gives X 1280)                        |
+| `PlayResX`, `PlayResY`     | the script's coordinate space. Neither: 384x288; one: the other at 4:3, but X 1280 gives Y 1024, Y 1024 X 1280                           |
 | `LayoutResX`, `LayoutResY` | the storage size the script was laid out for (libass 0.17+); default the video's                                                         |
 | `WrapStyle`                | 0 smart (lines evened), 1 end of line, 2 none (`\N` and `\n` only); 3 VSFilter's smart with the lower line wider, 0 in libass. Default 0 |
 | `ScaledBorderAndShadow`    | `yes`: borders and shadows scale with PlayRes; default no (yes for a custom Format line or a legacy ffmpeg file)                         |
@@ -160,7 +160,7 @@ everything else is the header, written back verbatim.
 | Rule                                                                                                                                                                                                                                                                                                                                                              | Source                         |
 | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
 | Detection: `[Script Info]`, its 13 bytes, in its case, after a UTF-8 BOM and CRs and LFs alone -- else not ASS: a space or a comment first, no reader; `[script info]`, the LRC one (measured)                                                                                                                                                                    | `ass_probe`                    |
-| A UTF-16 BOM (LE or BE): the text recoded to UTF-8 as it is read; a unit not UTF-16 -- a lone surrogate, an odd last byte -- read as a NUL                                                                                                                                                                                                                        | `ff_text_r8` (`subtitles.c`)   |
+| A UTF-16 BOM (LE or BE): the text recoded to UTF-8 as it is read; a lone surrogate read as a NUL, an odd last byte as a character                                                                                                                                                                                                                                 | `ff_text_r8` (`subtitles.c`)   |
 | The decoder drops an event not UTF-8, its style's name included ("Invalid UTF-8 in decoded subtitles text"): a transcoding loses it, a stream copy keeps its bytes; the header passes as it is                                                                                                                                                                    | `utf8_check` (`decode.c`)      |
 | An event: a line `Dialogue: <layer>,%d:%d:%d<any>%d,%d:%d:%d<any>%d,` -- the standard order whatever the `Format:` line, the fraction an integer of **centiseconds**, any width, after any one character; the packet `ReadOrder,Layer,` and the rest of the line. Every other line -- `Comment:`, a `Dialogue:` it cannot read, every section -- joins the header | `read_dialogue`                |
 | Times in centiseconds (time base 1/100); sorted by start, a negative duration becomes the gap to the next start; duplicates kept                                                                                                                                                                                                                                  | `ff_subtitles_queue_finalize`  |
@@ -187,6 +187,8 @@ everything else is the header, written back verbatim.
 | SSA v4 (`[V4 Styles]`, `Marked=0`)                            | read (`Marked=0` layer 0); written back as SSA, `Marked=0`                                                          |
 | `v4.00++` (`[V4++ Styles]`)                                   | read; written with `Marked=0` under a `Layer` Format line: taken for SSA                                            |
 | a NUL in a text (`fi` NUL `rst`, then `next`)                 | the event cut, `fi`; the rest, `rst`, a header line (written after the events); `next` kept                         |
+| two NULs in a text (`fi` NUL NUL `rst`, then `next`)          | the event `fi`; the reading ends there: `next` lost                                                                 |
+| a NUL first in a line (`first`, NUL `; x`, then `next`)       | `first` read; the reading ends at the NUL: `next` lost                                                              |
 | UTF-16, LE or BE (its BOM), `café`                            | read as UTF-8; written UTF-8                                                                                        |
 | UTF-16, a lone surrogate (`fi` U+D800 `rst`, then `next`)     | the surrogate and the unit after it a NUL: the event `fi`, `st` a header line; `next` kept                          |
 | UTF-16, an odd byte (`x`) last                                | the events read; `x` a header line                                                                                  |
@@ -203,7 +205,8 @@ libass given ffmpeg's reading (the `subtitles` filter: the demuxer's header to
 `ass_process_codec_private`, each event to `ass_process_chunk`; mpv's path, `sub/sd_ass.c`):
 what each draws at each time, `x` something, `.` nothing (libass 0.17.1 and 0.17.4 alike). The
 header libass is given is read as a script, so a `Dialogue:` line the demuxer could not read is
-still drawn when libass can read it:
+still drawn when libass can read it. mpv, by source, passes the last event's negative length on
+to libass (`sd_ass.c`, `filter_and_add`): that one never drawn:
 
 | Script, its event at 1-2 s unless said               | `ass` (libass alone)                       | `subtitles` (ffmpeg, then libass)                              |
 | ---------------------------------------------------- | ------------------------------------------ | -------------------------------------------------------------- |
@@ -225,6 +228,14 @@ The header -- `[Script Info]`, the styles -- is written back as it was read, ffm
 not added. From SubRip, WebVTT or LRC, ffmpeg's default script instead (their records):
 `PlayResX: 384`, `PlayResY: 288`, one `Default` style.
 
+*Measured* -- converted to SubRip and to WebVTT: a style of every flag in ffmpeg's defaults
+(Arial 16, white, bottom centre) gives `<b><i><u>all</u></i></b>` in both, its strikeout dropped;
+one of none, Times 20, red, top left, gives SubRip's `<font face="Times" size="20"
+color="#ff0000">{\an7}other</font>` and WebVTT's `other`. The tags `{\b1}b {\i1}i {\u1}u {\s1}s`
+give SubRip's `<b>b <i>i <u>u <s>s</s></u></i></b>`, WebVTT's the same but `s`. `a\hb\nc\Nd
+\{x\}` gives both `a\hb`, `c` and `d \{x\}` as three lines. A CP1252 script given `-sub_charenc
+CP1252` (the `subtitles` filter's `charenc`) is recoded: `café ’x’`, drawn.
+
 *Measured* -- libass through ffmpeg's `ass` filter (the frame's digest; that ffmpeg's libass
 0.17.1, whose `ass_get_next_char` 0.17.4 keeps): `a{x}b` draws as `ab` (`{x}` an override
 block); `a\{x\}b` draws otherwise -- its braces and `x` shown. `a` NUL `b`, an event after it,
@@ -238,8 +249,9 @@ track".
 
 VLC 3.0.24, by source: its own subtitle demuxer (`modules/demux/subtitle.c`) splits the script
 into a header and events, and its libass decoder (`modules/codec/libass.c`, preferred over
-`subsdec`) draws them -- the header by `ass_process_codec_private`, so a `Dialogue:` line it
-could not read is libass's to read, as through ffmpeg.
+`subsdec`) draws them -- the header by `ass_process_codec_private`, so libass reads a
+`Dialogue:` line it could not read, as through ffmpeg; but VLC draws only while an event it read
+is shown (`SubpictureValidate`, a subpicture a block): with none read, nothing.
 
 | Rule                                                                                                                                                                                 | Source                        |
 | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------- |
@@ -247,17 +259,19 @@ could not read is libass's to read, as through ffmpeg.
 | A UTF-8 BOM skipped; UTF-16 by its BOM converted to UTF-8; other bytes passed unchanged (libass reads one not UTF-8 as its Latin-1 character)                                        | `Open`, `vlc_stream_ReadLine` |
 | Lines end at an LF, or at a CR when the next 2 KiB hold none                                                                                                                         | `vlc_stream_ReadLine`         |
 | An event: `Dialogue: %15[^,],%d:%d:%d.%d,%d:%d:%d.%d,` -- the standard order, a `.` before the fraction, read as centiseconds whatever its width; every other line the header        | `ParseSSA`                    |
-| Events sorted by start; one ending before it starts given a negative length: never drawn                                                                                             | `Fix`, `Demux`                |
+| Events sorted by start; one ending before it starts given no length (0): never drawn                                                                                                 | `Fix`, `Demux`                |
 
 ## Aegisub's reading (3.4.2)
 
 By source (`src/ass_parser.cpp`, `src/ass_dialogue.cpp`, `libaegisub/ass/time.cpp`): sections
-by their whole name, any case, an unknown one skipped (libass reads its lines as the section's
-before); `ScriptType` other than `v4.00+` or `v4.00` refused ("Unknown SSA file format
-version"); an event's fields by position, whatever the `Format:` line -- so `Format: Start, End,
-Style, Text` fails ("Failed parsing line"); a time's fraction a decimal, `.` or `,` before it:
-`0:00:01.5` 1.5 s, `0:00:01,50` 1.5 s, three digits at most read (libass: 1.05 s; "Bad
-timestamp"); a time kept within 0 and 9:59:59.994.
+by their whole name, any case, `[Aegisub Project Garbage]` its project's settings, an unknown one
+skipped (libass reads its lines as the section's before); `ScriptType` other than `v4.00+` or
+`v4.00` refused ("Unknown SSA file format version"); an event's fields split at its commas and
+read by position, whatever the `Format:` line, its layer and margins as numbers -- so `Format:
+Start, End, Style, Text` fails (the layer `0:00:01.00`), and so does `0:00:01,50` (its comma a
+field's end: a margin not a number), the file not opened; a time's fraction a decimal:
+`0:00:01.5` 1.5 s, three digits at most read (libass: 1.05 s); a time kept within 0 and
+9:59:59.994.
 
 ## ffman's reading
 

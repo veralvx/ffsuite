@@ -49,43 +49,44 @@ opens a block. The tags and fields, all of them: references/format.md.
 
 **libass** reads a script whole (`ass_read_file`) in ffmpeg's `ass` filter and ffman's burn.
 **ffmpeg** reads it with its `ass` demuxer and decoder (`assdec.c` in libavformat and libavcodec):
-each `Dialogue:` line it can read an event, every other line the header, given back as written;
-its `subtitles` filter hands that header and those events to libass, as **mpv** does (it demuxes
-with libavformat, `demux/demux_lavf.c`, recoding a script not UTF-8 by its guess, then
-`sub/sd_ass.c`) -- and libass reads a `Dialogue:` line left in the header too. Every conversion
-and mux is ffmpeg's reading. **VLC 3** splits the script itself (`modules/demux/subtitle.c`) and
-hands it to libass (`modules/codec/libass.c`) the same way. **Aegisub**, the editor, reads it
-itself. **ffman** passes it through unread: its burn draws its copy with the `ass` filter,
-`--add-subs` gives the copy to ffmpeg.
+each `Dialogue:` line it can read an event, every other line the header, given back as written; its
+`subtitles` filter hands that header and those events to libass, as **mpv** does (it demuxes with
+libavformat, `demux/demux_lavf.c`, recoding a script not UTF-8 by its guess, then `sub/sd_ass.c`) --
+and libass reads a `Dialogue:` line left in the header too. Every conversion and mux is ffmpeg's
+reading. **VLC 3** splits the script itself (`modules/demux/subtitle.c`) and hands it to libass
+(`modules/codec/libass.c`) the same way, but draws only while an event it read is shown.
+**Aegisub**, the editor, reads it itself. **ffman** passes it through unread: its burn draws its
+copy with the `ass` filter, `--add-subs` gives the copy to ffmpeg.
 
 | Where                                                       | libass alone (`ass` filter)                                     | ffmpeg, mpv (`subtitles` filter, conversions)                                                | VLC 3                                                               | Aegisub                                        | ffman                                              |
 | ----------------------------------------------------------- | --------------------------------------------------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- | ---------------------------------------------- | -------------------------------------------------- |
 | Recognised                                                  | a type: a styles section, else `ScriptType` `v4.00+` or `v4.00` | `[Script Info]` first, in its case, after a BOM and empty lines                              | `ScriptType: v4.00(+)` or `Dialogue:`, any case, in its first 4 KiB | by its extension; another `ScriptType` refused | both libass's and ffmpeg's, else refused, named    |
-| `[script info]`; a comment before it                        | read                                                            | no event (the LRC reader's); no reader, an error                                             | read                                                                | read                                           | refused                                            |
+| `[script info]`; a comment before it                        | read                                                            | no event (ffmpeg's LRC reader; mpv loads none); no reader, an error                          | read                                                                | read                                           | refused                                            |
 | No type; `v4.00++`, `[V4++ Styles]`                         | no track: the burn fails                                        | read                                                                                         | read; `v4.00++` as ASS                                              | the type by its extension; `v4.00++` refused   | refused                                            |
-| Fields in another order (`Format: Start, End, Style, Text`) | read by the `Format:` line                                      | no event read, but drawn: libass reads the header's line; converted, no cue                  | the same: no event, drawn                                           | not opened: `0:00:01.00` read as the layer     | burned; attached, no cue -- unnoted                |
+| Fields in another order (`Format: Start, End, Style, Text`) | read by the `Format:` line                                      | no event read, but drawn: libass reads the header's line; converted, no cue                  | no event: nothing drawn                                             | not opened: `0:00:01.00` read as the layer     | burned; attached, no cue -- unnoted                |
 | A time's fraction (`0:00:01.5`; `0:00:01.500`)              | centiseconds, whatever its width: 1.05 s; 6 s                   | the same                                                                                     | the same                                                            | a decimal: 1.5 s; 1.5 s                        | as libass                                          |
-| A comma before it (`0:00:01,50`)                            | "Bad timestamp": not drawn, the fields after it shifted         | read: 1.5 s                                                                                  | not drawn (libass's reading)                                        | read: 1.5 s                                    | not burned; attached -- unnoted                    |
-| End before start                                            | never drawn                                                     | drawn to the next start; the last, to the end                                                | never drawn                                                         | kept                                           | not burned; attached, to the next start -- unnoted |
+| A comma before it (`0:00:01,50`)                            | "Bad timestamp": not drawn, the fields after it shifted         | read: 1.5 s                                                                                  | not drawn (libass's reading)                                        | not opened: the comma splits the fields        | not burned; attached -- unnoted                    |
+| End before start                                            | never drawn                                                     | drawn to the next start; the last, to the end (mpv: never, by source)                        | never drawn                                                         | kept                                           | not burned; attached, to the next start -- unnoted |
 | Line ends                                                   | LF, CRLF, CR                                                    | LF, CRLF; CR alone: no event read, drawn from the header; converted, no cue                  | LF, CRLF; CR alone in a file without LF                             | LF, CRLF; CR alone, one line                   | as libass; attached, CR alone no cue -- unnoted    |
-| A section of its own (`[Aegisub Project Garbage]`)          | its lines read as the section's before                          | the header's, kept                                                                           | the header's, libass's reading                                      | skipped                                        | as libass                                          |
+| A section of its own (`[Aegisub Project Garbage]`)          | its lines read as the section's before                          | the header's, kept                                                                           | the header's, libass's reading                                      | its own: project settings; another skipped     | as libass                                          |
 | Sections, `Format:` names, `Default`                        | any case; any case; any case                                    | the header's, libass's reading                                                               | libass's reading                                                    | sections any case; `Format:` lines ignored     | as libass                                          |
 | Not UTF-8 (`café ’x’` in CP1252)                            | each byte its Latin-1 character: `’` a control                  | ffmpeg: the `subtitles` filter fails, a conversion drops the event; mpv recodes by its guess | passed to libass, as libass alone                                   | its guess (uchardet), else asked               | refused by its line                                |
 | UTF-16, its BOM                                             | no track: the burn fails                                        | recoded, read                                                                                | recoded, read                                                       | read                                           | recoded: burned, attached                          |
-| A NUL in a text                                             | the script ends there: every later event lost                   | the event cut there, the rest of its line a header line                                      | the line cut there (C strings)                                      | kept in the text                               | U+FFFD, noted                                      |
+| A NUL in a text                                             | the script ends there: every later event lost                   | the event cut there, the rest a header line; two, or one first in a line: the reading ends   | the line cut there (C strings)                                      | kept in the text                               | U+FFFD, noted                                      |
 
 ## What ffmpeg makes of it
 
-Converted to SubRip, an event's style becomes markup: bold, italic, underline and strikeout as
-`<b> <i> <u> <s>`, its font, size and primary colour as `<font>`, its alignment as `{\anN}`; the
-blocks' own tags alike, `\N` a line break, every other tag, position, motion, layer and effect
-dropped; `\{`, `\}` and `\h` left as written. Converted to WebVTT, `<b> <i> <u>` alone, the
-escapes again as written -- a browser shows the backslashes. Into MP4 the text goes as
-`mov_text`; Matroska keeps the script itself, its header the track's private data. Written back as
-ASS -- a stream copy or a transcoding -- the header is kept as read, the events after it in the
+Converted to SubRip, an event's style becomes markup: bold, italic and underline as `<b> <i> <u>`
+(its strikeout dropped), its font, size and primary colour as `<font>` and its alignment as
+`{\anN}`, each where not ffmpeg's own (Arial, 16, white, bottom centre); the blocks' own tags alike,
+`\s1` as `<s>`; `\N` and `\n` line breaks; every other tag, position, motion, layer and effect
+dropped; `\{`, `\}` and `\h` left as written. Converted to WebVTT, `<b> <i> <u>` alone, `\N` and
+`\n` breaks, the other escapes as written -- a browser shows the backslashes. Into MP4 the text goes
+as `mov_text`; Matroska keeps the script itself, its header the track's private data. Written back
+as ASS -- a stream copy or a transcoding -- the header is kept as read, the events after it in the
 file's order, `Comment:` lines and any line it could not read after them; times `h:mm:ss.cc`,
-9:59:59.99 at most. From SubRip or WebVTT, ffmpeg's own script: `PlayResX: 384`,
-`PlayResY: 288`, one `Default` style (Arial 16).
+9:59:59.99 at most. From SubRip or WebVTT, ffmpeg's own script: `PlayResX: 384`, `PlayResY: 288`,
+one `Default` style (Arial 16).
 
 ## The writers in use
 
@@ -147,10 +148,11 @@ ffmpeg -i in.ass out.srt                                                  # b, i
 ffmpeg -i in.srt out.ass                                                  # PlayRes 384x288, one style
 ```
 
-A burn draws with the fonts the system has, or a folder's (`ass=in.ass:fontsdir=fonts`); a
-script's `[Fonts]` are used by both filters. ffman burns an ASS with `--burn-subs` (plain mode
-alone: its own styling does not apply) and attaches one with `--add-subs` -- Matroska keeping it
-as ASS, MP4 and WebM converting it.
+A burn draws with the fonts the system has, or a folder's (`ass=in.ass:fontsdir=fonts`); a script's
+`[Fonts]` are used by both filters. A script not UTF-8 (CP1252, say): `-sub_charenc CP1252` before
+its `-i` recodes it for a conversion, `subtitles=in.ass:charenc=CP1252` for a burn; the `ass` filter
+has none. ffman burns an ASS with `--burn-subs` (plain mode alone: its own styling does not apply)
+and attaches one with `--add-subs` -- Matroska keeping it as ASS, MP4 and WebM converting it.
 
 ## Example
 

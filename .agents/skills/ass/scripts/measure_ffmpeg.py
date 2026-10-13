@@ -1,7 +1,8 @@
 """ASS and SSA through ffmpeg, measured: what its `ass` demuxer reads of a script, and what its
 `ass` muxer writes back -- by a stream copy, and through the `ass` decoder and encoder; and
 whether libass (through ffmpeg's `ass` filter) draws `\\{` and `\\}` as braces, what of a
-script after a NUL, whether it draws a UTF-16 one, how a CP1252 one, and one of no type.
+script after a NUL, whether it draws a UTF-16 one, how a CP1252 one, and one of no type; what a
+conversion to SubRip and WebVTT makes of a style, the tags and the escapes.
 
 Then the skill checked from its own text -- its example's readings and the prose stating them,
 its time rule, its commands -- a mismatch failing the run.
@@ -40,9 +41,15 @@ EVENTS = (
 HEAD = INFO + STYLES + EVENTS
 
 
-def dialogue(text: str, start: str = "0:00:01.00", end: str = "0:00:02.00", layer: int = 0) -> str:
-    """A Dialogue line in the Default style."""
-    return f"Dialogue: {layer},{start},{end},Default,,0,0,0,,{text}\n"
+def dialogue(
+    text: str,
+    start: str = "0:00:01.00",
+    end: str = "0:00:02.00",
+    layer: int = 0,
+    style: str = "Default",
+) -> str:
+    """A Dialogue line, in the Default style unless said."""
+    return f"Dialogue: {layer},{start},{end},{style},,0,0,0,,{text}\n"
 
 
 SSA = (
@@ -92,6 +99,13 @@ SCRIPTS: dict[str, str] = {
     "v4.00++": HEAD.replace("v4.00+", "v4.00++").replace("[V4+ Styles]", "[V4++ Styles]")
     + dialogue("plus plus"),
     "a NUL in a text": HEAD + dialogue("fi\0rst") + dialogue("next", "0:00:03.00", "0:00:04.00"),
+    "two NULs in a text": HEAD
+    + dialogue("fi\0\0rst")
+    + dialogue("next", "0:00:03.00", "0:00:04.00"),
+    "a NUL first in a line": HEAD
+    + dialogue("first")
+    + "\0; x\n"
+    + dialogue("next", "0:00:03.00", "0:00:04.00"),
     "[script info], lower-cased": HEAD.replace("[Script Info]", "[script info]") + dialogue("lo"),
     "a comment first": "; by hand\n" + HEAD + dialogue("commented"),
     "spaces first": "  " + HEAD + dialogue("spaced"),
@@ -116,6 +130,22 @@ ENCODED: dict[str, bytes] = {
         HEAD.replace("[Script Info]\n", "[Script Info]\n; é\n") + dialogue("plain")
     ).encode("cp1252"),
 }
+
+
+# styles converted to markup: one of every flag, in ffmpeg's defaults (Arial 16, white, bottom
+# centre); one of none, in another font, size, colour and alignment; then the escapes
+MARKUP = (
+    INFO
+    + STYLES.rstrip("\n")
+    + "\nStyle: All,Arial,16,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,-1,-1,-1,-1,100,100,0,0,"
+    + "1,1,0,2,10,10,10,1\nStyle: Other,Times,20,&H000000FF,&H000000FF,&H00000000,&H00000000,0,0,"
+    + "0,0,100,100,0,0,1,1,0,7,10,10,10,1\n\n"
+    + EVENTS
+    + dialogue("all", style="All")
+    + dialogue("other", "0:00:02.00", "0:00:03.00", style="Other")
+    + dialogue("{\\b1}b {\\i1}i {\\u1}u {\\s1}s", "0:00:03.00", "0:00:04.00")
+    + dialogue("a\\hb\\nc\\Nd \\{x\\}", "0:00:04.00", "0:00:05.00")
+)
 
 
 # a script each, and the times (s) to look at it: what libass alone draws of it (the `ass` filter,
@@ -237,14 +267,17 @@ def packets(path: Path) -> tuple[str, list[tuple[int, int, str]]]:
     return data["format"]["format_name"], found
 
 
-def frames(work: Path, script: bytes, how: str, size: str, seconds: float) -> list[bytes] | str:
-    """The grey frames ``how`` (``ass`` or ``subtitles``) draws of ``script`` on black, ``size``
-    (``WxH``), ``FPS`` a second for ``seconds`` -- or why it drew none."""
+def frames(  # noqa: PLR0913 -- the filter, its options, the frames' size and length
+    work: Path, script: bytes, how: str, size: str, seconds: float, options: str = ""
+) -> list[bytes] | str:
+    """The grey frames ``how`` (``ass`` or ``subtitles``, its ``options`` after the file) draws
+    of ``script`` on black, ``size`` (``WxH``), ``FPS`` a second for ``seconds`` -- or why it
+    drew none."""
     path = work / "drawn.ass"
     _ = path.write_bytes(script)
     r = subprocess.run(
         [FFMPEG, "-v", "error", "-f", "lavfi", "-i", f"color=c=black:s={size}:r={FPS}:d={seconds}",
-         "-vf", f"{how}={path}", "-f", "rawvideo", "-pix_fmt", "gray", "-"],
+         "-vf", f"{how}={path}{options}", "-f", "rawvideo", "-pix_fmt", "gray", "-"],
         capture_output=True, check=False,
     )  # fmt: skip
     if r.returncode or not r.stdout:
@@ -260,10 +293,12 @@ def drawn(work: Path, script: bytes) -> str:
     return found if isinstance(found, str) else hashlib.sha256(found[0]).hexdigest()
 
 
-def drawn_at(work: Path, script: bytes, times: tuple[float, ...], how: str) -> str:
+def drawn_at(
+    work: Path, script: bytes, times: tuple[float, ...], how: str, options: str = ""
+) -> str:
     """What ``how`` (``ass`` or ``subtitles``) draws of ``script`` at each time: ``x`` something,
     ``.`` nothing -- or why it drew no frame."""
-    found = frames(work, script, how, "160x90", max(times) + 1)
+    found = frames(work, script, how, "160x90", max(times) + 1, options)
     if isinstance(found, str):
         return found
     return "".join("x" if max(found[round(t * FPS)]) > INK else "." for t in times)
@@ -279,70 +314,101 @@ def main() -> None:
     print(run(FFMPEG, "-version").stdout.splitlines()[0])
     with tempfile.TemporaryDirectory() as tmp:
         work = Path(tmp)
-        src, out = work / "in.ass", work / "out.ass"
-        print("\n## The demuxer's packets (start cs, duration cs, data); then the muxer's events,")
-        print("## by a stream copy and by the ass decoder and encoder (a transcoding)\n")
-        for name, data in {**{k: v.encode("utf-8") for k, v in SCRIPTS.items()}, **ENCODED}.items():
-            _ = src.write_bytes(data)
-            fmt, found = packets(src)
-            print(f"{name}: [{fmt}] {found!r}")
-            for how, args in (("copy", ("-c", "copy")), ("transcoded", ())):
-                written, warnings = converted(out, "-i", str(src), *args)
-                lines = events_of(written) if not written.startswith("[failed") else written
-                print(f"    {how}: {lines!r}" + (f" | {warnings}" if warnings else ""))
-        _ = src.write_text(SCRIPTS["canonical"], encoding="utf-8")
-        written, _warnings = converted(out, "-i", str(src))
-        print(f"\nthe header written back, transcoded: {written.split('[Events]')[0]!r}")
-        _ = src.write_bytes(SCRIPTS["CRLF"].encode("utf-8"))
-        for how, args in (("copy", ("-c", "copy")), ("transcoded", ())):
-            _ = converted(out, "-i", str(src), *args)
-            ends = "CRLF" if b"\r" in out.read_bytes() else "LF"
-            print(f"a CRLF script written back, {how}: line ends {ends}")
-        _ = src.write_text(SCRIPTS["SSA v4"], encoding="utf-8")
-        written, _warnings = converted(out, "-i", str(src))
-        print(f"SSA v4 written back, transcoded: {written!r}")
-
-        print("\n## libass, through the ass filter: what each event draws (a frame's digest)\n")
-        digests = {text: frame(work, text) for text in ("ab", "a{x}b", "a\\{x\\}b")}
-        for text, digest in digests.items():
-            print(f"{text!r}: {digest[:12]}" + (" -- as 'ab'" if digest == digests["ab"] else ""))
-        single, up = frame(work, "a"), "{\\an8}up"  # a second event, at the top
-        for texts in (("a", up), ("a\0b", up)):
-            digest = frame(work, *texts)
-            print(f"{texts!r}: {digest[:12]}" + (" -- as 'a' alone" if digest == single else ""))
-        utf8 = drawn(work, CAFE.encode("utf-8"))
-        for codec in ("utf-16-le", "utf-16-be"):
-            digest = drawn(work, UTF16.encode(codec))
-            shown = digest if digest.startswith("[") else digest[:12]
-            print(
-                f"'café' in {codec} (its BOM): {shown}" + (" -- as UTF-8" if digest == utf8 else "")
-            )
-        untyped = INFO.replace("ScriptType: v4.00+\n", "") + EVENTS + dialogue("x", "0:00:00.00")
-        print(f"no type (no ScriptType, no styles section): {drawn(work, untyped.encode())}")
-        events = HEAD + dialogue(QUOTED, "0:00:00.00", "0:00:01.00")
-        cp1252, latin1 = drawn(work, events.encode("cp1252")), frame(work, "café \x92x\x92")
-        same = " -- as Latin-1's (U+0092)" if cp1252 == latin1 else ""
-        print(f"{QUOTED!r} in CP1252: {cp1252[:12]}{same}; UTF-8's {frame(work, QUOTED)[:12]}")
-
-        print("\n## libass alone (the ass filter, ffman's burn) against ffmpeg's reading, then")
-        print("## libass (the subtitles filter, mpv's path): x drawn, . not, at each time\n")
-        for name, (script, times) in READERS.items():
-            ass, subtitles = (drawn_at(work, script, times, how) for how in ("ass", "subtitles"))
-            at = ", ".join(f"{t:g}" for t in times)
-            print(f"{name} at {at} s: ass {ass}; subtitles {subtitles}")
-
+        demuxed(work)
+        filtered(work)
+        readers(work)
         ffman(work)
         print("\n## The skill, checked from its own text\n")
         ok = skill(work)
     sys.exit(0 if ok else 1)
 
 
+def demuxed(work: Path) -> None:
+    """What ffmpeg's demuxer reads of each script, what its muxer writes back; its conversions."""
+    src, out = work / "in.ass", work / "out.ass"
+    print("\n## The demuxer's packets (start cs, duration cs, data); then the muxer's events,")
+    print("## by a stream copy and by the ass decoder and encoder (a transcoding)\n")
+    for name, data in {**{k: v.encode("utf-8") for k, v in SCRIPTS.items()}, **ENCODED}.items():
+        _ = src.write_bytes(data)
+        fmt, found = packets(src)
+        print(f"{name}: [{fmt}] {found!r}")
+        for how, args in (("copy", ("-c", "copy")), ("transcoded", ())):
+            written, warnings = converted(out, "-i", str(src), *args)
+            lines = events_of(written) if not written.startswith("[failed") else written
+            print(f"    {how}: {lines!r}" + (f" | {warnings}" if warnings else ""))
+    _ = src.write_text(SCRIPTS["canonical"], encoding="utf-8")
+    written, _warnings = converted(out, "-i", str(src))
+    print(f"\nthe header written back, transcoded: {written.split('[Events]')[0]!r}")
+    _ = src.write_bytes(SCRIPTS["CRLF"].encode("utf-8"))
+    for how, args in (("copy", ("-c", "copy")), ("transcoded", ())):
+        _ = converted(out, "-i", str(src), *args)
+        ends = "CRLF" if b"\r" in out.read_bytes() else "LF"
+        print(f"a CRLF script written back, {how}: line ends {ends}")
+    _ = src.write_text(SCRIPTS["SSA v4"], encoding="utf-8")
+    written, _warnings = converted(out, "-i", str(src))
+    print(f"SSA v4 written back, transcoded: {written!r}")
+
+    print("\n## Converted to SubRip and WebVTT: styles All, Other; tags; escapes\n")
+    _ = src.write_text(MARKUP, encoding="utf-8")
+    for ext in ("srt", "vtt"):
+        written, _warnings = converted(work / f"out.{ext}", "-i", str(src))
+        print(f"{ext}: {cue_texts(written)!r}")
+
+
+def filtered(work: Path) -> None:
+    """What libass draws through the ass filter; a CP1252 script, recoded or not."""
+    src = work / "in.ass"
+    print("\n## libass, through the ass filter: what each event draws (a frame's digest)\n")
+    digests = {text: frame(work, text) for text in ("ab", "a{x}b", "a\\{x\\}b")}
+    for text, digest in digests.items():
+        print(f"{text!r}: {digest[:12]}" + (" -- as 'ab'" if digest == digests["ab"] else ""))
+    single, up = frame(work, "a"), "{\\an8}up"  # a second event, at the top
+    for texts in (("a", up), ("a\0b", up)):
+        digest = frame(work, *texts)
+        print(f"{texts!r}: {digest[:12]}" + (" -- as 'a' alone" if digest == single else ""))
+    utf8 = drawn(work, CAFE.encode("utf-8"))
+    for codec in ("utf-16-le", "utf-16-be"):
+        digest = drawn(work, UTF16.encode(codec))
+        shown = digest if digest.startswith("[") else digest[:12]
+        print(f"'café' in {codec} (its BOM): {shown}" + (" -- as UTF-8" if digest == utf8 else ""))
+    untyped = INFO.replace("ScriptType: v4.00+\n", "") + EVENTS + dialogue("x", "0:00:00.00")
+    print(f"no type (no ScriptType, no styles section): {drawn(work, untyped.encode())}")
+    events = HEAD + dialogue(QUOTED, "0:00:00.00", "0:00:01.00")
+    cp1252, latin1 = drawn(work, events.encode("cp1252")), frame(work, "café \x92x\x92")
+    same = " -- as Latin-1's (U+0092)" if cp1252 == latin1 else ""
+    print(f"{QUOTED!r} in CP1252: {cp1252[:12]}{same}; UTF-8's {frame(work, QUOTED)[:12]}")
+    quoted = READERS["CP1252, an event's text"]
+    _ = src.write_bytes(quoted[0])
+    written, _warnings = converted(work / "cp1252.srt", "-sub_charenc", "CP1252", "-i", str(src))
+    recoded = drawn_at(work, *quoted, "subtitles", ":charenc=CP1252")
+    print(f"CP1252 given -sub_charenc CP1252: {cue_texts(written)!r}; charenc=CP1252: {recoded}")
+
+
+def readers(work: Path) -> None:
+    """Each READERS script: what libass alone draws, against what it draws of ffmpeg's reading."""
+    print("\n## libass alone (the ass filter, ffman's burn) against ffmpeg's reading, then")
+    print("## libass (the subtitles filter, mpv's path): x drawn, . not, at each time\n")
+    for name, (script, times) in READERS.items():
+        ass, subtitles = (drawn_at(work, script, times, how) for how in ("ass", "subtitles"))
+        at = ", ".join(f"{t:g}" for t in times)
+        print(f"{name} at {at} s: ass {ass}; subtitles {subtitles}")
+
+
+def cue_texts(written: str) -> list[str]:
+    """A SubRip's or WebVTT's cue texts: what follows each timing line."""
+    return [
+        cue.partition(" --> ")[2].partition("\n")[2].rstrip("\n")  # an empty text too
+        for cue in written.split("\n\n")
+        if " --> " in cue
+    ]
+
+
 def cues(work: Path, script: bytes) -> int:
     """How many cues ffmpeg makes of ``script`` as text (its subrip encoder: what a track holds)."""
     path, out = work / "cues.ass", work / "cues.srt"
     _ = path.write_bytes(script)
-    written, _warnings = converted(out, "-i", str(path), "-f", "srt")
-    return 0 if written.startswith("[failed") else written.count(" --> ")
+    written, _warnings = converted(out, "-i", str(path))
+    return len(cue_texts(written))  # none of a failure's message
 
 
 def ffman(work: Path) -> None:
