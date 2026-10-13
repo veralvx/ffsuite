@@ -175,6 +175,6 @@ libass 0.17.1 (`ass_parse.c`); MPC-HC (`src/Subtitles/STS.cpp` at `48478c2`), Su
 (`src/libse/SubtitleFormats/SubRip.cs` at `638ec76`), Kodi
 (`xbmc/cores/VideoPlayer/DVDSubtitles/DVDSubtitleParserSubrip.cpp` at `a07b2bb`); whisper.cpp's,
 OpenAI whisper's and WhisperX's writers (the `whisper-transcripts` skill); ffman's
-`subverter/readers/subrip.py`, `subverter/readers/cues.py`, `subs/normalize.py`, `subs/markup.py`,
-`subs/ass.py` and `subs/srt.py`.
+`subverter/readers/subrip.py`, `subverter/readers/cues.py`, `subverter/markup.py`,
+`subs/normalize.py`, `subs/markup.py`, `subs/ass.py` and `subs/srt.py`.
 Measurements: `scripts/measure.py`.
