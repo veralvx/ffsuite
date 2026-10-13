@@ -5,7 +5,7 @@ from typing import Final
 
 from subverter.markup import decoded, unescaped, untagged
 
-_OVERRIDE: Final = re.compile(r"\{\\[^}]*\}")  # {\an8}: ASS override blocks, as some SRTs carry
+_OVERRIDE: Final = re.compile(r"\{\\[^}]*\}")  # {\an8}: ASS's, off in LRC, CSV, TSV, JSON (bash's)
 _BREAK: Final = re.compile(r"\\[tn]|[\t\n\r]")  # a tab or a line break, escaped (\t, \n) or not
 _VTT_BREAK: Final = re.compile(r"[\t\n\f\r]")  # a .vtt's tab, break or FF, written or decoded
 _BLANKS: Final = re.compile(r"[ \t]+")
@@ -19,7 +19,7 @@ def clean(text: str, *, references: bool, escapes: bool) -> str:
     subrip decoder and VLC drop it -- bash broke it first, showing it. ``references``
     (WebVTT's): no override, no escape -- a ``{\...}`` and a typed ``\n`` or ``\t`` text, as
     every reader shows them -- and each run between tags decoded, a decoded ``<`` or ``{``
-    text, a decoded break a space. ``escapes`` (SubRip's, never with references):
+    text, a break, written or decoded, a space. ``escapes`` (SubRip's, never with references):
     the text as ffmpeg and libass read it (``unescaped``) -- every block off, ``{text}`` too, as
     ffmpeg and mpv hide it; ``\N`` a line break, so a space, ffman wrapping; ``\h`` a no-break
     space.
