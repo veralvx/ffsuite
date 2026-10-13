@@ -471,6 +471,16 @@ def test_a_number_alone_before_a_timing_line_is_the_next_cues_index(tmp_path: Pa
     )
 
 
+def test_an_lrcs_text_is_as_its_readers_show_it_but_its_word_stamps(tmp_path: Path) -> None:
+    t = ingested(put(tmp_path, "markup.lrc", HOSTILE["markup.lrc"]))
+    assert [c.text for c in t.chunks] == [
+        "x<3 and y>2 <i>i</i>",
+        "C:\\temp\\new {\\an8}up &amp;",
+        "Enhanced word times",
+    ]
+    assert t.notes == ()
+
+
 def test_a_subrips_ass_escapes_read_as_libass_draws_them(tmp_path: Path) -> None:
     t = ingested(put(tmp_path, "escapes.srt", HOSTILE["escapes.srt"]))
     assert [c.text for c in t.chunks] == ["one two a\u00a0b"]  # the break ffman's to place
@@ -551,14 +561,16 @@ def test_a_highlighted_subrips_words_read_its_escapes_too(tmp_path: Path) -> Non
     assert [w.text for w in t.words] == ["New\u00a0York", "City"]
 
 
-def test_an_override_opening_with_an_escape_is_dropped_but_in_webvtt(tmp_path: Path) -> None:
+def test_an_override_opening_with_an_escape_is_dropped_but_in_webvtt_and_lrc(
+    tmp_path: Path,
+) -> None:
     # {\t(...)}: ASS's animation -- dropped, as ffmpeg's subrip decoder and VLC drop it; in
-    # WebVTT, text (6.8.2), as every reader shows it
+    # WebVTT (6.8.2) and LRC (the `lrc` box), text, as every reader shows it
     srt = ingested(put(tmp_path, "a.srt", "1\n00:00:00,000 --> 00:00:00,400\n{\\t(0,1)}a {\\n}b\n"))
     lrc = ingested(put(tmp_path, "a.lrc", "[00:00.00]{\\t(0,1)}a \\N\n[00:00.40]\n"))
     vtt = ingested(put(tmp_path, "a.vtt", "WEBVTT\n\n00:00.000 --> 00:00.400\n{\\t(0,1)}a \\N\n"))
     texts = (srt.chunks[0].text, lrc.chunks[0].text, vtt.chunks[0].text)
-    assert texts == ("a b", "a \\N", "{\\t(0,1)}a \\N")
+    assert texts == ("a b", "{\\t(0,1)}a \\N", "{\\t(0,1)}a \\N")
 
 
 def test_an_lrc_line_of_several_stamps_is_a_line_each(tmp_path: Path) -> None:
@@ -1009,6 +1021,17 @@ def test_an_unclosed_override_or_tag_is_read_in_bounded_work(
 
 # what LRC's, CSV's, TSV's and JSON's texts are cleaned of: tags, overrides, breaks typed or not
 _MARKS: Final = ("{", "}", "\\", "{\\an8}", "<", ">", "<i>", "t", "n", "a", " ", "\t", "\n")
+
+
+@given(
+    st.lists(st.sampled_from((*_MARKS, "<0:1>", "<0:1.5>", "0", ":", ".")), max_size=12).map(
+        "".join
+    )
+)
+def test_an_lrcs_clean_is_its_word_stamps_off_alone(text: str) -> None:
+    """LRC's: its word stamps' regex alone, then blanks squeezed -- every other mark as written."""
+    plain = re.sub(r"<[0-9]+:[0-9]+(?:\.[0-9]+)?>", "", text)
+    assert clean(text, Markup.LRC) == re.sub(r"[ \t]+", " ", plain).strip(" ")
 
 
 @given(st.lists(st.sampled_from(_MARKS), max_size=12).map("".join))

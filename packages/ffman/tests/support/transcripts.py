@@ -201,6 +201,13 @@ HOSTILE: Final = {
     # < a tag only to a name it knows, or likely one; <br> a line break; \t text, \n a space.
     # Before: every <...> a tag, <br> nothing, a typed \t a space -- burned `1 2`, `> onetwo`,
     # `C: emp ew c`
+    # an LRC's text as its readers show it (the `lrc` box): Enhanced LRC's word stamps off, as
+    # Navidrome and Jellyfin take them; the rest as written, as ffmpeg and Jellyfin show it.
+    # Before: bash's rule -- every <...> off, {\...} off, a typed \t or \n a space: `x2`, `C: emp ew`
+    "markup.lrc": (
+        "[00:00.00]x<3 and y>2 <i>i</i>\n[00:00.10]C:\\temp\\new {\\an8}up &amp;\n"
+        "[00:00.20]<00:00.20>Enhanced <00:00.25>word <00:00.29>times\n"
+    ),
     "markup.srt": (
         "1\n00:00:00,000 --> 00:00:00,100\n1 < 2 and 3 > 2\n\n"
         "2\n00:00:00,100 --> 00:00:00,200\n<<quote>> one<br>two\n\n"

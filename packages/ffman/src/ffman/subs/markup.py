@@ -4,11 +4,11 @@ import re
 from enum import Enum, auto
 from typing import Final
 
-from subverter.markup import decoded, drawn, untagged
+from subverter.markup import decoded, drawn, unstamped, untagged
 from subverter.transcript import Reading
 
-_OVERRIDE: Final = re.compile(r"\{\\[^}]*\}")  # {\an8}: ASS's, off in LRC, CSV, TSV, JSON (bash's)
-# LRC's, CSV's, TSV's and JSON's tab or line break, typed (\t, \n) or not (bash's)
+_OVERRIDE: Final = re.compile(r"\{\\[^}]*\}")  # {\an8}: ASS's, off in CSV, TSV, JSON (bash's)
+# CSV's, TSV's and JSON's tab or line break, typed (\t, \n) or not (bash's)
 _BREAK: Final = re.compile(r"\\[tn]|[\t\n\r]")
 _SUBRIP_BREAK: Final = re.compile(r"[\t\n]")  # a tab, libass's space; a break (\N, <br>)
 _VTT_BREAK: Final = re.compile(r"[\t\n\f\r]")  # a .vtt's tab, break or FF, written or decoded
@@ -22,13 +22,16 @@ class Markup(Enum):
     BASH = auto()  # CSV's, TSV's, JSON's: bash's CLEAN_AWK
     WEBVTT = auto()  # ``Reading.has_references``
     SUBRIP = auto()  # ``Reading.has_ass_escapes``
+    LRC = auto()  # ``Reading.has_word_stamps``
 
     @classmethod
     def of(cls, found: Reading) -> "Markup":
-        """The markup of ``found``'s texts, by its flags (never both set)."""
+        """The markup of ``found``'s texts, by its flags (one at most set)."""
         if found.has_references:
             return cls.WEBVTT
-        return cls.SUBRIP if found.has_ass_escapes else cls.BASH
+        if found.has_ass_escapes:
+            return cls.SUBRIP
+        return cls.LRC if found.has_word_stamps else cls.BASH
 
 
 def clean(text: str, markup: Markup) -> str:
@@ -43,7 +46,7 @@ def clean(text: str, markup: Markup) -> str:
     text as ffmpeg and libass read it (``drawn``) -- its tags as ffmpeg's decoder reads them, a
     ``<br>`` a line break; every block off, ``{text}`` too, as ffmpeg and mpv hide it; ``\N`` a
     line break, so a space, ffman wrapping; ``\n`` a space, ``\h`` a no-break space; ``\t``
-    text, as libass draws it.
+    text, as libass draws it. ``LRC``: its word stamps off (``unstamped``), the rest as written.
     """
     match markup:
         case Markup.WEBVTT:
@@ -51,6 +54,8 @@ def clean(text: str, markup: Markup) -> str:
             text = _VTT_BREAK.sub(" ", "".join(decoded(run) for run in runs))
         case Markup.SUBRIP:
             text = _SUBRIP_BREAK.sub(" ", drawn(text).text)
+        case Markup.LRC:
+            text = unstamped(text)
         case Markup.BASH:
             text = _BREAK.sub(" ", _overrides_off(untagged(text)))
     return _BLANKS.sub(" ", text).removeprefix(" ").removesuffix(" ")
