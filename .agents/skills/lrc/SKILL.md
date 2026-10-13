@@ -54,11 +54,11 @@ libass draws them as written; **mpv** reads it the same way (`demux/demux_lavf.c
 | Line ends                                                                  | LF, CRLF; CR alone: one line, each CR dropped                                                                  | LF, CRLF; CR alone: one line                                                        | LF, CRLF, CR                                                   | LF, CRLF, CR                              |
 | A stamp's fraction (`[00:01.5]`; `[00:01]`; `[00:01.234]`)                 | a decimal, any width: 1.5 s; 1 s; 1.234 s                                                                      | one to three digits, a decimal: 1.5 s; 1 s; 1.234 s                                 | two or three digits alone: no line; no line; 1.234 s           | any width, a decimal: 1.5 s; 1 s; 1.234 s |
 | Minutes past 99 (`[100:00.00]`)                                            | read                                                                                                           | not a stamp: the line joined to the one before                                      | read                                                           | read                                      |
-| Hours (`[1:02:03.00]`); seconds 60+ (`[00:60.50]`); a sign (`[-00:01.00]`) | 62 s, the hours lost; the line dropped; -1 s                                                                   | 3723 s; 60.5 s; no stamp                                                            | no line; 60.5 s; no line                                       | no line; 60.5 s; no line                  |
+| Hours (`[1:02:03.00]`); seconds 60+ (`[00:60.50]`); a sign (`[-00:01.00]`) | 62 s, the hours lost; the line dropped; -1 s                                                                   | 3723 s; 60.5 s; no stamp                                                            | no line; 60.5 s; no line                                       | no line, noted; 60.5 s; -1 s, noted       |
 | Several stamps (`[00:01.00][00:05.00]chorus`); a blank between them        | a line each; after a blank, the stamp dropped                                                                  | a line each; blanks read                                                            | a line each; blanks read                                       | a line each; blanks read                  |
 | A stamp after the text (`[00:01.00]a [00:05.00]b`)                         | text                                                                                                           | text                                                                                | another start, taken off the text                              | text                                      |
-| Blanks before a line's stamp                                               | the line dropped (`sscanf` given the blanks); its first line: no LRC                                           | read                                                                                | read                                                           | the line dropped                          |
-| A line without a stamp, after a lyric line                                 | dropped                                                                                                        | joined to the line before, a line break between                                     | dropped                                                        | dropped                                   |
+| Blanks before a line's stamp                                               | the line dropped (`sscanf` given the blanks); its first line: no LRC                                           | read                                                                                | read                                                           | read, noted                               |
+| A line without a stamp, after a lyric line                                 | dropped                                                                                                        | joined to the line before, a line break between                                     | dropped                                                        | dropped, noted                            |
 | Lines out of order                                                         | sorted                                                                                                         | sorted only when a line held several stamps                                         | sorted                                                         | sorted                                    |
 | An empty stamped line (`[00:08.00]`)                                       | the line before ends there; an empty event                                                                     | the line before ends there; an empty line                                           | the line before ends there; an empty line                      | the line before ends there                |
 | The last line's end                                                        | none: converted, a cue of no length; burned, never drawn; mpv, to the end                                      | none: shown on                                                                      | none: shown on                                                 | 3 s on                                    |
@@ -109,9 +109,8 @@ no LRC (6.8.3's writer, last).
        return f"[{cs // 6000:02d}:{cs // 100 % 60:02d}.{cs % 100:02d}]"
    ```
 
-4. The stamp first on its line, no blank before it (ffmpeg and ffman drop the line); several stamps
-   for one text adjacent, no blank between (ffmpeg drops the one after it) -- or each line written
-   out.
+4. The stamp first on its line, no blank before it (ffmpeg drops the line); several stamps for one
+   text adjacent, no blank between (ffmpeg drops the one after it) -- or each line written out.
 5. Lines in time order (Navidrome sorts only repeated lines).
 6. Every lyric line stamped: a lyric line without one is dropped by three and joined to the line
    before by Navidrome.
@@ -127,9 +126,10 @@ no LRC (6.8.3's writer, last).
 To lose no line a reader here shows: a UTF-8 BOM skipped, UTF-16 by its BOM recoded; lines ending at
 an LF, a CRLF or a CR; a lower-case `[name:value]` line an ID tag; a lyric line's stamps at its
 start, blanks before and between them read, each a start -- minutes and seconds of any digits, the
-fraction a decimal, optional; its text the rest of the line, trimmed, word stamps taken off; every
-line sorted by start, each ending where the next starts, the last a few seconds on; a line without a
-stamp ignored. Where a reader differs (the table), say which the result is for.
+fraction a decimal, optional, a minus a time before 0 (ffmpeg writes one); its text the rest of the
+line, trimmed, word stamps taken off; every line sorted by start, each ending where the next starts,
+the last a few seconds on; a line without a stamp dropped, but reported (Navidrome joins it to the
+line before). Where a reader differs (the table), say which the result is for.
 
 ## Converting, muxing and burning with ffmpeg
 
@@ -142,7 +142,8 @@ ffmpeg -i in.srt out.lrc                                                  # [re:
 ```
 
 ffman burns an LRC with `--burn-subs` and attaches one with `--add-subs` -- its own reading, each
-line to the next start, the last 3 s on; Matroska, MP4 and WebM each take the text in their codec.
+line to the next start, the last 3 s on, a file of no line it reads refused (`no timed text
+found`); Matroska, MP4 and WebM each take the text in their codec.
 
 ## Example
 

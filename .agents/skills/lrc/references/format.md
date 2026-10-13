@@ -51,39 +51,39 @@ libass draws each as written; the trailing LF off.
 *Measured* -- the demuxer (start and duration in microseconds, the text), and ffman (start and
 end in ms, the text):
 
-| File                                                                     | ffmpeg's reading                                                                          | ffman's reading                                                               |
-| ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| `[00:01.00]one` `[00:02.50]two`                                          | 1000000 for 1500000, `one\n`; 2500000, no duration: each text keeps its `\n`              | 1000-2500 `one`, 2500-5500 `two`: the last 3 s on                             |
-| `[00:01.234]`; `[00:01.5]`; `[00:01]`                                    | 1.234 s; 1.5 s; 1 s: the seconds a decimal                                                | the same                                                                      |
-| `[00:02,50]two`                                                          | 2 s, the text `,50]two`                                                                   | no line                                                                       |
-| `[61:00.00]`; `[100:00.00]`                                              | 3660 s; 6000 s                                                                            | the same                                                                      |
-| `[1:02:03.00]` (hours)                                                   | 62 s: read as 1 minute 2 seconds, the hours lost                                          | no line                                                                       |
-| `[00:60.50]`                                                             | the line dropped                                                                          | 60.5 s                                                                        |
-| `[-00:01.00]`                                                            | -1 s                                                                                      | no line                                                                       |
-| `[00:01.00][00:05.00]chorus`                                             | two events of `chorus`, sorted among the others                                           | the same                                                                      |
-| `[00:01.00] [00:05.00]chorus`                                            | one event, at 1 s, the text `chorus`: a stamp after a blank dropped                       | two lines, at 1 and 5 s                                                       |
-| `[00:01.00]text [00:05.00]later`                                         | one event, the text `text [00:05.00]later`                                                | the same                                                                      |
-| ` \t[00:02.00]two`, after a first line                                   | dropped: `sscanf` given the blanks                                                        | dropped                                                                       |
-| `more`, between two lines                                                | dropped                                                                                   | dropped                                                                       |
-| lines out of order                                                       | sorted                                                                                    | sorted                                                                        |
-| a line twice at one time (`same`, `same`)                                | both, the first of no length                                                              | one                                                                           |
-| `[00:03.00]` with no text                                                | an event of `\n`: the end of the line before it                                           | the end of the line before it, no line of its own                             |
-| `[00:01.00] Hello`                                                       | `Hello`: blanks after a stamp skipped                                                     | `Hello`                                                                       |
-| `<00:01.00>one <00:01.50>two`                                            | the text as written                                                                       | `one two`: the word stamps off                                                |
-| `x<3 and y>2 <i>i</i> a\nb {\an8}c &amp;`                                | the text as written                                                                       | the same                                                                      |
-| `[ti:Title] [ar:Artist] [al:] [au:] [by:] [re:] [ve:]`                   | `title`, `artist`, `album`, `author`, `creator`, `encoder`, `encoder_version`             | none read                                                                     |
-| `[length: 03:20]`, `[xx:unknown]`                                        | `length` = ` 03:20` (the space kept), `xx` = `unknown`                                    | none read                                                                     |
-| `[offset:+500]`; `[offset:-500]`                                         | every time 0.5 ms earlier; 0.5 ms later                                                   | every time 500 ms sooner; later -- noted                                      |
-| `[00:01.00]before`, `[offset:+500]`, `[00:02.00]after`                   | `before` at 1 s, `after` 0.5 ms earlier: the lines after the tag alone                    | both 500 ms sooner, noted                                                     |
-| `[TI:Upper]`                                                             | dropped: neither a tag nor a timed line                                                   | dropped                                                                       |
-| a first line without a tag; `  [00:01.00]` first                         | not LRC: "Invalid data found"                                                             | the line after it read; the stamp after blanks no line: "no timed text found" |
-| CRLF                                                                     | CR removed                                                                                | the same                                                                      |
-| CR only                                                                  | one line: each CR dropped (`first[00:03.00]second`, at the first stamp; a NUL at its end) | two lines                                                                     |
-| a UTF-8 BOM                                                              | detected, but the first line lost: the BOM stays in it                                    | the BOM skipped                                                               |
-| a NUL in a line (`fi` NUL `rst`)                                         | in the packet; the text cut there by the decoder; the next lines read                     | `fi` U+FFFD `rst`, noted                                                      |
-| UTF-16, LE or BE (its BOM)                                               | not LRC: "Invalid data found"; `-f lrc`, no line                                          | read as UTF-8's                                                               |
-| CP1252 (`café ’x’`)                                                      | read as its bytes; converted, the line dropped ("Invalid UTF-8"), but with `-sub_charenc` | refused: "not UTF-8: x.lrc (line 1)"                                          |
-| whisper-cli's `[by:whisper.cpp]`, `[00:00.00] Hello world`, `[60:19.99]` | `creator` = `whisper.cpp`; `Hello world`; 3619.99 s                                       | `Hello world`; 3619.99 s                                                      |
+| File                                                                     | ffmpeg's reading                                                                          | ffman's reading                                                   |
+| ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| `[00:01.00]one` `[00:02.50]two`                                          | 1000000 for 1500000, `one\n`; 2500000, no duration: each text keeps its `\n`              | 1000-2500 `one`, 2500-5500 `two`: the last 3 s on                 |
+| `[00:01.234]`; `[00:01.5]`; `[00:01]`                                    | 1.234 s; 1.5 s; 1 s: the seconds a decimal                                                | the same                                                          |
+| `[00:02,50]two`                                                          | 2 s, the text `,50]two`                                                                   | no line, noted                                                    |
+| `[61:00.00]`; `[100:00.00]`                                              | 3660 s; 6000 s                                                                            | the same                                                          |
+| `[1:02:03.00]` (hours)                                                   | 62 s: read as 1 minute 2 seconds, the hours lost                                          | no line, noted (alone: refused)                                   |
+| `[00:60.50]`                                                             | the line dropped                                                                          | 60.5 s                                                            |
+| `[-00:01.00]`                                                            | -1 s                                                                                      | -1 s (shown from 0), noted                                        |
+| `[00:01.00][00:05.00]chorus`                                             | two events of `chorus`, sorted among the others                                           | the same                                                          |
+| `[00:01.00] [00:05.00]chorus`                                            | one event, at 1 s, the text `chorus`: a stamp after a blank dropped                       | two lines, at 1 and 5 s                                           |
+| `[00:01.00]text [00:05.00]later`                                         | one event, the text `text [00:05.00]later`                                                | the same                                                          |
+| ` \t[00:02.00]two`, after a first line                                   | dropped: `sscanf` given the blanks                                                        | read, noted                                                       |
+| `more`, between two lines                                                | dropped                                                                                   | dropped, noted                                                    |
+| lines out of order                                                       | sorted                                                                                    | sorted                                                            |
+| a line twice at one time (`same`, `same`)                                | both, the first of no length                                                              | one                                                               |
+| `[00:03.00]` with no text                                                | an event of `\n`: the end of the line before it                                           | the end of the line before it, no line of its own                 |
+| `[00:01.00] Hello`                                                       | `Hello`: blanks after a stamp skipped                                                     | `Hello`                                                           |
+| `<00:01.00>one <00:01.50>two`                                            | the text as written                                                                       | `one two`: the word stamps off                                    |
+| `x<3 and y>2 <i>i</i> a\nb {\an8}c &amp;`                                | the text as written                                                                       | the same                                                          |
+| `[ti:Title] [ar:Artist] [al:] [au:] [by:] [re:] [ve:]`                   | `title`, `artist`, `album`, `author`, `creator`, `encoder`, `encoder_version`             | none read                                                         |
+| `[length: 03:20]`, `[xx:unknown]`                                        | `length` = ` 03:20` (the space kept), `xx` = `unknown`                                    | none read                                                         |
+| `[offset:+500]`; `[offset:-500]`                                         | every time 0.5 ms earlier; 0.5 ms later                                                   | every time 500 ms sooner; later -- noted                          |
+| `[00:01.00]before`, `[offset:+500]`, `[00:02.00]after`                   | `before` at 1 s, `after` 0.5 ms earlier: the lines after the tag alone                    | both 500 ms sooner, noted                                         |
+| `[TI:Upper]`                                                             | dropped: neither a tag nor a timed line                                                   | dropped                                                           |
+| a first line without a tag; `  [00:01.00]` first                         | not LRC: "Invalid data found"                                                             | the line after it read; the stamp after blanks read -- each noted |
+| CRLF                                                                     | CR removed                                                                                | the same                                                          |
+| CR only                                                                  | one line: each CR dropped (`first[00:03.00]second`, at the first stamp; a NUL at its end) | two lines                                                         |
+| a UTF-8 BOM                                                              | detected, but the first line lost: the BOM stays in it                                    | the BOM skipped                                                   |
+| a NUL in a line (`fi` NUL `rst`)                                         | in the packet; the text cut there by the decoder; the next lines read                     | `fi` U+FFFD `rst`, noted                                          |
+| UTF-16, LE or BE (its BOM)                                               | not LRC: "Invalid data found"; `-f lrc`, no line                                          | read as UTF-8's                                                   |
+| CP1252 (`café ’x’`)                                                      | read as its bytes; converted, the line dropped ("Invalid UTF-8"), but with `-sub_charenc` | refused: "not UTF-8: x.lrc (line 1)"                              |
+| whisper-cli's `[by:whisper.cpp]`, `[00:00.00] Hello world`, `[60:19.99]` | `creator` = `whisper.cpp`; `Hello world`; 3619.99 s                                       | `Hello world`; 3619.99 s                                          |
 
 *Measured* -- converted into SubRip, WebVTT and ASS (`ffmpeg -i in.lrc out.srt`):
 
@@ -158,11 +158,14 @@ a byte not UTF-8 replaced (`Encoding.UTF8`'s replacement fallback).
 
 subverter's `readers/lrc.py` and ffman's `subs/markup.py`: UTF-8, or UTF-16 by its BOM, and its
 lines, as a SubRip's (`subrip.file_lines`: a CR or an LF ends one, CR CR LF one end); a line's
-stamps at its start, blanks between them, `[m:ss.f]` -- minutes and seconds of any digits, the
-fraction optional, a decimal; each stamp a line of the text after them, sorted, each ending at the
-next start, the last 3 s on; `[offset:]` of whole ms moving every time, `+` sooner, noted; the
+stamps at its start, blanks before and between them, `[m:ss.f]` -- minutes and seconds of any
+digits, the fraction optional, a decimal, a minus a time before 0; each stamp a line of the text
+after them, sorted, each ending at the next start, the last 3 s on; any other line but a tag
+(`[`, a letter or `#`, then `:`) or an empty one dropped; the blanks, the minus and the dropped
+lines noted, each kind counted; `[offset:]` of whole ms moving every time, `+` sooner, noted; the
 text as written but for Enhanced LRC's word stamps, taken off (`markup.unstamped`), its blanks
-squeezed and trimmed; a NUL U+FFFD, noted. The measured table above holds its column.
+squeezed and trimmed; a NUL U+FFFD, noted; a file of no line read refused, `no timed text found`,
+without its notes. The measured table above holds its column.
 
 ## The writers
 
