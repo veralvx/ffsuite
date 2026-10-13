@@ -201,8 +201,10 @@ camcorder:date=D,time=T`.
 - A WebVTT text's `<` with no `>` after it opens a tag to the text's end (W3C), as Chromium and
   ffmpeg show it, noted: `1 texts cut at a < with no > after it, a tag to their end (W3C): the
   first, <3 you`; a SubRip's is text (New).
-- A note names a text whole up to 85 characters -- a cue at its longest by Netflix's guide, two
-  lines of 42 and a space -- else by its first 85, then `... (N more characters)` (New).
+- A note quotes a transcript's text as a refusal quotes input: on one line, each character
+  visible, 60 characters at most (New). Every line ffman writes on stderr, a note or a refusal,
+  writes each control character as Python does -- an ESC `\x1b`, a tab `\t` -- so a file's name
+  or text commands no terminal (New).
 - A NUL in a transcript's text reads as U+FFFD, as the W3C reads one, noted: `1 NULs read as
   U+FFFD, as the W3C reads them: the first in line 3`; an ASS's or SSA's alike, in the copy
   ffman gives ffmpeg, burned or attached (New).

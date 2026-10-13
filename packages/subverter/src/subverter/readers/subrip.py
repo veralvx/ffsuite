@@ -10,7 +10,7 @@ import re
 from fractions import Fraction
 from typing import Final
 
-from subverter.notes import excerpt
+from subverter._errors import shown
 from subverter.readers.cues import Dialect, Found, Timed
 from subverter.readers.cues import read as read_cues
 from subverter.readers.fields import DECIMAL, NUMBER, exact, is_decimal, ms
@@ -107,7 +107,7 @@ def _fraction_notes(odd: list[tuple[int, Timed]]) -> tuple[str, ...]:
     count = sum(len(t.odd) for _, t in odd)
     how = "read as milliseconds as ffmpeg and VLC read them"
     taken = "no time (past a double's range)" if value is None else f"{_in_seconds(value)} s"
-    first = f"the first, {excerpt(written)} on line {line}, as {taken}"
+    first = f"the first, {shown(written)} on line {line}, as {taken}"
     return (f"{count} times had a fraction not of three digits, {how}: {first}",)
 
 
@@ -117,7 +117,7 @@ def _index_notes(indexes: list[tuple[int, str]]) -> tuple[str, ...]:
         return ()
     line, number = indexes[0]
     how = "read as the next cue's index, as ffmpeg reads them"
-    first = f"the first, {excerpt(number)} on line {line}"
+    first = f"the first, {shown(number)} on line {line}"
     return (f"{len(indexes)} lines of a number alone before a timing line {how}: {first}",)
 
 
@@ -127,7 +127,7 @@ def _continued_notes(continued: list[tuple[int, str]]) -> tuple[str, ...]:
         return ()
     line, text = continued[0]
     how = "read as theirs, as ffmpeg reads them"
-    first = f"the first, {excerpt(text)} on line {line}"
+    first = f"the first, {shown(text)} on line {line}"
     return (f"{len(continued)} cues held text after an empty line, {how}: {first}",)
 
 
@@ -137,7 +137,7 @@ def _spaced_notes(spaced: list[tuple[int, str]]) -> tuple[str, ...]:
         return ()
     line, text = spaced[0]
     how = "read as theirs, as MPC-HC and Subtitle Edit read them (ffmpeg's decoder drops it)"
-    first = f"the first, {excerpt(text)} on line {line}"
+    first = f"the first, {shown(text)} on line {line}"
     return (f"{len(spaced)} cues held text after a line of spaces, {how}: {first}",)
 
 

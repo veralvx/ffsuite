@@ -26,7 +26,7 @@ from pathlib import Path
 from types import FrameType, TracebackType
 from typing import Final, Self
 
-from ffman.errors import PROG, refuse
+from ffman.errors import PROG, escaped, refuse
 from ffman.values import is_safe_path
 
 SIGNALS: Final = (signal.SIGINT, signal.SIGTERM, signal.SIGHUP)
@@ -39,7 +39,7 @@ _TMP: Final = "/tmp"  # noqa: S108 -- the POSIX default, as mktemp's
 
 def note(message: str) -> None:
     """Tell the user something on stderr, as bash's ``note``: ``ffman: MESSAGE``."""
-    _ = sys.stderr.write(f"{PROG}: {message}\n")
+    _ = sys.stderr.write(f"{PROG}: {escaped(message)}\n")
 
 
 class Interrupted(BaseException):

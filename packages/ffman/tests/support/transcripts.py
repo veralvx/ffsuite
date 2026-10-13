@@ -230,9 +230,12 @@ HOSTILE: Final = {
         "WEBVTT\n\n00:00.000 --> 00:00.100\nI <3 you  \n\n00:00.100 --> 00:00.200\nbefore <b\n"
         "ends\n\n00:00.200 --> 00:00.300\nR&amp;D &lt;5 kg\n"
     ),
-    # a note's text past a cue at its longest (6.8.2): its first 85 characters quoted, the rest
-    # counted. Before: quoted whole, a line of 400,000 characters that much on stderr
+    # a note's text past 60 characters (6.8.2): quoted as a message quotes input (``shown``), its
+    # first 57 and "...". Before: quoted whole, a line of 400,000 characters that much on stderr
     "quoted.srt": "1\n00:00:00,000 --> 00:00:00,300\nfirst\n\n" + "word " * 39 + "end\n",
+    # a note's control characters (6.8.2): each as Python writes it, so none commands the terminal.
+    # Before: an ESC reached stderr as it was -- an OSC set the terminal's title, an SGR its colour
+    "controls.vtt": "WEBVTT\n\n00:00.000 --> 00:00.300\nfirst\n\n\x1b]0;title\x07\x1b[31mred\n",
     # a NUL in a text (6.8.2): U+FFFD, as the W3C reads one, noted. Before: written into the
     # ASS, where libass ended the script -- `fi` drawn, every later cue lost (measured)
     "nul.srt": "1\n00:00:00,000 --> 00:00:00,200\nfi\x00rst\n\n2\n00:00:00,200 --> 00:00:00,400\nsecond\n",

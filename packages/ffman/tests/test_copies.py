@@ -10,6 +10,7 @@ from fractions import Fraction
 import ffmeta._errors
 import ffmeta._values
 import pytest
+import subverter._errors
 import subverter._values
 from hypothesis import example, given
 from hypothesis import strategies as st
@@ -18,8 +19,10 @@ from ffman import errors, values
 
 
 @given(st.text())
-def test_ffmetas_shown_is_ffmans(text: str) -> None:
-    assert ffmeta._errors.shown(text) == errors.shown(text)
+def test_each_shown_is_ffmans(text: str) -> None:
+    expected = errors.shown(text)
+    assert ffmeta._errors.shown(text) == expected
+    assert subverter._errors.shown(text) == expected
 
 
 @given(st.text(max_size=20), st.integers(min_value=-3, max_value=10**6), st.text(max_size=40))

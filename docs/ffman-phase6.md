@@ -3619,16 +3619,36 @@ tests with 6.8.3's converters.*
       thirteen mutations, each caught. Suite 2287, 100%; matrix 770; outcome report: 480
       identical, `quoted.srt` new, on 3.13 and 3.14. Its review counted the failing tests
       again on the code before it (15, not 13) and gave the fractions' test literal quotes, no
-      longer `excerpt`'s own.*
-- [ ] Found by the note-quote box: a note or a refusal prints a transcript's control
+      longer `excerpt`'s own. Replaced by the next box: `shown`, the suite's rule already.*
+- [x] Found by the note-quote box: a note or a refusal prints a transcript's control
       characters raw -- an ESC in a stray line reached stderr as it was, an OSC setting the
       terminal's title, an SGR its colour (measured); a file name's alike, in a refusal (`not
       UTF-8: x<ESC>[31m.vtt (line 4)`). ffmpeg's log writes `?` for each C0 control but BS to CR
       (`libavutil/log.c`, `sanitize`). To decide: shown escaped (as Python's `repr`, or `?` as
       ffmpeg's); or as now.
+      *Done (escaped, as Python writes them -- the owner's standing rule: better by proof, so
+      not asked): its research found `shown` (`errors.py`), the suite's rule for input in a
+      message since 6.6.3 -- one line, each character visible, 60 characters at most -- ffmeta's
+      copy held equal (`tests/test_copies.py`); the note-quote box's `excerpt` had missed it.
+      So: a note quoting a transcript's text quotes it by `shown`, subverter's own copy, held
+      equal too (`excerpt` and `notes.py` gone, never released); and every line on stderr --
+      `note`, a refusal, an environment's error -- writes each control character, Unicode's Cc
+      (C0, DEL, C1), as Python does (`errors.escaped`), uncut: a file's name stays whole.
+      Python's escape names the character, where ffmpeg's `?` loses it. Tests: 20 failing first
+      (5 `escaped`'s, 7 the readers' notes, 2 the fractions', 4 ffman's notes, the outlets'
+      one, the copies' one), 1 guard; seventeen mutations, sixteen caught -- the sixteenth
+      the tab's own escape in `_ESCAPED`, which Python's `repr` writes alike (dead in each
+      copy: the next commit). Suite 2292, 100%; matrix 770; outcome report: 480 identical,
+      `quoted.srt` changed (its first 57 and `...`), `controls.vtt` new, on 3.13 and 3.14. It
+      found a box: standard output, as written.*
+- [ ] Found by the control-character box: standard output writes its control characters as
+      they are -- the output's path, `--dry-run`'s commands (`shlex.join` quotes, not escapes),
+      `meta -o -`'s file. Data a script reads: `ls` escapes only to a terminal (GNU coreutils 9.4,
+      measured: `'x'$'\033''[31m.vtt'` there, the bytes in a pipe). To decide: escaped to a terminal alone; or as now.
 - [ ] Found by the note-quote box: ffmeta's notes quote names and values whole -- a tag's
-      name, a CATALOG or ISRC value, a FILE's name -- unbounded, as the transcripts' were. To
-      decide: cut alike (ffmeta its own, the standard library alone); or as now.
+      name, a CATALOG or ISRC value, a FILE's name (eleven notes, not by `shown`) -- unbounded,
+      as the transcripts' were; their control characters now escaped on stderr. To decide: by
+      `shown`, as its refusals; or as now.
 - [ ] `ass`: the same, SSA (v4) through it.
 - [ ] `lrc`: the same.
 - [ ] `whisper-transcripts`: the same -- whisper-cli's and WhisperX's JSON, CSV, TSV and

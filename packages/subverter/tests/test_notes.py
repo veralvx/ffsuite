@@ -1,4 +1,5 @@
-"""notes: what a note quotes of a text -- a cue at Netflix's most whole, a longer text cut."""
+"""A reader's note quotes a text as ffman's messages quote input (``_errors.shown``): on one line,
+each character visible, 60 characters at most."""
 
 from typing import Final
 
@@ -6,28 +7,13 @@ import pytest
 import subverter
 from subverter import Cue
 
-
-@pytest.mark.parametrize(
-    ("text", "quoted"),
-    [
-        ("", ""),
-        ("a" * 85, "a" * 85),  # two lines of 42 characters and the space joining them: whole
-        ("a" * 86, "a" * 85 + "... (1 more characters)"),
-        ("é" * 400_000, "é" * 85 + "... (399915 more characters)"),  # characters, not bytes
-    ],
-    ids=["empty", "85", "86", "400000"],
-)
-def test_an_excerpt_is_a_cue_at_netflixs_most_the_rest_counted(text: str, quoted: str) -> None:
-    assert subverter.excerpt(text) == quoted
-
-
-_LONG: Final = "x" * 100  # past a cue at its most
-_LONG_QUOTED: Final = "x" * 85 + "... (15 more characters)"  # its first 85, the rest counted
+_LONG: Final = "x" * 100  # past 60 characters
+_LONG_QUOTED: Final = "x" * 57 + "..."  # its first 57, then the cut's mark
 _T1: Final = "00:00:01,000 --> 00:00:02,000"
 
 
 @pytest.mark.parametrize(
-    ("fmt", "data", "shown"),
+    ("fmt", "data", "quoted"),
     [
         pytest.param(  # SubRip: text after an empty line, read on
             "srt",
@@ -44,19 +30,19 @@ _T1: Final = "00:00:01,000 --> 00:00:02,000"
         pytest.param(  # SubRip: a number alone before a timing line, the next cue's index
             "srt",
             f"1\n{_T1}\na\n{'1' * 100}\n{_T1}\nb\n",
-            f"the first, {'1' * 85}... (15 more characters) on line 4",
+            f"the first, {'1' * 57}... on line 4",
             id="index",
         ),
         pytest.param(  # SubRip: a fraction not of three digits
             "srt",
             f"1\n{'0' * 100}0:00:01,5 --> 00:00:02,000\na\n",
-            f"the first, {'0' * 85}... (24 more characters) on line 2, as 1.005 s",
+            f"the first, {'0' * 57}... on line 2, as 1.005 s",
             id="fraction",
         ),
         pytest.param(  # WebVTT: a line holding --> that is no timing line, its block dropped
             "vtt",
             f"WEBVTT\n\n00:01.000 --> 00:02.000\na\n\n{_LONG} --> y\nb\n",
-            f"the first {'x' * 85}... (21 more characters) on line 6",
+            f"the first {_LONG_QUOTED} on line 6",
             id="dropped",
         ),
         pytest.param(  # WebVTT: text in no cue
@@ -65,11 +51,17 @@ _T1: Final = "00:00:01,000 --> 00:00:02,000"
             f"the first {_LONG_QUOTED} on line 6",
             id="stray",
         ),
+        pytest.param(  # each character visible: an ESC commands no terminal
+            "vtt",
+            "WEBVTT\n\n00:01.000 --> 00:02.000\na\n\n\x1b]0;t\x07\x1b[31m\N{NO-BREAK SPACE}red\n",
+            "the first \\x1b]0;t\\x07\\x1b[31m\\xa0red on line 6",
+            id="controls",
+        ),
     ],
 )
-def test_a_readers_note_quotes_an_excerpt(fmt: str, data: str, shown: str) -> None:
+def test_a_readers_note_quotes_its_text_shown(fmt: str, data: str, quoted: str) -> None:
     (note,) = subverter.read(fmt, data.encode(), f"a.{fmt}").notes
-    assert shown in note
+    assert quoted in note
 
 
 def test_a_short_text_is_quoted_whole() -> None:

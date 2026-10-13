@@ -1,5 +1,6 @@
-"""The one way ffman refuses or fails."""
+"""The one way ffman refuses or fails; input shown safe."""
 
+import re
 from typing import Final, Never
 
 import ffmeta
@@ -8,6 +9,8 @@ import subverter
 PROG: Final = "ffman"  # the program's name, in its messages
 _SHOWN: Final = 60  # input quoted in a message: its characters, at most
 _ESCAPED: Final = {"\r": "\\r", "\n": "\\n", "\t": "\\t"}
+# Unicode's Cc: C0, DEL, C1 -- a terminal's commands (ECMA-48: ESC, CSI), not text
+_CONTROL: Final = re.compile(r"[\x00-\x1f\x7f-\x9f]")
 
 
 class FfmanError(Exception):
@@ -34,6 +37,16 @@ def shown(text: str) -> str:
         _ESCAPED.get(char, char if char.isprintable() else repr(char)[1:-1]) for char in text
     )
     return one if len(one) <= _SHOWN else one[: _SHOWN - 3] + "..."
+
+
+def escaped(message: str) -> str:
+    r"""``message`` as ffman writes it on stderr: each control character as Python writes it.
+
+    A transcript's line or a file's name, in a note or a refusal, commands no terminal: an ESC
+    is ``\x1b``, a tab ``\t`` -- the message one line. ffmpeg's log writes ``?`` for most C0
+    controls (``libavutil/log.c``, ``sanitize``); ``shown`` cuts what it quotes, this nothing.
+    """
+    return _CONTROL.sub(lambda found: repr(found[0])[1:-1], message)
 
 
 def refuse_at(source: str, line: int, message: str) -> Never:

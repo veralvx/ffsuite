@@ -365,10 +365,10 @@ _ODD_SUBRIP: Final = (
     " them: the first, {time} on line 2, as {said}"
 )
 
-# the huge and long times past a cue at its longest: quoted by their first 85 characters
+# the huge and long times past 60 characters: quoted by their first 57, then the cut's mark
 _CUT: Final = {
-    f"00:00:01,{'9' * 400}": f"00:00:01,{'9' * 76}... (324 more characters)",
-    f"00:00:01,{'1' * 20000}": f"00:00:01,{'1' * 76}... (19924 more characters)",
+    f"00:00:01,{'9' * 400}": f"00:00:01,{'9' * 48}...",
+    f"00:00:01,{'1' * 20000}": f"00:00:01,{'1' * 48}...",
 }
 
 

@@ -42,8 +42,8 @@ Times are milliseconds. A text that cannot be read is refused:
 `subverter.Error`, its message the reason. Texts are UTF-8: a character whisper-cli splits
 between tokens or, with `-ml`, cues is joined into the text it starts in; what else is not
 UTF-8 is refused by its line (`not UTF-8: talk.srt (line 3)`), a JSON's by its path. A NUL reads
-as U+FFFD, as the W3C reads one, noted. A note names a text whole up to 85 characters, else by its
-first 85, the rest counted (`excerpt`).
+as U+FFFD, as the W3C reads one, noted. A note quotes a text on one line, each character visible
+(a control character as Python writes it, `\x1b`), 60 characters at most.
 
 ## Licence
 

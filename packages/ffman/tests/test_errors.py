@@ -1,6 +1,6 @@
 import pytest
 
-from ffman.errors import FfmanError, refuse, refuse_at, shown
+from ffman.errors import FfmanError, escaped, refuse, refuse_at, shown
 
 
 def test_refuse_says_the_message() -> None:
@@ -28,3 +28,18 @@ def test_shown_puts_input_on_one_line_of_60_characters_at_most() -> None:
     assert len(shown("y" * 1000)) == 60
     # what prints nothing, visible
     assert shown("\ufeffa\tb\x00c\xa0d") == "\\ufeffa\\tb\\x00c\\xa0d"
+
+
+@pytest.mark.parametrize(
+    ("message", "written"),
+    [
+        ("a\x1b]0;title\x07b", "a\\x1b]0;title\\x07b"),  # an OSC: no command reaches the terminal
+        ("\x1b[31mred", "\\x1b[31mred"),  # an SGR: no colour
+        ("a\tb\nc\rd", "a\\tb\\nc\\rd"),  # C0's line controls too: one line
+        ("\x00\x7f\x85\x9b", "\\x00\\x7f\\x85\\x9b"),  # NUL, DEL, C1's NEL and CSI
+        ("C:\\new caf\u00e9 \u00a0\u200f", "C:\\new caf\u00e9 \u00a0\u200f"),  # no control: as is
+    ],
+    ids=["osc", "sgr", "line-controls", "nul-del-c1", "kept"],
+)
+def test_escaped_writes_each_control_character_as_python_does(message: str, written: str) -> None:
+    assert escaped(message) == written

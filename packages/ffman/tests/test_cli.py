@@ -12,7 +12,7 @@ import pytest
 import ffman
 from ffman import __version__
 from ffman.cli import COMMANDS, OLD_COMMANDS, main
-from ffman.media.run import SIGNALS, Interrupted
+from ffman.media.run import SIGNALS, Interrupted, note
 
 NOTHING_ASKED = "a size (-w, -H, -a), an effect (--vfx), subtitles (--burn-subs, --add-subs)"
 
@@ -257,3 +257,22 @@ def test_a_source_tree_has_its_version_from_pyproject(
     assert ffman.about(tmp_path) == ("9.9", "d")
     monkeypatch.undo()
     assert ffman.about(tmp_path) == (__version__, ffman.__summary__)  # installed: the metadata
+
+
+def test_a_control_character_reaches_no_terminal(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Every line ffman writes on stderr, its control characters escaped: a refusal, a note."""
+    assert main(["\x1b[31mx"]) == 1
+    assert (
+        capsys.readouterr().err == "ffman: error: unknown command: \\x1b[31mx (see ffman --help)\n"
+    )
+
+    def denied(_argv: list[str]) -> int:
+        raise PermissionError(13, "Permission denied", "/a/\x1b]0;t\x07.vtt")
+
+    monkeypatch.setitem(COMMANDS, "convert", denied)
+    assert main(["convert"]) == 1
+    assert capsys.readouterr().err == "ffman: error: Permission denied: /a/\\x1b]0;t\\x07.vtt\n"
+    note("a\x9bb")
+    assert capsys.readouterr().err == "ffman: a\\x9bb\n"

@@ -12,11 +12,10 @@ from typing import Final, NamedTuple
 
 from subverter import readers
 from subverter.markup import unclosed
-from subverter.notes import excerpt
 from subverter.readers.utf8 import Nuls, nul_notes
 from subverter.transcript import Transcript
 
-from ffman.errors import refuse
+from ffman.errors import refuse, shown
 from ffman.media.paths import ext_of
 from ffman.subs import markup, normalize
 
@@ -121,10 +120,10 @@ def ingest(name: str, data: bytes) -> Transcript:
     notes = list(found.notes)
     if escapes and (runs := [run for cue in found.cues for run in markup.hidden(cue.text)]):
         how = "ASS's override blocks, as ffmpeg and mpv hide them"
-        notes.append(f"{len(runs)} braced runs hidden, {how}: the first, {excerpt(runs[0])}")
+        notes.append(f"{len(runs)} braced runs hidden, {how}: the first, {shown(runs[0])}")
     if references and (cut := [rest for cue in found.cues if (rest := unclosed(cue.text))]):
         what = f"{len(cut)} texts cut at a < with no > after it, a tag to their end (W3C)"
-        notes.append(f"{what}: the first, {excerpt(cut[0].rstrip())}")
+        notes.append(f"{what}: the first, {shown(cut[0].rstrip())}")
     if not found.has_words:
         return Transcript(fmt, found.source, found.has_words, chunks, (), tuple(notes))
     placed_words, placed, untimed = normalize.words(

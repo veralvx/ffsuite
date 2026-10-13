@@ -745,29 +745,38 @@ def test_a_vtts_lt_with_no_gt_after_it_is_a_tag_to_its_texts_end_noted(tmp_path:
         (
             "a.srt",
             f"1\n00:00:01,000 --> 00:00:02,000\na{{{'n' * 100}}}b\n",
-            f"the first, {{{'n' * 84}... (17 more characters)",
+            f"the first, {{{'n' * 56}...",
         ),
         (
             "a.vtt",
             f"WEBVTT\n\n00:01.000 --> 00:02.000\na <{'n' * 100}\n",
-            f"the first, <{'n' * 84}... (16 more characters)",
+            f"the first, <{'n' * 56}...",
         ),
     ],
     ids=["braced", "unclosed"],
 )
-def test_ffmans_notes_quote_an_excerpt(tmp_path: Path, name: str, data: str, shown: str) -> None:
-    """subverter's ``excerpt``: a cue at Netflix's most whole, a longer text cut."""
+def test_ffmans_notes_quote_their_text_shown(
+    tmp_path: Path, name: str, data: str, shown: str
+) -> None:
+    """``errors.shown``: on one line, each character visible, 60 characters at most."""
     (note,) = ingested(put(tmp_path, name, data)).notes
     assert note.endswith(shown)
 
 
-def test_a_long_text_is_named_by_its_first_85_characters(tmp_path: Path) -> None:
+def test_a_long_text_is_named_by_its_first_57_characters(tmp_path: Path) -> None:
     t = ingested(put(tmp_path, "quoted.srt", HOSTILE["quoted.srt"]))
     how = "read as theirs, as ffmpeg reads them"
-    first = "word " * 17 + "... (113 more characters)"  # its first 85 characters, the rest counted
+    first = "word " * 11 + "wo..."  # its first 57 characters, then the cut's mark
     assert t.notes == (
         f"1 cues held text after an empty line, {how}: the first, {first} on line 5",
     )
+
+
+def test_a_notes_control_characters_are_written_as_python_does(tmp_path: Path) -> None:
+    t = ingested(put(tmp_path, "controls.vtt", HOSTILE["controls.vtt"]))
+    how = "after an empty line, in no cue (W3C)"
+    first = "\\x1b]0;title\\x07\\x1b[31mred"
+    assert t.notes == (f"1 text blocks dropped: {how}, the first {first} on line 6",)
 
 
 def test_a_srts_lt_with_no_gt_after_it_is_text(tmp_path: Path) -> None:
