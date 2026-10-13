@@ -1,0 +1,23 @@
+{
+  "skill_name": "lrc",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "I burned lyrics.lrc into a music video with ffmpeg -vf subtitles=lyrics.lrc. Every line shows except the very last one:\n\n[03:38.00]Goodnight, moon\n[03:41.20]Goodnight, goodnight\n\nmpv plays the same file with the video and shows it. Why does the burn lose it, and how do I fix the file?",
+      "expected_output": "ffmpeg's lrc demuxer gives each line the time to the next start, and the last line none (a duration of -1): the subtitles filter then draws it for no time, so it never shows; a conversion to SRT, WebVTT or ASS writes it as a cue of no length too. mpv takes a negative duration as unknown and shows the last line to the end. Fix: end it with an empty stamped line at the time it should go, e.g. [03:45.00] alone on the last line: every reader ends the line before there. Run (ffmpeg 8.1.2): at 3:42 nothing drawn as given; with [03:45.00] after it, 'Goodnight, goodnight' drawn at 3:42 and 3:44, gone at 3:49.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "Jellyfin shows my synced lyrics but skips two lines, while Navidrome shows them all:\n\n[01:10.25]rain falls\n[01:15.5]and the river runs\n[01:20]to the sea\n\nWhy, and how should I write them?",
+      "expected_output": "Jellyfin reads LRC through LrcParser, whose line stamp is [m:ss.xx] with exactly two seconds digits and a fraction of two or three digits; [01:15.5] (one digit) and [01:20] (no fraction) are not stamps there, so those lines have no start and are dropped. Navidrome reads one to three fraction digits or none, as ffmpeg and ffman read any. Write [01:15.50] and [01:20.00] -- two-digit hundredths, which every reader takes. Run (ffmpeg 8.1.2): the three read at 70.25 s, 75.5 s and 80 s.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "I transcribed a two-hour talk with whisper-cli -olrc and put talk.lrc next to the audio in Navidrome. From about 1h40m on, the lyrics view shows everything glued onto one huge line. ffmpeg -i talk.lrc talk.srt converts the whole thing fine. The end of the file looks like:\n\n[99:58.10] near the end\n[100:02.31] past it\n\nWhat's going on?",
+      "expected_output": "whisper.cpp writes minutes past 59 unwrapped, so from 100 minutes a stamp has three minute digits ([100:02.31]). Navidrome's stamp takes one or two minute digits: from there no line opens with a stamp, and Navidrome joins each such line to the timed line before it (a line break between). ffmpeg, Jellyfin and ffman read three-digit minutes. No LRC stamp past 99:59.99 is read alike: Navidrome's hours form [1:40:02.31] is read by ffmpeg as 1 minute 40 seconds and dropped by Jellyfin -- so keep an LRC under 100 minutes (split it) or give Navidrome another format. Run (ffmpeg 8.1.2): 5998.1 s and 6002.31 s.",
+      "files": []
+    }
+  ]
+}
