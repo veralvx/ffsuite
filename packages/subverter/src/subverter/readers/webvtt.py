@@ -18,7 +18,7 @@ from subverter._errors import refuse, shown
 from subverter.readers.cues import Dialect, Found, Timed
 from subverter.readers.cues import read as read_cues
 from subverter.readers.fields import exact, ms
-from subverter.readers.utf8 import file_text
+from subverter.readers.utf8 import UTF16_BOMS, file_text
 from subverter.transcript import Reading
 
 __all__ = ["read", "split_lines"]
@@ -95,8 +95,12 @@ def read(data: bytes, name: str) -> Reading:
 
     "WebVTT parser algorithm": ``WEBVTT`` first -- a BOM before it decoded away, a second one
     not -- then nothing on its line, or a space or a tab before anything; else the file is
-    not processed. Its line is then skipped whole, an arrow on it no timing line.
+    not processed. Its line is then skipped whole, an arrow on it no timing line. A UTF-16 file
+    is refused so named: the W3C decodes UTF-8 alone ("UTF-8 decode"; ffmpeg 8.1.2 refuses it,
+    Chromium 141 reads it).
     """
+    if data.startswith(UTF16_BOMS):
+        refuse(f"not a WebVTT file: {name} (UTF-16: WebVTT is UTF-8)")
     lines = split_lines(file_text(data))
     first = lines[0]  # one at least: a split's
     rest = first.removeprefix(_SIGNATURE)

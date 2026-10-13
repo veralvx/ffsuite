@@ -15,11 +15,23 @@ later cue lost (measured, libass 0.17.1 and ffmpeg 8.1.2).
 import codecs
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from typing import Literal, NamedTuple
+from typing import Final, Literal, NamedTuple
 
 from subverter._errors import refuse
 
-__all__ = ["Errors", "Joined", "Nuls", "Source", "by_line", "file_text", "joined", "nul_notes"]
+__all__ = [
+    "UTF16_BOMS",
+    "Errors",
+    "Joined",
+    "Nuls",
+    "Source",
+    "by_line",
+    "file_text",
+    "joined",
+    "nul_notes",
+]
+
+UTF16_BOMS: Final = (codecs.BOM_UTF16_LE, codecs.BOM_UTF16_BE)  # a UTF-16 file's, each order
 
 # how a file's strings give back their bytes: as UTF-8, or each surrogate U+DC80-DCFF its byte
 type Errors = Literal["strict", "surrogateescape"]

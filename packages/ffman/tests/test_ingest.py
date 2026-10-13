@@ -176,6 +176,27 @@ def test_a_webvtt_without_its_signature_is_refused(tmp_path: Path) -> None:
         _ = ingested(path)
 
 
+def test_a_utf16_subrip_is_read_as_ffmpeg_recodes_it(tmp_path: Path) -> None:
+    t = ingested(put(tmp_path, "utf-16.srt", HOSTILE["utf-16.srt"]))
+    assert [(c.start, c.end, c.text) for c in t.chunks] == [(0, 200, "café"), (200, 400, "second")]
+    assert t.notes == ()
+
+
+@pytest.mark.parametrize(
+    ("name", "why"),
+    [
+        ("utf-16-bad.srt", "not UTF-16: {path} (line 3)"),
+        ("utf-16.vtt", "not a WebVTT file: {path} (UTF-16: WebVTT is UTF-8)"),
+    ],
+)
+def test_a_utf16_transcript_ffman_cannot_read_is_refused_so_named(
+    tmp_path: Path, name: str, why: str
+) -> None:
+    path = put(tmp_path, name, HOSTILE[name])
+    with pytest.raises(REFUSALS, match=f"^{re.escape(why.format(path=path))}$"):
+        _ = ingested(path)
+
+
 @pytest.mark.parametrize(
     ("name", "texts"),
     [

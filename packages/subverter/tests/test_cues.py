@@ -100,6 +100,58 @@ def test_a_signed_webvtt_file_of_no_cue_is_read_as_none(data: bytes) -> None:
     assert subverter.read("vtt", data, "a.vtt").cues == ()
 
 
+# --- encodings: SubRip's UTF-8, or UTF-16 by its BOM, as ffmpeg 8.1.2's reader recodes it
+# (``ff_text_init_avio``; VLC 3 alike); WebVTT's UTF-8 alone (W3C: "UTF-8 decode")
+
+_CAFE: Final = "1\r\n00:00:01,000 --> 00:00:02,000\r\ncafé 😀\r\n\r\n2\r\n00:00:03,000 --> 00:00:04,000\r\nnext\r\n"
+
+
+@pytest.mark.parametrize("codec", ["utf-16-le", "utf-16-be"])
+def test_a_subrip_file_in_utf16_by_its_bom_reads_as_in_utf8(codec: str) -> None:
+    bom = b"\xff\xfe" if codec.endswith("le") else b"\xfe\xff"
+    data = bom + _CAFE.encode(codec)
+    assert subverter.read("srt", data, "a.srt") == subverter.read("srt", _CAFE.encode(), "a.srt")
+
+
+# a lone surrogate (ffmpeg's reader stops there, the cue lost), a unit's lone byte at the end
+# (ffmpeg reads it as a character): refused by its line, as an ASS's (ffman's "ASS UTF-16")
+_LONE: Final = _CAFE.replace("next", "ne\ud800xt").encode("utf-16-le", "surrogatepass")
+
+
+@pytest.mark.parametrize(
+    ("data", "line"),
+    [
+        pytest.param(b"\xff\xfe" + _LONE, 7, id="a lone surrogate"),
+        pytest.param(b"\xff\xfe" + _CAFE.encode("utf-16-le") + b"x", 8, id="an odd byte"),
+        pytest.param(  # its lines SubRip's: CR CR LF one end
+            b"\xfe\xff" + "1\r\r\nx\udc00".encode("utf-16-be", "surrogatepass"), 2, id="BE"
+        ),
+    ],
+)
+def test_a_subrip_files_unit_not_utf16_is_refused_by_its_line(data: bytes, line: int) -> None:
+    with pytest.raises(subverter.Error, match=re.escape(f"not UTF-16: a.srt (line {line})")):
+        _ = subverter.read("srt", data, "a.srt")
+
+
+def test_a_nul_in_a_utf16_subrip_reads_as_u_fffd_noted() -> None:
+    data = b"\xff\xfe" + "1\n00:00:01,000 --> 00:00:02,000\na\0b\n".encode("utf-16-le")
+    reading = subverter.read("srt", data, "a.srt")
+    assert (reading.cues, reading.notes) == (
+        (Cue(1000, 2000, "a\ufffdb"),),
+        ("1 NULs read as U+FFFD, as the W3C reads them: the first in line 3",),
+    )
+
+
+@pytest.mark.parametrize("bom", [b"\xff\xfe", b"\xfe\xff"], ids=["LE", "BE"])
+def test_a_webvtt_file_in_utf16_is_refused_so_named(bom: bytes) -> None:
+    codec = "utf-16-le" if bom == b"\xff\xfe" else "utf-16-be"
+    data = bom + "WEBVTT\n\n00:01.000 --> 00:02.000\nx\n".encode(codec)
+    with pytest.raises(
+        subverter.Error, match=r"^not a WebVTT file: a\.vtt \(UTF-16: WebVTT is UTF-8\)$"
+    ):
+        _ = subverter.read("vtt", data, "a.vtt")
+
+
 def test_a_no_break_space_after_a_subrip_arrow_is_no_blank() -> None:
     # ffmpeg 8.1.2 (measured): the line is text, as any character but C's blanks
     line = "00:00:03,000 -->\u00a000:00:04,000"

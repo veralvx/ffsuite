@@ -256,6 +256,17 @@ HOSTILE: Final = {
     "utf-16-bad.ass": (
         "\ufeff" + ASS_HEAD + "Dialogue: 0,0:00:00.00,0:00:00.40,Default,,0,0,0,,fi\ud800rst\n"
     ).encode("utf-16-le", "surrogatepass"),
+    # a UTF-16 SubRip (6.8.2's review): read, as ffmpeg's reader recodes it; one with a lone
+    # surrogate refused by its line; a UTF-16 WebVTT refused so named (the W3C's UTF-8). Before:
+    # "no timed text found" -- its bytes read as UTF-8; the WebVTT refused as unsigned
+    "utf-16.srt": (
+        "﻿1\r\n00:00:00,000 --> 00:00:00,200\r\ncafé\r\n\r\n"
+        + "2\r\n00:00:00,200 --> 00:00:00,400\r\nsecond\r\n"
+    ).encode("utf-16-le"),
+    "utf-16-bad.srt": "﻿1\n00:00:00,000 --> 00:00:00,400\nfi\ud800rst\n".encode(
+        "utf-16-be", "surrogatepass"
+    ),
+    "utf-16.vtt": "﻿WEBVTT\n\n00:00.000 --> 00:00.400\ncafé\n".encode("utf-16-le"),
     # a CP1252 ASS (6.8.2): refused by its line, as a SubRip not UTF-8. Before: burned as libass
     # reads a byte not UTF-8, its Latin-1 character -- the quote's 0x92 a control -- and each
     # event holding one dropped from --add-subs' track by ffmpeg's decoder (measured)

@@ -191,7 +191,10 @@ camcorder:date=D,time=T`.
   UTF-8 is refused by its line, `not UTF-8: FILE (line N)`, a JSON's by the
   text's path, `not UTF-8: FILE (.transcription[0].tokens[3].text)` (New).
 - A WebVTT transcript opens with its signature, `WEBVTT` alone on its line or before a space
-  or a tab (W3C): else `not a WebVTT file: FILE (its first line is not WEBVTT)` (New).
+  or a tab (W3C): else `not a WebVTT file: FILE (its first line is not WEBVTT)`; in UTF-16,
+  `not a WebVTT file: FILE (UTF-16: WebVTT is UTF-8)` (New).
+- A SubRip in UTF-16 (its BOM) is read, as ffmpeg's reader recodes it; a unit not UTF-16 is
+  refused by its line: `not UTF-16: FILE (line N)` (New).
 - A transcript's lines end at an LF, a CRLF or a CR alone: a SubRip's and an LRC's CRs before
   an LF part of that end, as ffmpeg reads them; a WebVTT's each CR an end (W3C) (New).
 - A SubRip cue reads on past an empty line to the next timing line, as ffmpeg reads it, the text

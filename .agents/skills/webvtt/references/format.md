@@ -217,7 +217,8 @@ sorted, cleaned of their tags, their references decoded, each cut at the next st
 
 | File                                                                       | ffman burns                                                                                                               |
 | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| no `WEBVTT`; `webvtt` lower-cased; UTF-16 with its BOM                     | refused: "not a WebVTT file: in.vtt (its first line is not WEBVTT)"                                                       |
+| no `WEBVTT`; `webvtt` lower-cased                                          | refused: "not a WebVTT file: in.vtt (its first line is not WEBVTT)"                                                       |
+| UTF-16 with its BOM                                                        | refused: "not a WebVTT file: in.vtt (UTF-16: WebVTT is UTF-8)"                                                            |
 | no blank line after `WEBVTT`; `-->` without spaces, or with tabs           | read                                                                                                                      |
 | `00:01.5`; `00:01.5000`; `00:01,000`; `75:00.000`                          | its cue dropped, noted: "1 cues dropped: a line holding --> that is no WebVTT timing line (W3C), the first ... on line N" |
 | `one`, an empty line, `two`                                                | `one`; `two` dropped, noted: "1 text blocks dropped: after an empty line, in no cue (W3C), the first two on line N"       |

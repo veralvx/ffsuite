@@ -1,20 +1,20 @@
 """SubRip's grammar, as ffmpeg's srt demuxer reads it (``cues.Dialect``).
 
-Its line ends (``split_lines``); its timing line, a seconds fraction not of three digits a
-count of ms; an empty line or a line of spaces skipped, the cue going on (``_BLANK``); a number
-alone, only empty lines between it and a timing line, the next cue's index; a line holding
-``-->`` that is no timing line, text.
+Its encoding, UTF-8 or UTF-16 by its BOM (``_text``); its line ends (``split_lines``); its
+timing line, a seconds fraction not of three digits a count of ms; an empty line or a line of
+spaces skipped, the cue going on (``_BLANK``); a number alone, only empty lines between it and
+a timing line, the next cue's index; a line holding ``-->`` that is no timing line, text.
 """
 
 import re
 from fractions import Fraction
 from typing import Final
 
-from subverter._errors import shown
+from subverter._errors import refuse, shown
 from subverter.readers.cues import Dialect, Found, Timed
 from subverter.readers.cues import read as read_cues
 from subverter.readers.fields import DECIMAL, NUMBER, exact, is_decimal, ms
-from subverter.readers.utf8 import file_text
+from subverter.readers.utf8 import UTF16_BOMS, file_text
 from subverter.transcript import Reading
 
 __all__ = ["read", "split_lines"]
@@ -164,7 +164,23 @@ def split_lines(text: str) -> list[str]:
 
 def read(data: bytes, name: str) -> Reading:
     """A SubRip file's cues (``cues.read``), its lines ``split_lines``'s: no signature to it."""
-    return read_cues(split_lines(file_text(data)), name, _DIALECT)
+    return read_cues(split_lines(_text(data, name)), name, _DIALECT)
+
+
+def _text(data: bytes, name: str) -> str:
+    """Its text: UTF-16 by its BOM, as ffmpeg's reader recodes it; else UTF-8 (``file_text``).
+
+    ffmpeg's ``ff_text_init_avio``, either byte order; VLC 3 alike. A unit not UTF-16 -- a lone
+    surrogate, an odd last byte -- refused by its line: ffmpeg's reader stops at the one, every
+    later cue lost, and reads the other as a character.
+    """
+    if not data.startswith(UTF16_BOMS):
+        return file_text(data)
+    try:
+        return data.decode("utf-16")  # its BOM read, then off
+    except UnicodeDecodeError as error:  # at a unit's start: what is before it is whole
+        whole = data[: error.start].decode("utf-16")
+        refuse(f"not UTF-16: {name} (line {len(split_lines(whole))})")
 
 
 # its texts hold ASS's escapes, as ffmpeg's subrip decoder passes them to libass, and no HTML

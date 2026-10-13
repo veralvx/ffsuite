@@ -66,7 +66,7 @@ burns its own ASS.
 | Spaces around a line                                          | removed                                                                                                                                                            | kept                                                                                                                                                | kept by subverter, trimmed by ffman                                                                                                        |
 | Not UTF-8 (`caf\xe9`)                                         | ffmpeg drops the cue, an error, unless `-sub_charenc` names its set (a stream copy passes the bytes); mpv guesses the set (uchardet, else a stray byte as Latin-1) | UTF-8 while each cue is; from the first that is not, every cue read in the code page of VLC's interface language (CP1252 for Western European ones) | joined across lines if split, else refused by its line                                                                                     |
 | A NUL in a text                                               | the reading stops there: that cue and every later one lost                                                                                                         | the line cut there (`strlen`)                                                                                                                       | U+FFFD, as the W3C reads one, noted                                                                                                        |
-| Line ends; BOM                                                | LF, CRLF, CR; a UTF-8 BOM skipped, UTF-16 converted                                                                                                                | LF, CRLF (CR alone in a file without LF); UTF-8 and UTF-16 BOMs                                                                                     | LF, CRLF, CR (CR CR LF one end, as ffmpeg's); a UTF-8 BOM (a UTF-16 file: no cue)                                                          |
+| Line ends; BOM                                                | LF, CRLF, CR; a UTF-8 BOM skipped, UTF-16 converted                                                                                                                | LF, CRLF (CR alone in a file without LF); UTF-8 and UTF-16 BOMs                                                                                     | LF, CRLF, CR (CR CR LF one end, as ffmpeg's); a UTF-8 BOM; UTF-16 converted, as ffmpeg's                                                   |
 
 ffmpeg's ASS from a cue: `PlayResX: 384`, `PlayResY: 288`, one style, `Default` (Arial 16,
 white, outline 1, bottom centre, margins 10); `X1..Y2` become `{\an5}{\pos(...)}` (a point,
@@ -115,14 +115,14 @@ in `<u>`. All write `HH:MM:SS,mmm`, no BOM, in text mode -- LF, but CRLF on Wind
 
 ## Reading one correctly
 
-As the players do: a UTF-8 BOM skipped; LF, CRLF or CR; lines skipped up to a timing line (an index
-is not needed); `,` or `.` before the fraction, its digits a count of milliseconds (`,5` 5 ms, as
-ffmpeg and VLC); a timing line's text after the end time ignored; text on to the next timing line,
-an empty line and a line of spaces skipped (MPC-HC, Subtitle Edit; ffmpeg's demuxer skips the empty
-one, its decoder, so mpv, ending the text at the spaces; VLC ends it at an empty line, Kodi at
-either), its last line, a number alone, the next cue's index (ffmpeg drops any line starting with a
-number there); the markup above, an unknown tag dropped. Sort by start. A file not UTF-8 is a code
-page's: ask, or guess as VLC does, rather than pass its bytes on.
+As the players do: a UTF-8 BOM skipped, a UTF-16 one read as UTF-16; LF, CRLF or CR; lines skipped
+up to a timing line (an index is not needed); `,` or `.` before the fraction, its digits a count of
+milliseconds (`,5` 5 ms, as ffmpeg and VLC); a timing line's text after the end time ignored; text
+on to the next timing line, an empty line and a line of spaces skipped (MPC-HC, Subtitle Edit;
+ffmpeg's demuxer skips the empty one, its decoder, so mpv, ending the text at the spaces; VLC ends
+it at an empty line, Kodi at either), its last line, a number alone, the next cue's index (ffmpeg
+drops any line starting with a number there); the markup above, an unknown tag dropped. Sort by
+start. A file not UTF-8 is a code page's: ask, or guess as VLC does, rather than pass its bytes on.
 
 ## Converting, muxing and burning with ffmpeg
 
