@@ -12,7 +12,7 @@ from fractions import Fraction
 from itertools import pairwise
 from typing import Final
 
-from ffmeta._errors import refuse
+from ffmeta._errors import refuse, shown
 from ffmeta.cue import LAST_FRAME, LAST_TIME
 from ffmeta.fields import (
     BARCODE,
@@ -169,7 +169,7 @@ def _fields(
         name = None if field is None else field.name(target)
         if name is None:
             why = "none maps it" if field is None else "Vorbis' chapters hold a title alone"
-            notes.append(left_out(f"{what} {command}", why))
+            notes.append(left_out(f"{what} {shown(command)}", why))
         else:
             tags.append(Tag(name, value))
     return tags
@@ -287,7 +287,7 @@ def _cue_lines(tags: Tags, table: Table, source: Format, what: str, notes: list[
             why = (
                 "no cue field" if field is None else f"again: {table.holder} holds one {field.cue}"
             )
-            notes.append(left_out(f"{what} '{tag.name}'", why))
+            notes.append(left_out(f"{what} '{shown(tag.name)}'", why))
             continue
         used.add(field.cue)
         if field.cue.startswith("REM "):

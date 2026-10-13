@@ -7,6 +7,7 @@ editor (``edit.py``) resolves a key with -- so the two cannot drift.
 from dataclasses import dataclass
 from typing import Final, Literal
 
+from ffmeta._errors import shown
 from ffmeta.model import Tag, Tags, folded, left_out
 
 __all__ = [
@@ -106,7 +107,8 @@ def joined(tags: Tags, what: str, notes: list[str]) -> Tags:
         values[key].append(tag.value)
     for key, held in values.items():
         if len(held) > 1:
-            notes.append(f"{what} '{spelled[key]}': {len(held)} values joined with ';', one a key")
+            joined = f"{len(held)} values joined with ';', one a key"
+            notes.append(f"{what} '{shown(spelled[key])}': {joined}")
     return tuple(Tag(spelled[key], ";".join(held)) for key, held in values.items())
 
 

@@ -205,6 +205,7 @@ METADATA: Final[dict[str, bytes]] = {
     "album.cue": _SHEET,
     "album.ffmeta": _FFMETA,
     "custom.ffmeta": b";FFMETADATA1\ntitle=T\nMOOD=calm\n",  # a key iTunes' atoms hold not
+    "quoted.ffmeta": b";FFMETADATA1\nk\x1b" + b"x" * 100 + b"=v\n",  # a name a note quotes cut
     "ffm.txt": _FFMETA,
     "comments.txt": b"ALBUM=Album\nARTIST=A\nARTIST=B\nCHAPTER000=00:00:00.000\nCHAPTER000NAME=One\n",
     "empty.txt": b"",
@@ -264,6 +265,7 @@ def _cli() -> list[Case]:
         _conv("meta/cue-to-vorbis", "-i", "album.cue", "-o", "o.txt", "-p", "vorbiscomment"),
         _conv("meta/cue-to-ffmeta", "-i", "album.cue", "-o", "o.ffmeta"),
         _conv("meta/ffmeta-to-cue", "-i", "album.ffmeta", "-o", "o.cue"),
+        _conv("meta/quoted-name", "-i", "quoted.ffmeta", "-o", "o.cue"),
         _conv("meta/txt-ffmetadata-to-cue", "-i", "ffm.txt", "-o", "o.cue"),
         _conv("meta/txt-vorbis-to-ffmeta", "-i", "comments.txt", "-o", "o.ffmeta"),
         _conv("meta/media-to-cue", "-i", "v.mp4", "-o", "o.cue"),

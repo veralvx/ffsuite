@@ -44,13 +44,14 @@ def parse(sets: list[str], adds: list[str], unsets: list[str], *, clear: bool) -
     seen: set[str] = set()
     for tag in set_tags:
         if key(tag.name) in seen:
-            refuse(f"--set {tag.name} twice: --add gives another value")
+            refuse(f"--set {shown(tag.name)} twice: --add gives another value")
         seen.add(key(tag.name))
     unset = {key(name): name for name in unsets}
     for flag, tags in (("--set", set_tags), ("--add", add_tags)):
         for tag in tags:
             if key(tag.name) in unset:
-                refuse(f"{flag} {tag.name} and --unset {unset[key(tag.name)]} contradict")
+                given, unsetting = shown(tag.name), shown(unset[key(tag.name)])
+                refuse(f"{flag} {given} and --unset {unsetting} contradict")
     return Edits(clear, tuple(unsets), set_tags, add_tags)
 
 
@@ -118,7 +119,8 @@ def in_output(edits: Edits) -> Edits:
 def _field(flag: str, name: str) -> Field:
     field = _CUE.get(key(name))
     if field is None:
-        refuse(f"{flag} {name}: a cue sheet holds no {name} (it holds: {_CUE_HOLDS})")
+        quoted = shown(name)
+        refuse(f"{flag} {quoted}: a cue sheet holds no {quoted} (it holds: {_CUE_HOLDS})")
     return field
 
 

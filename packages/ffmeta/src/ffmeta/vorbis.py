@@ -175,7 +175,7 @@ def comments(meta: Metadata) -> tuple[tuple[tuple[str, str], ...], tuple[str, ..
         if why is None and _a_chapters(tag.name):
             why = "a chapter's comment by its name, not a tag"
         if why is not None:
-            notes.append(left_out(f"a tag '{tag.name}'", why))
+            notes.append(left_out(f"a tag '{shown(tag.name)}'", why))
             continue
         pairs.append((tag.name, tag.value))
     pairs += _chapter_pairs(meta.chapters, notes)
@@ -252,7 +252,7 @@ def _chapter_tags(
         elif why is None and kind in seen:
             why = "again: a chapter has one NAME and one URL"
         if why is not None:
-            notes.append(left_out(f"chapter {position}'s tag '{tag.name}'", why))
+            notes.append(left_out(f"chapter {position}'s tag '{shown(tag.name)}'", why))
             continue
         seen.add(kind)
         pairs.append((prefix + tag.name, tag.value))

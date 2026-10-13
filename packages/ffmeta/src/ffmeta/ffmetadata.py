@@ -136,7 +136,8 @@ def _sections(body: Iterator[_Line], source: str) -> Metadata:
                 refuse_at(
                     source,
                     line.number,
-                    f"the key '{tag.name}' again (line {seen[key]}): ffmpeg keeps only the last",
+                    f"the key '{shown(tag.name)}' again (line {seen[key]}): "
+                    + "ffmpeg keeps only the last",
                 )
             seen[key] = line.number
             section.append(tag)
@@ -254,7 +255,7 @@ def _tag_lines(tags: Tags, what: str, notes: list[str]) -> list[str]:
         elif folded(tag.name) in seen:
             why = "its key again: ffmpeg keeps only the last"
         if why is not None:
-            notes.append(left_out(f"{what} '{tag.name}'", why))
+            notes.append(left_out(f"{what} '{shown(tag.name)}'", why))
             continue
         seen.add(folded(tag.name))
         lines.append(f"{tag.name.translate(_ESCAPES)}={tag.value.translate(_ESCAPES)}")

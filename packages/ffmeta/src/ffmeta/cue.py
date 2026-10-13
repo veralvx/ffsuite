@@ -388,7 +388,7 @@ def write(meta: Metadata) -> Written:
         if is_catalog(disc.catalog):
             lines.append(f"CATALOG {disc.catalog}")
         else:
-            notes.append(left_out(f"the CATALOG '{disc.catalog}'", "not 13 digits"))
+            notes.append(left_out(f"the CATALOG '{shown(disc.catalog)}'", "not 13 digits"))
     if disc.cdtextfile is not None and (name := _quoted(disc.cdtextfile, "the CDTEXTFILE", notes)):
         lines.append(f"CDTEXTFILE {name}")
     lines += _cdtext(disc.cdtext, "the disc's", "", notes)
@@ -423,14 +423,13 @@ def _track_lines(track: Track, indexes: tuple[Index, ...], notes: list[str]) -> 
         if are_flags(tuple(flags)):
             lines.append(f"    FLAGS {' '.join(flags)}")
         else:
-            notes.append(
-                left_out(f"{what} FLAGS '{' '.join(track.flags)}'", f"flags are {', '.join(FLAGS)}")
-            )
+            written = shown(" ".join(track.flags))
+            notes.append(left_out(f"{what} FLAGS '{written}'", f"flags are {', '.join(FLAGS)}"))
     if track.isrc is not None:
         if is_isrc(track.isrc):
             lines.append(f"    ISRC {track.isrc}")
         else:
-            notes.append(left_out(f"{what} ISRC '{track.isrc}'", "not CCOOOYYSSSSS"))
+            notes.append(left_out(f"{what} ISRC '{shown(track.isrc)}'", "not CCOOOYYSSSSS"))
     lines += _cdtext(track.cdtext, what, "    ", notes)
     lines += [_rem_line(rem, "    ") for rem in _rems(track.rems, f"{what} REM", notes)]
     if track.pregap is not None:
@@ -454,7 +453,7 @@ def _file_command(file: File, notes: list[str]) -> str:
     if '"' not in name and not name.endswith("\\"):
         return f'FILE "{name}" {kind}'
     lost = "mpv and libcue read no name" if any(c.isspace() for c in name) else "mpv reads no name"
-    notes.append(f"the FILE '{name}': unquoted, for a quote or a final '\\' in it: {lost}")
+    notes.append(f"the FILE '{shown(name)}': unquoted, for a quote or a final '\\' in it: {lost}")
     return f"FILE {name} {kind}"
 
 

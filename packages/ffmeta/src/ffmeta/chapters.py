@@ -96,7 +96,7 @@ def parse_chapters(given: ChapterText) -> ChapterEdits:
     seen: set[tuple[int, str]] = set()
     for _, number, tag in edits:
         if (number, key(tag.name)) in seen:
-            refuse(f"chapter {number}'s {tag.name} set twice")
+            refuse(f"chapter {number}'s {shown(tag.name)} set twice")
         seen.add((number, key(tag.name)))
     added = tuple(_new(text) for text in given.new)
     tagged = tuple((number, tag) for _, number, tag in edits)
@@ -298,13 +298,14 @@ def _tracks(meta: Metadata, edits: ChapterEdits, media: str) -> tuple[Metadata, 
 def _track_set(track: Track, tag: Tag, number: int, notes: list[str]) -> Track:
     """``tag`` on a cue's track: its CD-Text, a REM line, or its ISRC."""
     field = _TRACK.get(key(tag.name))
+    name = shown(tag.name)
     if field is None:
-        holds = f"a cue's track holds no {tag.name} (it holds: {_TRACK_HOLDS})"
-        refuse(f"--chapter-set {number}:{tag.name}: {holds}")
+        holds = f"a cue's track holds no {name} (it holds: {_TRACK_HOLDS})"
+        refuse(f"--chapter-set {number}:{name}: {holds}")
     if field.cue == "ISRC":
         if not is_isrc(tag.value):
             form = f"a cue's ISRC is CCOOOYYSSSSS (12): {shown(tag.value)}"
-            refuse(f"--chapter-set {number}:{tag.name}: {form}")
+            refuse(f"--chapter-set {number}:{name}: {form}")
         return replace(track, isrc=tag.value)
     if field.cue.startswith("REM "):
         # rem_text is None only for a quoted field (a disc's GENRE): none of a track's is
@@ -330,12 +331,10 @@ def _inserted(tracks: list[Track], new: NewChapter, notes: list[str]) -> list[Tr
     if frames > LAST_FRAME:
         refuse(f"{what}: past a cue's last time ({LAST_TIME})")
     if exact(frames, FRAMES) != new.start:
-        notes.append(
-            f"--chapter {new.text}: between frames (1/75 s): at the nearest, frame {frames}"
-        )
+        notes.append(f"{what}: between frames (1/75 s): at the nearest, frame {frames}")
     if new.end is not None:
         why = "a cue's track ends where the next starts"
-        notes.append(left_out(f"--chapter {new.text}'s end", why))
+        notes.append(left_out(f"{what}'s end", why))
     at = _after([track.start_index.frames for track in tracks], frames)
     if at == 0 and tracks and (zero := tracks[0].index(0)) is not None and zero.frames == 0:
         old = tracks[0]  # the time before the first track: now the new first's, at 0 or after

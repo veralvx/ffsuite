@@ -204,8 +204,8 @@ camcorder:date=D,time=T`.
 - A WebVTT text's `<` with no `>` after it opens a tag to the text's end (W3C), as Chromium and
   ffmpeg show it, noted: `1 texts cut at a < with no > after it, a tag to their end (W3C): the
   first, <3 you`; a SubRip's is text (New).
-- A note quotes a transcript's text as a refusal quotes input: on one line, each character
-  visible, 60 characters at most (New). Every line ffman writes on stderr, a note or a refusal,
+- A note quotes a transcript's text, or a metadata file's name or value, as a refusal quotes
+  input: on one line, each character visible, 60 characters at most (New). Every line ffman writes on stderr, a note or a refusal,
   writes each control character as Python does -- an ESC `\x1b`, a tab `\t`, a name's byte
   not UTF-8 `\udc9b` -- so a file's name or text commands no terminal (New).
 - A NUL in a transcript's text reads as U+FFFD, as the W3C reads one, noted: `1 NULs read as

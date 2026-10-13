@@ -3662,10 +3662,21 @@ tests with 6.8.3's converters.*
       terminal's CSI) where stderr wrote `\udc9b`: `escaped` takes lone surrogates too, so both
       write them alike (measured on a pseudo-terminal), stderr's bytes unchanged; and the spec
       marks the printed path's escaping new, not the path.*
-- [ ] Found by the note-quote box: ffmeta's notes quote names and values whole -- a tag's
+- [x] Found by the note-quote box: ffmeta's notes quote names and values whole -- a tag's
       name, a CATALOG or ISRC value, a FILE's name (eleven notes, not by `shown`) -- unbounded,
       as the transcripts' were; their control characters now escaped on stderr. To decide: by
       `shown`, as its refusals; or as now.
+      *Done (by `shown`, as its refusals -- the owner's standing rule: better by proof, so not
+      asked): every ffmeta note and refusal quoting a name or a value its format has not
+      checked as its own quotes it by `shown`: a tag's name (Vorbis' writer, a chapter's, the
+      joined ones, ffmetadata's NUL and repeated key, the cue writer's no field), a CATALOG, an
+      ISRC, FLAGS, a FILE, a REM's word, and `--set`'s and `--chapter`'s names and titles --
+      eighteen sites; the new chapter's two notes by the refusals' own `what` (DRY). Left as
+      they are, checked first: a field's own name in its case (`genre`, `NAME`, `ISRC`), a
+      `--pregap`'s `N=TIME`, a chapter comment's `CHAPTERxxxNAME`, a cue's keywords and
+      numbers. Tests: 18 failing first (12 notes, 6 refusals: `tests/test_quoted.py`, a name
+      of an ESC and 100 more); twenty mutations, each caught. Suite 2316, 100%; matrix 770;
+      outcome report: 482 identical, `meta/quoted-name` new, on 3.13 and 3.14.*
 - [ ] `ass`: the same, SSA (v4) through it.
 - [ ] `lrc`: the same.
 - [ ] `whisper-transcripts`: the same -- whisper-cli's and WhisperX's JSON, CSV, TSV and
