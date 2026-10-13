@@ -3582,8 +3582,8 @@ tests with 6.8.3's converters.*
       text -- VLC's rule alone, one character read two ways; Chromium and ffmpeg (so mpv) lose
       the rest. A SubRip's stays text, as ffmpeg's subrip decoder shows it (measured).
       whisper.cpp, OpenAI whisper and WhisperX escape no `<`: their `I <3 you` is now cut,
-      noted, as a browser cuts it. `subverter/markup.py`: `untagged(..., webvtt=True)`
-      (`_VTT_TAG`) and `unclosed`; `clean` reads WebVTT's tags so, `ingest` notes the cut.
+      noted, as a browser cuts it. `subverter/markup.py`: `untagged(..., webvtt=True)` and
+      `unclosed`; `clean` reads WebVTT's tags so, `ingest` notes the cut.
       Tests: 9 failing first, 2 guards; eleven mutations, each caught (the note's trim once
       survived: `unclosed.vtt`'s first cue now ends in blanks). Differentials, 9000 generated
       texts each against Chromium 141 (`getCueAsHTML`) and ffmpeg 8.1.2's decoder: 0 differ --
