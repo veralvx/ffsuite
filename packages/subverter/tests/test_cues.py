@@ -685,8 +685,9 @@ _HEAD: Final = "WEBVTT\n\n00:01.000 --> 00:02.000\nfirst\n\n"  # a cue, ended at
         # two before it: no identifier (line count 3), dropped; the cue read
         ("a\nb\n00:03.000 --> 00:04.000\nnext\n", 2, ((1, "a", 6),)),
         # a comment, a style sheet, a region: no text (the syntax's blocks); a NOTE needs a
-        # space, a tab or its line's end after it, STYLE and REGION spaces or tabs alone
+        # space, a tab or its line's end after it, STYLE and REGION ASCII whitespace alone
         ("NOTE a comment\n\nNOTE\nlines\n\nSTYLE\n::cue {}\n\nREGION \t\nid:r\n", 1, ()),
+        ("STYLE\f\n::cue {}\n\nREGION\f \nid:r\n", 1, ()),  # a form feed: ASCII whitespace
         ("NOTES\n\nSTYLE x\n", 1, ((2, "NOTES", 6),)),
         ("   \n\t\n", 1, ()),  # blanks alone: nothing lost
     ],

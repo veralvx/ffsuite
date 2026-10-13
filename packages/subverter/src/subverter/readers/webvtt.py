@@ -37,8 +37,8 @@ _BLANKS: Final = "[ \t\f]*"  # "skip whitespace": a line's ASCII whitespace
 _TIMINGS: Final = re.compile(f"{_BLANKS}{_TIMESTAMP}{_BLANKS}-->{_BLANKS}{_TIMESTAMP}")
 _LAST: Final = 59  # a minute's and a second's largest
 # the syntax's blocks of no text: a comment (``NOTE``, then a space, a tab or its line's end), a
-# style sheet or a region (its keyword, then spaces or tabs alone)
-_NO_TEXT: Final = re.compile(r"NOTE(?:[ \t].*)?|(?:STYLE|REGION)[ \t]*")
+# style sheet or a region (its keyword, then ASCII whitespace alone: "collect a WebVTT block")
+_NO_TEXT: Final = re.compile(rf"NOTE(?:[ \t].*)?|(?:STYLE|REGION){_BLANKS}")
 
 
 def _timing(line: str) -> Timed | None:
