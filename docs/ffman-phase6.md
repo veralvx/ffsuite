@@ -3705,6 +3705,19 @@ tests with 6.8.3's converters.*
       Timing lines); a cue whose only line is a number with a blank after it (ffmpeg keeps it, here
       an index); `Dialect.blank` for WebVTT, its `ends` read first; `Reading`'s two booleans;
       `unescaped`'s name, its docstring stating its reach.*
+- [x] The owner's assessment (2026-10-13): the review's open points weighed again, each end to
+      end -- the 199 texts, and each left one.
+      *Done. Changed: SubRip's times are the players' (Timing lines) -- bash's bare number, its
+      minutes alone and a decimal in a part made `2024 --> 2025` in a cue's text a timing line,
+      its text lost; now ffmpeg's `sscanf`, the fraction optional (VLC 3's, by source).
+      `unescaped` is `drawn` (unreleased: 0.1.1 has neither). Tests: 14 failing first; 12
+      mutations of the grammar, each caught. Measured: 15492 generated lines read as ffmpeg
+      8.1.2's demuxer reads them, but 338 without a fraction (VLC's) and 154 past 2^31 ms
+      (ffmpeg's `int` wraps). Outcome report: 486 identical, `no-newline.srt` refused, `years.srt`
+      new, on 3.13 and 3.14. Left: the 199 texts, each a tag beside the text's own `{` or `\`
+      (ffmpeg's exact b/i/s/u blocks leave 41, each a font's -- the owner's, not taken); a cue's
+      only line `2 ` (ffmpeg's two-case rule, rare); `Dialect.blank`; `Reading`'s two booleans,
+      one value with the ASS reader (6.8.3, the model).*
 - [ ] `ass`: the same, SSA (v4) through it.
       Found by the SubRip and WebVTT review: ffman's UTF-16 reading of an ASS (`subs/ingest.py`,
       `_utf8`) and subverter's of a SubRip (`subrip._text`, `utf8.UTF16_BOMS`), one.
@@ -3723,6 +3736,10 @@ tests with 6.8.3's converters.*
 
 - [ ] The model: `Transcript` kept or grown (ASS's styles and positions?) --
       decided from the research.
+      Found by the SubRip and WebVTT review: `Reading.has_references` and `has_ass_escapes`, one
+      question -- how a format's texts mark up -- in two booleans, a third with ASS's; one value
+      then. `has_references` released (0.1.1), `has_ass_escapes` not, and it gates a SubRip's tags
+      too.
 - [ ] Readers and writers each format lacks (an ASS reader, SSA through it; WebVTT, plain
       ASS, `-oj`, `-ojf`, WhisperX, CSV, TSV and plain-text writers): round trip exact where
       the formats meet, each loss noted; ffmpeg where it measured equal or better.
