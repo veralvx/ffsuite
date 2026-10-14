@@ -11,7 +11,7 @@ from hypothesis import given
 from hypothesis import strategies as st
 from subverter.transcript import Chunk, Word
 
-from ffman.errors import REFUSALS
+from ffman.errors import REFUSALS, FfmanError
 from ffman.subs.ass import Style, script
 from ffman.subs.ingest import passed
 from ffman.subs.markup import Markup, clean
@@ -237,6 +237,59 @@ def test_a_webvtts_cr_cr_lf_is_two_line_ends(tmp_path: Path) -> None:
     path = put(tmp_path, "crcrlf.vtt", HOSTILE["crcrlf.vtt"])  # a cue of no text: none timed
     with pytest.raises(REFUSALS, match=f"^{re.escape(f'no timed text found in: {path}')}$"):
         _ = ingested(path)
+
+
+@pytest.mark.parametrize(
+    ("name", "text", "notes"),
+    [
+        pytest.param(
+            "x.lrc",
+            HOSTILE["no-line.lrc"],
+            (
+                "1 LRC lines dropped, opened by no stamp ffman reads nor a tag: the first, [1:02:03.00]an hour in on line 2",
+            ),
+            id="the reader's",
+        ),
+        pytest.param(
+            "x.vtt",
+            "WEBVTT\n\n1 --> 2\nx\n",
+            (DROPPED.format(n=1, line="1 --> 2", at=3),),
+            id="the reader's, WebVTT",
+        ),
+        pytest.param(
+            "x.srt",
+            "1\n00:00:02,000 --> 00:00:01,000\nbackwards\n",
+            ("1 cues dropped: ending before they begin, the first, backwards",),
+            id="the normaliser's",
+        ),
+        pytest.param(
+            "x.srt",
+            "1\n00:00:01,000 --> 00:00:02,000\n{hidden}\n",
+            (
+                "1 braced runs hidden, ASS's override blocks, as ffmpeg and mpv hide them: the first, {hidden}",
+            ),
+            id="the markup's",
+        ),
+        pytest.param(
+            "x.srt",
+            "1\n00:00:02,000 --> 00:00:01,000\nbackwards\n\n2\n00:00:03,000 --> 00:00:04,000\n{hidden}\n",
+            (
+                "1 cues dropped: ending before they begin, the first, backwards",
+                "1 braced runs hidden, ASS's override blocks, as ffmpeg and mpv hide them: the first, {hidden}",
+            ),
+            id="every one, in order",
+        ),
+    ],
+)
+def test_no_timed_text_is_refused_with_the_notes_that_say_why(
+    tmp_path: Path, name: str, text: str, notes: tuple[str, ...]
+) -> None:
+    path = put(tmp_path, name, text)
+    with pytest.raises(
+        FfmanError, match=f"^{re.escape(f'no timed text found in: {path}')}$"
+    ) as refused:
+        _ = ingested(path)
+    assert refused.value.notes == notes
 
 
 def test_a_subrip_cue_reads_on_past_an_empty_line_noted(tmp_path: Path) -> None:

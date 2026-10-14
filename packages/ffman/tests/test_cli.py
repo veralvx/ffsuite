@@ -12,6 +12,7 @@ import pytest
 import ffman
 from ffman import __version__
 from ffman.cli import COMMANDS, OLD_COMMANDS, main
+from ffman.errors import refuse
 from ffman.media.run import SIGNALS, Interrupted, note
 
 NOTHING_ASKED = "a size (-w, -H, -a), an effect (--vfx), subtitles (--burn-subs, --add-subs)"
@@ -127,6 +128,18 @@ def test_an_environment_error_is_a_message_not_a_traceback(
     monkeypatch.setitem(COMMANDS, "convert", denied)
     assert main(["convert"]) == 1
     assert capsys.readouterr().err == "ffman: error: Permission denied: /no/such/place\n"
+
+
+def test_a_refusals_notes_are_told_before_it(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    def empty(_argv: list[str]) -> int:
+        refuse("no timed text found in: a.lrc", ("1 LRC lines dropped: \x1b[31mred", "another"))
+
+    monkeypatch.setitem(COMMANDS, "convert", empty)
+    assert main(["convert"]) == 1
+    told = "ffman: 1 LRC lines dropped: \\x1b[31mred\nffman: another\nffman: error: no timed text found in: a.lrc\n"
+    assert capsys.readouterr().err == told
 
 
 def test_an_environment_error_without_a_file(

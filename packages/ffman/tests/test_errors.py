@@ -8,6 +8,18 @@ def test_refuse_says_the_message() -> None:
         refuse("convert: --input is required")
 
 
+def test_refuse_carries_the_notes_that_led_to_it() -> None:
+    with pytest.raises(FfmanError) as refused:
+        refuse("no timed text found in: a.lrc", ("1 LRC lines dropped",))
+    assert (str(refused.value), refused.value.notes) == (
+        "no timed text found in: a.lrc",
+        ("1 LRC lines dropped",),
+    )
+    with pytest.raises(FfmanError) as bare:
+        refuse("convert: --input is required")
+    assert bare.value.notes == ()
+
+
 def test_refuse_at_names_the_file_and_line_as_gnu_does() -> None:
     with pytest.raises(FfmanError, match=r"^album\.cue:12: a TRACK number outside 01-99: 100$"):
         refuse_at("album.cue", 12, "a TRACK number outside 01-99: 100")

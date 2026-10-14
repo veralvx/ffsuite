@@ -139,8 +139,6 @@ def ingest(name: str, data: bytes) -> Transcript:
     found = readers.read(fmt, data, name)
     markup = Markup.of(found)
     chunks, reversed_, same_start = normalize.cues(found.cues, markup)
-    if not chunks:
-        refuse(f"no timed text found in: {name}")
     notes = list(found.notes)
     if reversed_:
         notes.append(
@@ -150,6 +148,8 @@ def ingest(name: str, data: bytes) -> Transcript:
         how = "beginning with the next, one cue shown at a time"
         notes.append(f"{len(same_start)} cues dropped: {how}, {_first(same_start)}")
     notes += _markup_notes(found.cues, markup)
+    if not chunks:  # after every note that says why
+        refuse(f"no timed text found in: {name}", tuple(notes))
     if not found.has_words:
         return Transcript(fmt, found.source, found.has_words, chunks, (), tuple(notes))
     placed_words, placed, untimed = normalize.words(chunks, found.words, markup)

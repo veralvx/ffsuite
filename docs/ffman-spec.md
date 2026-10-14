@@ -220,6 +220,9 @@ camcorder:date=D,time=T`.
 - A cue dropped whose text a player shows -- one ending before it begins, one beginning with
   the next (one cue shown at a time) -- is noted: `1 cues dropped: ending before they begin, the
   first, backwards` (New).
+- A transcript of no timed text is refused, `no timed text found in: FILE`, after its notes: the
+  lines and cues dropped that a reader shows, the texts hidden -- a cue of no text or of no length,
+  which no player shows, dropped unnoted (New).
 - A note quotes a transcript's text, or a metadata file's name or value, as a refusal quotes
   input: on one line, each character visible, 60 characters at most (New). Every line ffman writes on stderr, a note or a refusal,
   writes each control character as Python does -- an ESC `\x1b`, a tab `\t`, a name's byte

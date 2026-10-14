@@ -9,7 +9,7 @@ from typing import Final
 
 from ffman import __summary__, __version__
 from ffman.effects import format_catalogue
-from ffman.errors import PROG, REFUSALS, refuse
+from ffman.errors import PROG, REFUSALS, FfmanError, refuse
 from ffman.jobs.convert.dispatch import convert
 from ffman.jobs.convert.options import validate
 from ffman.jobs.meta.options import validate as validate_meta
@@ -120,6 +120,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     except Interrupted as stop:  # cleaned up on the way out; silent, as bash was
         return stop.status
     except REFUSALS as error:
+        for line in error.notes if isinstance(error, FfmanError) else ():
+            note(line)
         note(f"error: {error}")
         return 1
     except BrokenPipeError:  # the reader left (ffman ... | head): quiet, as bash died of SIGPIPE

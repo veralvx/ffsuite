@@ -14,7 +14,16 @@ _UNSAFE: Final = re.compile(r"[\x00-\x1f\x7f-\x9f\ud800-\udfff]")
 
 
 class FfmanError(Exception):
-    """A refusal or a failure: reported as ``ffman: error: MESSAGE``, exit status 1."""
+    """A refusal or a failure: reported as ``ffman: error: MESSAGE``, exit status 1.
+
+    ``notes``: what led to it, told first, each a note (``cli.main``) -- why a transcript holds
+    no timed text.
+    """
+
+    def __init__(self, message: str, notes: tuple[str, ...] = ()) -> None:
+        """The refusal's ``message``, and the ``notes`` that led to it."""
+        super().__init__(message)
+        self.notes: tuple[str, ...] = notes
 
 
 # every refusal ffman words as its own: its own, and its libraries' (6.7.5: each refuses with its
@@ -22,9 +31,9 @@ class FfmanError(Exception):
 REFUSALS: Final = (FfmanError, ffmeta.Error, subverter.Error)
 
 
-def refuse(message: str) -> Never:
-    """Refuse with ``message`` (the spec's words)."""
-    raise FfmanError(message)
+def refuse(message: str, notes: tuple[str, ...] = ()) -> Never:
+    """Refuse with ``message`` (the spec's words), after the ``notes`` that led to it."""
+    raise FfmanError(message, notes)
 
 
 def shown(text: str) -> str:
