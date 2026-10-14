@@ -3913,11 +3913,78 @@ tests with 6.8.3's converters.*
 - [ ] Found by the ASS and LRC review: an ASS of no event is burned and attached, unnoted --
       any other format of no timed text is refused (No timed text). To decide with 6.8.3's ASS
       reader: refuse it alike, note, or as now.
-- [ ] `whisper-transcripts`: the same -- whisper-cli's and WhisperX's JSON, CSV, TSV and
-      plain text.
-      Found by the SubRip and WebVTT review: CSV's, TSV's and JSON's typed `\t` and `\n` spaces
-      and every `<...>` a tag (bash's rules, for jq's @tsv), and their encodings; their tests in
-      their own files.
+- [x] `whisper-transcripts`: the same -- whisper-cli's and WhisperX's JSON, CSV, TSV and plain text.
+      Found by the SubRip and WebVTT review: CSV's, TSV's and JSON's typed `\t` and `\n` spaces and
+      every `<...>` a tag (bash's rules, for jq's @tsv), and their encodings; their tests in their
+      own files.
+      *Done: `.agents/skills/whisper-transcripts/` -- `SKILL.md` (the formats: whisper-cli's `-oj`,
+      `-ojf`, `-ocsv`, `-otxt`, ffmpeg's `whisper` filter's, OpenAI whisper's and WhisperX's; their
+      readers -- Python's json and csv, pandas 3.0.5, jq 1.7, ffmpeg 8.1.2, ffman -- side by side,
+      13 rows; what each holds; the rules for a transcript all of them read alike, the time rule as
+      code, `transcript` and `to_ms`; reading one; converting; an example; sources);
+      `references/format.md` gains the filter, the readers and WhisperX's releases;
+      `scripts/measure.py` takes the four source trees, cuts the filter's writer from `af_whisper.c`
+      (against libavutil), reads every writer's file by each reader, a BOM and UTF-16 too, and
+      checks the skill from its own text -- the example as Python, jq and ffman read it, the time
+      rule at 12 edges by hand (two negative), through `transcript`, and over 4025 times as ffman
+      reads them and against `round(1000 * t)` (202 differ: 1.0005 s, 1000 against 1001), a text no
+      JSON number or one past 10^±400 refused, the prose stating them -- exiting 1 on a difference,
+      a reader absent said skipped. Measured: the filter's `json` one object a line, its text not
+      escaped (a `"` breaks it), `srt` numbered from 0, `[BLANK_AUDIO]` removed in any case; jq
+      takes each lone byte of a split character as U+FFFD and NaN as `null`; pandas reads an OpenAI
+      TSV row a newline broke as a row of its own; `csv` and pandas read a TSV text opening with `"`
+      as quoted, rows merged (`quoting=csv.QUOTE_NONE` reads it), and pandas a text `NA` as NaN, a
+      rule-3 CSV's too (`keep_default_na=False` keeps it); `json.load` of a file with a BOM refused;
+      ffmpeg opens a `.txt` whose first line opens with `[` as an LRC, no cue. Read by tag: WhisperX
+      writes a word it cannot time alone in 3.1.0 to 3.3.2 and the patch releases of 2026-03-10
+      (3.8.2 among them); 3.8.3 and every release since interpolate it. `quick_validate.py`: valid
+      (description 980 of 1024); 4 evals. The found items: CSV's, TSV's and JSON's texts plain -- no
+      writer marks one up -- so a tag, a brace, a backslash and a typed `\n` burned and attached as
+      written, a tab or a line break a space (`a90b821`; "Plain texts"); a CSV or TSV in UTF-16 read
+      by its BOM, as a SubRip and an LRC (`4fbf0eb`); their tests in `test_table.py` and
+      `test_whisper.py`, the same 45 (`eab74ac`); the table reader its own `read`, one `bom_text`
+      for a file's text by its BOM (`be5f12c`; the outcome report against its parent: 510
+      identical). Tests: 5 failing first for the plain texts, 3 and 7 for UTF-16 (ffman's,
+      subverter's); the skill's 11 dosed mutations, each caught, its 2 controls clean; suite 2467,
+      coverage 100%; the outcome report against `dde58ad` on 3.13 and 3.14: 503 identical,
+      `burn/hostile/` `markup.csv`, `markup.tsv`, `markup.json`, `utf-16.csv`, `utf-16.tsv`,
+      `utf-16-bad.tsv` and `attach/markup-csv` new. Reviewed by two independent reviewers (the code,
+      the skill): the decisions' rows pointing at "Plain texts", the skill's BOM, quoted-TSV,
+      float-time and WhisperX-release claims corrected, its self-check made to hold without ffman
+      (the rule's edges by hand). Then an end-to-end review, with a third independent reviewer and a
+      cold run of the four evals: the attached track named and recorded (`attach/markup-csv`, the
+      fixtures' rows inside its 0.4 s media); `to_ms` exact and half up toward +infinity, as ffman
+      (a `Fraction`: `Decimal`'s `ROUND_HALF_UP` took a negative tie away from 0), a text no JSON
+      number refused (`Fraction` read `1/2`, `1_0`, a bool), and one past 10^±400 (`1e999999999`
+      built a billion-digit integer, as ffman's bound says); the tests' expectations stated whole;
+      the filter's `json` salvaged and a broken TSV row joined back, stated; the "Braced runs" row
+      and `words.py`'s docstring corrected; `measure.py`'s one JSON verdict. Left, weighed:
+      whisper-cli's `-di` with `-tdrz` (the CLI refuses the pair); a UTF-16 unit refused by its
+      physical line; a UTF-16 JSON's lone surrogate refused `not UTF-8` (its message); a UTF-32 LE
+      file read as UTF-16 by its first bytes, then refused for no timed text (no writer of one;
+      before, as garbled); the bounded-work test's plain cases, kept as guards;
+      `untagged(..., webvtt=False)`, public, its last caller gone. Found: the next four boxes.*
+- [ ] Found by the `whisper-transcripts` box: OpenAI whisper's and WhisperX's TSV keep a
+      newline in a text (`WriteTSV`: tabs alone made spaces), so the rest of that text is a line of
+      its own, one field -- ffman reads it as a record of no time, dropped, the text cut unnoted
+      (measured: `past an hour\nnewline`, `newline` lost). Their writers make every tab a space, so
+      a line without one after a record is that record's text. To decide: join it to the record
+      before, note it, or as now.
+- [ ] Found by the `whisper-transcripts` box: ffmpeg's `whisper` filter (FFmpeg 8, nixpkgs'
+      `ffmpeg-full`, ffman's runtime) writes `format=json` one object a line,
+      `{"start":ms,"end":ms,"text":"..."}`, its text not escaped -- ffman refuses it, `not valid
+      JSON`, without saying why. To decide: read it (each line, a broken one noted), refuse it
+      named (`format=srt` advised), or as now.
+- [ ] Found by the `whisper-transcripts` box: OpenAI whisper's JSON is read as WhisperX's
+      (`.segments`) and named so -- `WhisperX JSON has none` in a word mode's refusal, the JSON
+      refusal naming whisper-cli and WhisperX alone, the `.txt` refusal suggesting their outputs
+      alone. To decide: name each by its keys (OpenAI's `text` and `segments[].id`) or one name
+      for both, `whisper JSON (.segments)`.
+- [ ] Found by the `whisper-transcripts` review: the OpenAI API's `verbose_json` (its
+      `segments`, and with word timestamps its top-level `words`) is read by its segments alone,
+      its words ignored, unnoted -- a word mode has none to show (measured: two words, `0` read, no
+      note); one of words alone is refused, named whisper-cli's or WhisperX's. To decide: read its
+      `words` into their segments, note them ignored, or as now.
 - [ ] `subtitle-mappings`: the mappings, a skill -- its three references and scripts.
 
 *6.8.3 The converters* (pure, from the skills)
