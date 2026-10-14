@@ -16,6 +16,7 @@ from ffman.jobs.convert import fonts
 from ffman.media.run import Runner
 from ffman.subs.ass import FONT, FONT_FILES
 from tests.support.media import tool
+from tests.support.transcripts import ASS_HEAD
 
 OWN = Path(str(resources.files("ffman") / "fonts"))
 
@@ -115,6 +116,30 @@ def test_the_camcorder_refuses_a_split_folder_as_a_burn_does(
     )
     said = "ffman: error: FFMAN_FONTS_DIR has characters ffmpeg's filter syntax would split on: /fonts:here\n"
     assert capsys.readouterr().err == said
+
+
+def test_an_ass_burn_notes_no_font_of_ffmans(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch, ffmpeg: str, tmp_path: Path
+) -> None:
+    # burned in its own styles, naming its own fonts, --font refused with it: no line measured
+    source, subs = tmp_path / "v.mp4", tmp_path / "s.ass"
+    lavfi = [
+        "-f",
+        "lavfi",
+        "-i",
+        "testsrc=d=1:s=64x48:r=25",
+        "-c:v",
+        "libx264",
+        "-pix_fmt",
+        "yuv420p",
+    ]
+    _ = tool(ffmpeg, "-v", "error", *lavfi, str(source))
+    _ = subs.write_text(ASS_HEAD + "Dialogue: 0,0:00:00.00,0:00:00.40,Default,,0,0,0,,x\n")
+    monkeypatch.setenv("FFMAN_FONTS_DIR", str(tmp_path))  # no font of ffman's in it
+    out = tmp_path / "o.mp4"
+    args = ["convert", "-i", str(source), "--burn-subs", str(subs), "-o", str(out), "--dry-run"]
+    assert main(args) == 0
+    assert "not in" not in capsys.readouterr().err
 
 
 def test_a_copy_missing_a_weight_is_noted_not_fatal(

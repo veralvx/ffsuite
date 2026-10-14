@@ -32,16 +32,17 @@ _FOLDERS: Final[WeakKeyDictionary[Runner, str]] = WeakKeyDictionary()  # a job's
 _TOLD: Final[WeakKeyDictionary[Runner, set[str]]] = WeakKeyDictionary()  # its families told missing
 
 
-def fonts_dir(runner: Runner, family: str) -> str:
+def fonts_dir(runner: Runner, family: str | None) -> str:
     """The fonts folder handed to libass for ``runner``'s job; refused where filters split it.
 
     ``family``, the font the job draws with: one ffman carries, missing from the folder, is
-    noted, once a job -- another (``--font``'s) comes from fontconfig either way.
+    noted, once a job -- another (``--font``'s) comes from fontconfig either way; None, an ASS's
+    own styles.
     """
     if (folder := _FOLDERS.get(runner)) is None:
         folder = _found(runner)
         _FOLDERS[runner] = folder
-    carried = _CARRIED.get(family.lower())  # libass: ass_strcasecmp, as font_metrics compares
+    carried = None if family is None else _CARRIED.get(family.lower())  # libass: ass_strcasecmp
     if carried is not None:
         name, files, without = carried
         told = _TOLD.setdefault(runner, set())

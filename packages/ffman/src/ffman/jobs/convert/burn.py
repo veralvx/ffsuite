@@ -46,7 +46,7 @@ def run(o: ConvertOptions, subs: str, runner: Runner) -> None:
     )  # after the flow's refusals, before any pass (F6)
     restore = kind is Output.VIDEO  # the effects give the picture its format back
     check_restorable(o.effects, video, restore=restore)
-    fonts = fonts_dir(runner, o.font)
+    fonts = fonts_dir(runner, None if ext_of(subs) in PASSED_THROUGH else o.font)  # an ASS: its own
     size = target_size(source, video=True, width=o.width, height=o.height, aspect=o.aspect_text)
     data = read_file(subs)
     transcript = ingest(subs, data)

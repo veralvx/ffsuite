@@ -248,7 +248,7 @@ camcorder:date=D,time=T`.
   `not an ASS file: FILE (no [V4+ Styles] or [V4 Styles] section, nor ScriptType v4.00+ or v4.00)` -- `not an SSA file` for one (New).
 - An ASS or SSA is burned in its own styles: a burn's look -- `--font`, `--font-size`,
   `--font-color`, `--outline-color`, `--margin-bottom` -- is refused with one: `--font-size does not apply to an .ass file: it is burned in its own
-  styles` (New).
+  styles`; ffman's font is not noted missing from the fonts folder, the script naming its own (New).
 
 ### 3.5 Soft subtitles (A; from `attach`)
 
