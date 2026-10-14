@@ -320,6 +320,9 @@ HOSTILE: Final = {
     # a transcript of no timed text (the LRC lines box's found box): refused after the notes that
     # say why. Before: refused, the note dropped
     "no-line.lrc": "[ti:x]\n[1:02:03.00]an hour in\n",
+    # one event (the ASS and LRC review); its attach test puts a MiB of blank lines before it,
+    # past ffmpeg's probe
+    "late.ass": ASS_HEAD + "Dialogue: 0,0:00:00.00,0:00:00.40,Default,,0,0,0,,late\n",
     # a CP1252 ASS (6.8.2): refused by its line, as a SubRip not UTF-8. Before: burned as libass
     # reads a byte not UTF-8, its Latin-1 character -- the quote's 0x92 a control -- and each
     # event holding one dropped from --add-subs' track by ffmpeg's decoder (measured)

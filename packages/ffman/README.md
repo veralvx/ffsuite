@@ -78,6 +78,8 @@ ffman convert -i talk.mp4 --burn-subs talk.json --overlay-mode chunk-word --high
 ffman convert -i talk.mp4 --burn-subs talk.srt --font-color iridescent --outline-color lsd
 # ...or its letters in hues that turn: rainbow, lsd, iridescent
 ffman convert -i talk.mp4 --burn-subs talk.json --overlay-mode chunk-word --highlight-colorize rainbow
+# your own ASS or SSA, burned in its own styles (or added as a track: Matroska keeps them)
+ffman convert -i film.mp4 --burn-subs film.ass
 # a subtitle track, nothing re-encoded
 ffman convert -i film.mkv --add-subs film.srt --language eng --in-place
 # for YouTube: H.264 High, two passes, AAC

@@ -230,7 +230,8 @@ camcorder:date=D,time=T`.
   first, backwards` (New).
 - A transcript of no timed text is refused, `no timed text found in: FILE`, after its notes -- the
   lines, cues and text blocks noted as dropped, the texts noted as hidden; a cue of no text or of
-  no length, which no player shows, is dropped unnoted (New).
+  no length, which no player shows, is dropped unnoted. An ASS or SSA, passed through unread, is
+  refused only as no script, after its notes (New).
 - A note quotes a transcript's text, or a metadata file's name or value, as a refusal quotes
   input: on one line, each character visible, 60 characters at most (New). Every line ffman writes on stderr, a note or a refusal,
   writes each control character as Python does -- an ESC `\x1b`, a tab `\t`, a name's byte
@@ -242,10 +243,12 @@ camcorder:date=D,time=T`.
   unit not UTF-16 is refused by its line: `not UTF-16: FILE (line N)`. Without that BOM, the
   file is UTF-8, else refused by its line: `not UTF-8: FILE (line N)` (New).
 - An ASS or SSA opens with `[Script Info]` and has a type (a `[V4+ Styles]` or `[V4 Styles]`
-  section, or `ScriptType: v4.00+` or `v4.00`), as ffmpeg's reader and libass need. Else:
+  section, or `ScriptType: v4.00+` or `v4.00`), as ffmpeg detects one and libass needs. Else:
   `not an ASS file: FILE (its first line is not [Script Info])`, or
-  `not an ASS file: FILE (no [V4+ Styles] or [V4 Styles] section, nor ScriptType v4.00+ or v4.00)`
-  (New).
+  `not an ASS file: FILE (no [V4+ Styles] or [V4 Styles] section, nor ScriptType v4.00+ or v4.00)` -- `not an SSA file` for one (New).
+- An ASS or SSA is burned in its own styles: a burn's look -- `--font`, `--font-size`,
+  `--font-color`, `--outline-color`, `--margin-bottom` -- is refused with one: `--font-size does not apply to an .ass file: it is burned in its own
+  styles` (New).
 
 ### 3.5 Soft subtitles (A; from `attach`)
 

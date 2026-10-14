@@ -118,6 +118,12 @@ _UNREADABLE_OJF: Final = (
     ' "tokens": [{"text": 5, "offsets": {"from": 0, "to": 500}}]}]}'
 )
 _ASS: Final = ASS_HEAD + "Dialogue: 0,0:00:00.00,0:00:00.30,Default,,0,0,0,,an ASS line\n"
+_SSA: Final = (  # v4: its styles' section and its events' Marked
+    "[Script Info]\nScriptType: v4.00\n\n[V4 Styles]\nFormat: Name, Fontname, Fontsize\n"
+    "Style: Default,IBM Plex Sans,57\n\n[Events]\n"
+    "Format: Marked, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
+    "Dialogue: Marked=0,0:00:00.00,0:00:00.30,Default,,0,0,0,,an SSA line\n"
+)
 
 
 def build(corpus: Path, ffmpeg: str) -> None:
@@ -134,6 +140,7 @@ def build(corpus: Path, ffmpeg: str) -> None:
         _ = (corpus / "hostile" / name).write_bytes(encoded(text))
     _ = shutil.copy(corpus / "v.mp4", corpus / "noext")
     _ = (corpus / "t.ass").write_text(_ASS)
+    _ = (corpus / "t.ssa").write_text(_SSA)
     _ = (corpus / "badtoken.json").write_text(_UNREADABLE_OJF)
     _ = (corpus / "bad.mp4").write_text("not media\n")
     _ = shutil.copy(corpus / "v.mp4", corpus / "exists.mp4")
@@ -614,6 +621,9 @@ def _burn() -> list[Case]:
         *cases,
         _conv("burn/ass", *burn, "t.ass"),
         _conv("burn/ass-word", *burn, "t.ass", "--overlay-mode", "word"),
+        _conv("burn/ssa", *burn, "t.ssa"),
+        # an ASS's look its own (the ASS and LRC review): a style refused, before any work
+        _conv("burn/ass-font-size", *burn, "t.ass", "--font-size", "30"),
         _conv("burn/bar", *bars, "regular.srt"),
         _conv(
             "burn/bblur-boxed", *bars, "regular.srt", "--bblur", "-a", "9:16"
@@ -726,12 +736,16 @@ def _burn() -> list[Case]:
 
 def _attach() -> list[Case]:
     srt = ("-i", "v.mp4", "--add-subs", "regular.srt")
-    formats = [*sorted(p.name for p in FIXTURES.iterdir()), "t.ass"]
+    formats = [*sorted(p.name for p in FIXTURES.iterdir()), "t.ass", "t.ssa"]
     cases = [_conv(f"attach/{t}", "-i", "v.mp4", "--add-subs", t, "-o", "x.mkv") for t in formats]
     two = (*srt, "--language", "eng", "--add-subs", "wx.srt", "--language", "por", "-o", "x.mkv")
     return [
         *cases,
         _conv("attach/mp4", *srt),
+        # an ASS into MP4 and WebM: mov_text and webvtt, ffmpeg's conversion (the ASS and LRC
+        # review: what it loses, a box of its own)
+        _conv("attach/ass-mp4", "-i", "v.mp4", "--add-subs", "t.ass", "-o", "x.mp4"),
+        _conv("attach/ass-webm", "-i", "v9.webm", "--add-subs", "t.ass", "-o", "x.webm"),
         _conv("attach/webm", "-i", "v9.webm", "--add-subs", "regular.srt"),
         _conv("attach/webm-to-mp4", "-i", "v9.webm", "--add-subs", "regular.srt", "-o", "x.mp4"),
         _conv("attach/avi", *srt, "-o", "x.avi"),

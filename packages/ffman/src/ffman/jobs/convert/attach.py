@@ -39,7 +39,10 @@ def run(o: ConvertOptions, runner: Runner) -> None:
     n = len(media.subtitles)  # the new track's index among the subtitles
     tagged = [f"-metadata:s:s:{n}", f"language={language}"] if language else []
     maps, copied = attach_streams(ext_of(o.input), out_ext, codec, n)
-    inputs = ["-i", file_url(o.input), "-i", file_url(track)]
+    # an ASS's demuxer named: ffmpeg's probe reads a file's first MiB alone (PROBE_BUF_MAX), a
+    # script after blank lines past it misread or none (measured, 8.1.2)
+    named = ["-f", "ass"] if transcript.fmt in PASSED_THROUGH else []
+    inputs = ["-i", file_url(o.input), *named, "-i", file_url(track)]
     extra, kept = kept_metadata(inputs, tags.path)
     whole = [*maps, "-map", "1:s:0", *kept, "-c", "copy"]
     args = [*inputs, *extra, *whole, *copied, *tagged, *container_flags(out_ext)]

@@ -44,8 +44,9 @@ def passed(data: bytes, name: str) -> Passed:
     """The copy of ``data`` ffmpeg is given: UTF-8 (``_utf8``), each NUL U+FFFD, noted.
 
     Kept, a NUL ends libass's script -- burned, every later event lost -- and ffmpeg's ASS
-    reader cuts its line there, the rest a header line (measured, libass 0.17.1 and ffmpeg
-    8.1.2): U+FFFD, as in the transcripts ffman reads (``utf8.nul_notes``). A UTF-16 file
+    reader cuts its line there, the rest a header line; one first on a line, or two in a row,
+    ends its reading (measured, libass 0.17.1 and ffmpeg 8.1.2): U+FFFD, as in the transcripts
+    ffman reads (``utf8.nul_notes``). A UTF-16 file
     (its BOM) is recoded first, so its U+0000s are NULs then.
     """
     data = _utf8(data, name)
@@ -88,17 +89,19 @@ def _line(data: bytes, at: int) -> int:
     return len(_LINE_END.findall(data, 0, at)) + 1
 
 
-def _script(data: bytes, fmt: str, name: str) -> None:
-    """Refused unless ``data`` is a script both ffmpeg's reader and libass take.
+def _script(data: bytes, fmt: str, name: str, notes: tuple[str, ...]) -> None:
+    """Refused unless ``data`` is a script ffmpeg detects and libass draws, after ``notes``.
 
-    ffmpeg's reader (``ass_probe``) wants ``[Script Info]`` first, after a UTF-8 BOM and blank
-    lines -- else no reader, or the LRC one, taking a ``[`` first: an empty track, unnoted
-    (measured); libass a type, a styles section or ``[Script Info]``'s ``ScriptType`` of
-    ``4.00+`` or ``4.00`` -- else no track, the burn failed (measured).
+    ffmpeg's detection (``ass_probe``): ``[Script Info]`` first, after a UTF-8 BOM and blank lines
+    -- else, probed, no reader or the LRC one (a ``[`` first): an empty track, unnoted (measured).
+    ffman's attach names the demuxer (``-f ass``: a probe reads a file's first MiB alone) and libass
+    seeks no signature; held so the file is one ``ffmpeg -i`` takes for ASS. libass's: a type, a
+    styles section or ``[Script Info]``'s ``ScriptType`` of ``4.00+`` or ``4.00`` -- else no
+    track, the burn failed (measured).
     """
     kind = "an SSA" if fmt == "ssa" else "an ASS"
     if not data.removeprefix(codecs.BOM_UTF8).lstrip(b"\r\n").startswith(_SIGNATURE):
-        refuse(f"not {kind} file: {name} (its first line is not [Script Info])")
+        refuse(f"not {kind} file: {name} (its first line is not [Script Info])", notes)
     info = False
     for found in _LIBASS_LINE.finditer(data):
         line = found[1]
@@ -110,7 +113,7 @@ def _script(data: bytes, fmt: str, name: str) -> None:
         elif info and _SCRIPT_TYPE.fullmatch(line):
             return
     why = "no [V4+ Styles] or [V4 Styles] section, nor ScriptType v4.00+ or v4.00"
-    refuse(f"not {kind} file: {name} ({why})")
+    refuse(f"not {kind} file: {name} ({why})", notes)
 
 
 def _markup_notes(cues: Sequence[Cue], markup: Markup) -> list[str]:
@@ -134,7 +137,7 @@ def ingest(name: str, data: bytes) -> Transcript:
     fmt = ext_of(name)
     if fmt in PASSED_THROUGH:
         copy, notes = passed(data, name)
-        _script(copy, fmt, name)
+        _script(copy, fmt, name, notes)
         return Transcript(fmt, f".{fmt}", has_words=False, chunks=(), words=(), notes=notes)
     found = readers.read(fmt, data, name)
     markup = Markup.of(found)

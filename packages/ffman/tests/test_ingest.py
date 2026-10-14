@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Final
 
 import pytest
-from hypothesis import given
+from hypothesis import example, given
 from hypothesis import strategies as st
 from subverter.transcript import Chunk, Word
 
@@ -390,8 +390,11 @@ def test_a_utf_16_ass_is_passed_as_its_utf_8(text: str, codec: str) -> None:
 @given(
     st.sampled_from([b"", codecs.BOM_UTF8, codecs.BOM_UTF16_LE, codecs.BOM_UTF16_BE]), st.binary()
 )
+@example(b"", codecs.BOM_UTF16_LE)  # its BOM in ``rest``: UTF-16 all the same
+@example(b"", codecs.BOM_UTF16_BE + b"[\0")
 def test_any_ass_is_passed_or_refused_by_its_line(bom: bytes, rest: bytes) -> None:
-    codec = "utf-16" if bom in (codecs.BOM_UTF16_LE, codecs.BOM_UTF16_BE) else "utf-8"
+    utf16 = (bom + rest).startswith((codecs.BOM_UTF16_LE, codecs.BOM_UTF16_BE))
+    codec = "utf-16" if utf16 else "utf-8"
     try:
         _ = (bom + rest).decode(codec)
     except UnicodeDecodeError:
@@ -402,6 +405,16 @@ def test_any_ass_is_passed_or_refused_by_its_line(bom: bytes, rest: bytes) -> No
         found = passed(bom + rest, "a.ass").data
         assert b"\0" not in found
         _ = found.decode()  # UTF-8 whole, or this raises
+
+
+def test_an_ass_refused_as_no_script_after_its_nul_notes(tmp_path: Path) -> None:
+    path = put(tmp_path, "a.ass", b"\0[Script Info]\nScriptType: v4.00+\n")
+    why = "its first line is not [Script Info]"
+    with pytest.raises(FfmanError, match=re.escape(f"not an ASS file: {path} ({why})")) as refused:
+        _ = ingested(path)
+    assert refused.value.notes == (
+        "1 NULs read as U+FFFD, as the W3C reads them: the first in line 1",
+    )
 
 
 @pytest.mark.parametrize(

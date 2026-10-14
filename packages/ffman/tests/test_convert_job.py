@@ -374,7 +374,7 @@ def test_a_burn_of_ones_own_ass(clip: Path, capsys: pytest.CaptureFixture[str]) 
         == 0
     )
     printed = capsys.readouterr()
-    assert "subs.ass" in printed.out + printed.err  # copied, burned as it is
+    assert "subs.ass" in printed.out + printed.err  # the script the burn gives libass
     assert "black bar" not in printed.err  # its own placement: no detection
 
 
@@ -519,6 +519,48 @@ def test_an_ass_that_is_no_script_is_refused_burned_or_attached(
     assert main(["convert", "-i", str(clip), flag, str(own), "-o", str(out), "--dry-run"]) == 1
     why = "its first line is not [Script Info]"
     assert f"ffman: error: not an ASS file: {own} ({why})" in capsys.readouterr().err
+
+
+def test_an_ass_after_a_mib_of_blank_lines_is_attached_with_its_events(
+    tmp_path: Path, ffmpeg: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # past ffmpeg's probe (1 MiB): its demuxer named, as libass reads it (and _script)
+    black = tmp_path / "black.mp4"
+    make(ffmpeg, "-f", "lavfi", "-i", "color=black:s=320x180:r=25:d=0.4", str(black))
+    own = tmp_path / "late.ass"
+    _ = own.write_text("\n" * 1_048_600 + cast("str", HOSTILE["late.ass"]))
+    out = tmp_path / "l.mkv"
+    assert main(["convert", "-i", str(black), "--add-subs", str(own), "-o", str(out)]) == 0
+    _ = capsys.readouterr()
+    track = tool(
+        ffmpeg, "-v", "error", "-i", str(out), "-map", "0:s:0", "-c", "copy", "-f", "ass", "-"
+    )
+    texts = [
+        line.rsplit(",,", 1)[-1] for line in track.splitlines() if line.startswith("Dialogue:")
+    ]
+    assert texts == ["late"]
+
+
+@pytest.mark.parametrize(
+    ("option", "value"),
+    [
+        ("--font", "Arial"),
+        ("--font-size", "30"),
+        ("--font-color", "red"),
+        ("--outline-color", "black"),
+        ("--margin-bottom", "0.1"),
+    ],
+)
+@pytest.mark.parametrize("fmt", ["ass", "ssa"])
+def test_a_style_is_refused_for_an_ass_burned_in_its_own(
+    clip: Path, capsys: pytest.CaptureFixture[str], option: str, value: str, fmt: str
+) -> None:
+    out = clip.with_name("o.mkv")
+    own = f"own.{fmt}"  # refused by its name, before it is read
+    argv = ["convert", "-i", str(clip), "--burn-subs", own, option, value, "-o", str(out)]
+    assert main([*argv, "--dry-run"]) == 1
+    why = f"{option} does not apply to an .{fmt} file: it is burned in its own styles"
+    assert capsys.readouterr().err == f"ffman: error: {why}\n"
 
 
 def test_a_tracks_notes_are_passed_on(clip: Path, capsys: pytest.CaptureFixture[str]) -> None:

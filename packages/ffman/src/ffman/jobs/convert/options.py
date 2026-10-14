@@ -14,6 +14,7 @@ from ffman.effects import parse_specs
 from ffman.errors import refuse
 from ffman.fmt import awk_print
 from ffman.graph.resize import BBLUR_MAX, RESIZE_MODES, BBlur, ResizeMode, bblur_on
+from ffman.media.paths import ext_of
 from ffman.options import Parsed
 from ffman.plan.encode import AUDIO_CODECS, VIDEO_ALIASES
 from ffman.plan.geometry import parse_aspect
@@ -28,6 +29,7 @@ from ffman.plan.request import (
 from ffman.subs.ass import HIGHLIGHTING, MARGIN
 from ffman.subs.colorize import GOLD, WHITE, Colorize, Highlight, parse_highlight
 from ffman.subs.colorize import parse as parse_colorize
+from ffman.subs.ingest import PASSED_THROUGH
 from ffman.subs.layout import font_size
 from ffman.values import is_num, is_uint
 
@@ -46,6 +48,9 @@ _BURN_ONLY: Final = (
 _COLOURS: Final = "#RRGGBB, a colour name, rainbow, lsd or iridescent"  # what a colour may be
 _HIGHLIGHTS: Final = "#RRGGBB, a colour name, rainbow, lsd, iridescent or rectangle"
 _HIGHLIGHTED: Final = ("highlight_mode", "highlight_colorize")  # the highlighted word's look
+# an ASS's or SSA's own, burned as written: a plain burn's look -- the mode and the highlight
+# refused by their own rules (an ASS burned plain alone; a highlight needs another mode)
+_STYLED: Final = tuple(d for d in _BURN_ONLY if d not in ("overlay_mode", *_HIGHLIGHTED))
 _PRESETS: Final[tuple[Preset, ...]] = ("youtube", *TEXT_PRESETS)
 
 
@@ -132,11 +137,22 @@ class _Burn(NamedTuple):
     margin: Fraction
 
 
-def _burn(parsed: Parsed) -> _Burn:
-    if parsed.value("burn_subs") is None:
+def _check_burn_given(parsed: Parsed) -> None:
+    """The burn's options given only with a burn they apply to: one, and its look not an ASS's."""
+    subs = parsed.value("burn_subs")
+    if subs is None:
         for dest in _BURN_ONLY:
             if dest in parsed.given:
                 refuse(f"--{dest.replace('_', '-')} needs --burn-subs")
+    elif (fmt := ext_of(subs)) in PASSED_THROUGH:
+        for dest in _STYLED:
+            if dest in parsed.given:
+                why = "it is burned in its own styles"
+                refuse(f"--{dest.replace('_', '-')} does not apply to an .{fmt} file: {why}")
+
+
+def _burn(parsed: Parsed) -> _Burn:
+    _check_burn_given(parsed)
     given = parsed.value("overlay_mode", "plain")
     overlay_mode: OverlayMode = _choice(
         given,
