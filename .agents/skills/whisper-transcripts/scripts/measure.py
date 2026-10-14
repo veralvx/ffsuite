@@ -1,33 +1,48 @@
-"""The whisper tools' outputs, measured: each writer run on the same transcript, its file printed.
+"""The whisper tools' outputs, measured: each writer run on the same transcript, its file printed;
+then each file as its readers take it -- Python's json and csv, pandas, jq and ffmpeg where found,
+ffman.
 
 whisper.cpp's writers (`examples/cli/cli.cpp`: `output_txt`, `_vtt`, `_srt`, `_csv`, `_json`,
 `_lrc`, and `to_timestamp` from `examples/common-whisper.cpp`) are cut from the source verbatim
 and compiled against stubs that serve their segments and tokens -- no model needed; so is
 `-ml`'s `whisper_wrap_segment` (`src/whisper.cpp`), run on whisper's own tokens of a sentence
-(its BPE: `multilingual.tiktoken`'s ranks). OpenAI
+(its BPE: `multilingual.tiktoken`'s ranks), and ffmpeg's `whisper` filter's writer
+(`libavfilter/af_whisper.c`, its loop over a window's segments), against libavutil. OpenAI
 whisper's and WhisperX's (`utils.py`: `WriteTXT`, `WriteVTT`, `WriteSRT`, `WriteTSV`,
 `WriteJSON`, WhisperX's `WriteAudacity`) are imported from the file and called.
 
-Usage: python3 measure.py CLI_CPP COMMON_WHISPER_CPP WHISPER_CPP WHISPER_UTILS_PY
-WHISPERX_UTILS_PY MULTILINGUAL_TIKTOKEN (whisper.cpp v1.8.4, openai-whisper v20250625, WhisperX
-v3.8.5: nixpkgs' pins). Needs g++.
-Prints what it found; references/format.md's tables are this output.
+Usage: python3 measure.py WHISPER_CPP OPENAI_WHISPER WHISPERX FFMPEG [PYTHON]  (the source trees:
+whisper.cpp v1.8.4, openai-whisper v20250625, WhisperX v3.8.5, FFmpeg n8.1.2 -- nixpkgs' pins;
+PYTHON an interpreter that imports ffman, for its reading). Needs g++, cc and pkg-config's
+libavutil (FFmpeg's headers and library); pandas, jq and ffmpeg read where found, each reader
+absent said "skipped". Prints what it found; references/format.md's tables are this output. Each
+`-di` run holds a 3621 s stereo PCM, about 1.4 GB: run one measurement at a time.
 """
 
 import base64
+import csv
 import importlib.util
 import io
 import itertools
 import json
+import re
+import shutil
 import subprocess
 import sys
 import tempfile
+import textwrap
+from collections.abc import Callable
 from pathlib import Path
 from types import ModuleType
 
-CLI_CPP, COMMON_CPP, WHISPER_CPP, WHISPER_UTILS, WHISPERX_UTILS, TIKTOKEN = (
-    Path(a) for a in sys.argv[1:7]
-)
+WHISPER_CPP_SRC, OPENAI_SRC, WHISPERX_SRC, FFMPEG_SRC = (Path(a) for a in sys.argv[1:5])
+PYTHON = sys.argv[5] if len(sys.argv) > 5 else None  # noqa: PLR2004 -- the four trees, then it
+CLI_CPP = WHISPER_CPP_SRC / "examples/cli/cli.cpp"
+COMMON_CPP = WHISPER_CPP_SRC / "examples/common-whisper.cpp"
+SRC_CPP = WHISPER_CPP_SRC / "src/whisper.cpp"
+TIKTOKEN = OPENAI_SRC / "whisper/assets/multilingual.tiktoken"
+AF_WHISPER = FFMPEG_SRC / "libavfilter/af_whisper.c"
+OUTPUTS: dict[str, bytes] = {}  # each writer's file, by a name its readers take it under
 
 # --- whisper.cpp ------------------------------------------------------------------------------
 
@@ -167,15 +182,13 @@ def whisper_cpp(work: Path) -> Path:
     return exe
 
 
-def json_verdict(out: bytes) -> str:
-    """Whether the bytes are JSON a strict reader takes: UTF-8, no raw control character."""
+def json_reads(given: bytes | str) -> str:
+    """``json.loads`` (strict) of ``given``: read, or its error."""
     try:
-        _ = json.loads(out.decode("utf-8"))
-    except UnicodeDecodeError as error:
-        return f"not UTF-8 ({error.reason} at byte {error.start})"
-    except json.JSONDecodeError as error:
-        return f"not JSON ({error.msg} at line {error.lineno} column {error.colno})"
-    return "valid JSON"
+        _ = json.loads(given)
+    except ValueError as error:  # UnicodeDecodeError and JSONDecodeError both
+        return f"{type(error).__name__}: {error}"
+    return "read"
 
 
 def segments_input() -> str:
@@ -186,6 +199,10 @@ def segments_input() -> str:
     return "\n".join(lines) + "\n"
 
 
+# the outputs the readers take, by a name each
+CLI_SAVED = {"txt": "cli.txt", "csv": "cli.csv", "json": "cli-oj.json", "json-full": "cli-ojf.json"}
+
+
 def run_whisper_cpp(work: Path) -> None:
     exe = whisper_cpp(work)
     data = segments_input()
@@ -193,9 +210,11 @@ def run_whisper_cpp(work: Path) -> None:
         out = subprocess.run(
             [str(exe), what], input=data.encode(), capture_output=True, check=True
         ).stdout
+        if what in CLI_SAVED:
+            OUTPUTS[CLI_SAVED[what]] = out
         if what.startswith("json"):
             print(
-                f"-o{what}: {json_verdict(out)}; its header: {out[: out.index(b'transcription')]!r}"
+                f"-o{what}: {json_reads(out)}; its header: {out[: out.index(b'transcription')]!r}"
             )
             out = out[out.index(b'"transcription"') :]
         print(f"-o{what}:\n{out!r}\n")
@@ -203,6 +222,8 @@ def run_whisper_cpp(work: Path) -> None:
         out = subprocess.run(
             [str(exe), what, "diarize"], input=data.encode(), capture_output=True, check=True
         ).stdout
+        if what in {"txt", "csv"}:
+            OUTPUTS[f"cli-di.{what}"] = out
         if what == "json":
             out = out[out.index(b'"transcription"') :]
         print(f"-o{what} -di (stereo, channel 0 louder):\n{out[:600]!r}\n")
@@ -262,7 +283,7 @@ def bpe(piece: bytes, ranks: dict[bytes, int]) -> list[bytes]:
 
 
 def run_wrap(work: Path) -> None:
-    source = WHISPER_CPP.read_text(encoding="utf-8")
+    source = SRC_CPP.read_text(encoding="utf-8")
     code = "\n".join((
         WRAP_STUBS,
         cut(source, "static inline bool should_split_on_word(", "static void whisper_exp_compute_token_level_timestamps_dtw("),
@@ -295,7 +316,8 @@ def run_wrap(work: Path) -> None:
 
 def load(path: Path, name: str) -> ModuleType:
     spec = importlib.util.spec_from_file_location(name, path)
-    assert spec and spec.loader
+    if spec is None or spec.loader is None:
+        raise ImportError(path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -336,6 +358,13 @@ OPENAI_WORDS = {
     ],
     "language": "en",
 }  # fmt: skip
+# a text opening with a quote, one quote open over three; one "NA"
+QUOTED = (' "Stop," he said.', ' "Wait', " and then", ' he left."', " NA", " End.")
+OPENAI_QUOTED = {
+    "text": "",
+    "segments": [segment(i, i, i + 1, text) for i, text in enumerate(QUOTED)],
+    "language": "en",
+}
 WHISPERX = {
     "segments": [
         {"start": 0.031, "end": 1.4, "text": " Hello world.", "words": [
@@ -376,14 +405,21 @@ def write(writer: object, result: dict[str, object], options: dict[str, object] 
     return out.getvalue()
 
 
+# the cases whose JSON and TSV the readers take, by a name each
+SAVED = {("whisper", "segments"): "openai", ("whisper", "words"): "openai-words",
+         ("whisper", "quoted"): "openai-quoted", ("whisperx", "aligned"): "whisperx",
+         ("whisperx", "NaN"): "whisperx-nan"}  # fmt: skip
+
+
 def run_python() -> None:
-    whisper = load(WHISPER_UTILS, "whisper_utils")
-    whisperx = load(WHISPERX_UTILS, "whisperx_utils")
+    whisper = load(OPENAI_SRC / "whisper/utils.py", "whisper_utils")
+    whisperx = load(WHISPERX_SRC / "whisperx/utils.py", "whisperx_utils")
     plain = {"max_line_width": None, "max_line_count": None, "highlight_words": False}
     lit = plain | {"highlight_words": True}
     wrapped = {"max_line_width": 8, "max_line_count": 1, "highlight_words": False}
     for tool, mod, cases in (
-        ("whisper", whisper, [("segments", OPENAI, None), ("words", OPENAI_WORDS, None),
+        ("whisper", whisper, [("segments", OPENAI, None), ("quoted", OPENAI_QUOTED, None),
+                              ("words", OPENAI_WORDS, None),
                               ("words --highlight_words", OPENAI_WORDS, {"highlight_words": True}),
                               ("words --max_line_width 8 --max_line_count 1", OPENAI_WORDS,
                                {"max_line_width": 8, "max_line_count": 1})]),
@@ -399,7 +435,10 @@ def run_python() -> None:
         ]
         for case, result, options in cases:
             for name in writers:
-                if case != cases[0][0] and name in {"WriteTXT", "WriteTSV", "WriteAudacity"}:
+                if case == "quoted":
+                    if name != "WriteTSV":
+                        continue  # its readers' case: its TSV alone
+                elif case != cases[0][0] and name in {"WriteTXT", "WriteTSV", "WriteAudacity"}:
                     continue  # segment writers: the first case says it
                 if case.startswith(("ja", "--no_align", "NaN")) and name not in {
                     "WriteSRT",
@@ -412,9 +451,386 @@ def run_python() -> None:
                 except Exception as error:  # noqa: BLE001 -- the writer's own failure is the finding
                     text = f"{type(error).__name__}: {error}"
                 print(f"{tool} {name} [{case}]:\n{text!r}\n")
+                if (tool, case) in SAVED and name in {"WriteJSON", "WriteTSV"}:
+                    ext = "json" if name == "WriteJSON" else "tsv"
+                    OUTPUTS[f"{SAVED[tool, case]}.{ext}"] = text.encode("utf-8")
+                if case == cases[0][0] and name in {"WriteTXT", "WriteAudacity"}:
+                    ext = "txt" if name == "WriteTXT" else "aud"
+                    OUTPUTS[f"{tool}.{ext}"] = text.encode("utf-8")
     for seconds in (1.0005, 1.0015, 0.0005, 2.675):  # round(seconds * 1000): ties to even
         print(f"format_timestamp({seconds}) -> {whisper.format_timestamp(seconds)}"
               f" ({seconds} * 1000.0 = {seconds * 1000.0!r})")  # fmt: skip
+
+
+# --- ffmpeg's whisper filter: its writer, a window's segments as text, SubRip or JSON ----------
+
+# a window's segments, as whisper.cpp gives them: t0, t1 in cs, text (whisper_full's)
+FILTERED = [
+    (0, 152, ' Hello "world" \\ <b>bold</b>'),
+    (152, 300, " [BLANK_AUDIO]"),
+    (300, 420, "[blank_audio] tab\there\nnewline"),
+    (420, 500, " caf\u00e9"),
+]
+WINDOWS = "0,5000"  # two windows' starts, ms: the queue's next window, its times offset
+PLAIN = [(0, 152, " Hello"), (152, 300, " again")]  # no `"`, no break: its lines JSON each
+
+AF_STUBS = r"""
+#include <inttypes.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "libavutil/avstring.h"
+#include "libavutil/log.h"
+#include "libavutil/mem.h"
+typedef struct { int64_t t0, t1; char *text; } Seg;
+static Seg segs[64];
+static int n_segs;
+typedef struct { void *ctx_wsp; int max_len; void *avio_context; char *format; int index; } WhisperContext;
+static const char *whisper_full_get_segment_text(void *c, int i) { return segs[i].text; }
+static bool whisper_full_get_segment_speaker_turn_next(void *c, int i) { return false; }
+static int64_t whisper_full_get_segment_t0(void *c, int i) { return segs[i].t0; }
+static int64_t whisper_full_get_segment_t1(void *c, int i) { return segs[i].t1; }
+static void avio_write(void *s, const void *buf, int size) { fwrite(buf, 1, size, stdout); }
+static void run(void *ctx, WhisperContext *wctx, int64_t timestamp_ms) {
+    const int n_segments = n_segs;
+    char *segments_text = NULL;
+"""
+
+AF_MAIN = r"""
+    av_freep(&segments_text);
+}
+// argv: the format, the windows' starts (ms, comma-separated); stdin: t0 t1 hex-text a line
+int main(int argc, char **argv) {
+    WhisperContext w = {NULL, 0, (void *) 1, argv[1], 0};
+    long long t0, t1; char hex[4096];
+    while (n_segs < 64 && scanf("%lld %lld %4095s", &t0, &t1, hex) == 3) {
+        size_t len = strlen(hex) / 2; char *text = calloc(len + 1, 1);
+        for (size_t i = 0; i < len; i++) sscanf(hex + 2 * i, "%2hhx", &text[i]);
+        segs[n_segs++] = (Seg) {t0, t1, text};
+    }
+    for (char *start = strtok(argv[2], ","); start; start = strtok(NULL, ","))
+        run(NULL, &w, atoll(start));
+    return 0;
+}
+"""
+
+
+def run_filter(work: Path) -> None:
+    """The filter's writer: its loop over a window's segments, cut verbatim, against libavutil."""
+    source = AF_WHISPER.read_text(encoding="utf-8")
+    loop = cut(source, "    for (int i = 0; i < n_segments; ++i) {", "    AVDictionary **metadata")
+    src, exe = work / "af_whisper.c", work / "af_whisper"
+    _ = src.write_text(AF_STUBS + loop + AF_MAIN, encoding="utf-8")
+    flags = subprocess.run(["pkg-config", "--cflags", "--libs", "libavutil"], capture_output=True,
+                           text=True, check=True).stdout.split()  # fmt: skip
+    subprocess.run(["cc", "-std=c11", "-w", str(src), "-o", str(exe), *flags], check=True)
+    data = "".join(f"{a} {b} {t.encode().hex()}\n" for a, b, t in FILTERED)
+    print(f"ffmpeg's whisper filter, cut from {AF_WHISPER}; windows at {WINDOWS} ms\n")
+    for fmt in ("text", "srt", "json"):
+        out = subprocess.run([str(exe), fmt, WINDOWS], input=data.encode(), capture_output=True,
+                             check=True).stdout  # fmt: skip
+        if fmt != "text":
+            OUTPUTS[f"filter.{fmt}"] = out
+        print(f"format={fmt}:\n{out!r}\n")
+    plain = "".join(f"{a} {b} {t.encode().hex()}\n" for a, b, t in PLAIN)
+    out = subprocess.run([str(exe), "json", "0"], input=plain.encode(), capture_output=True,
+                         check=True).stdout  # fmt: skip
+    OUTPUTS["filter-plain.json"] = out
+    print(f"format=json, texts of no quote or break:\n{out!r}\n")
+
+
+# --- the readers: each file above as Python's json and csv, pandas, jq, ffmpeg and ffman take it --
+
+
+def python_reads(name: str, data: bytes, *, unquoted: bool = False) -> str:
+    """Python's own reader: ``json.loads`` (strict; its bytes' encoding detected, then its text),
+    or ``csv`` on the UTF-8 text -- ``unquoted``, a TSV's with ``quoting=csv.QUOTE_NONE``."""
+    kind = name.rsplit(".", 1)[1]
+    if kind not in {"json", "csv", "tsv"} or (unquoted and kind != "tsv"):
+        return ""
+    if kind == "json":  # its bytes, and its text decoded as UTF-8 (``json.load(open(path))``)
+        given = json_reads(data)
+        try:
+            text = json_reads(data.decode("utf-8"))
+        except UnicodeDecodeError as error:
+            text = f"UnicodeDecodeError: {error}"
+        return given if given == text else f"bytes {given}; text {text}"
+    try:
+        text = data.decode("utf-8")
+    except UnicodeDecodeError as error:
+        return f"{type(error).__name__}: {error}"
+    quoting = csv.QUOTE_NONE if unquoted else csv.QUOTE_MINIMAL
+    delimiter = "\t" if kind == "tsv" else ","
+    rows = list(csv.reader(io.StringIO(text, newline=""), delimiter=delimiter, quoting=quoting))
+    texts = [r[-1] for r in rows[1:] if len(r) > 1]
+    return (f"{len(rows)} rows of {sorted({len(r) for r in rows})} fields, header {rows[0]!r},"
+            f" texts {texts!r}")  # fmt: skip
+
+
+def pandas_reads(name: str, data: bytes, *, advised: bool = False) -> str:
+    """pandas' ``read_csv`` (a TSV's ``sep``), its defaults otherwise: what it makes of the file;
+    ``advised``, as the skill reads one: ``keep_default_na=False``, a TSV's ``quoting=QUOTE_NONE``."""
+    kind = name.rsplit(".", 1)[1]
+    if kind not in {"csv", "tsv"}:
+        return ""
+    try:
+        import pandas as pd  # noqa: PLC0415 -- a reader of its own, where installed
+    except ImportError:
+        return "skipped: pandas not installed"
+    options: dict[str, object] = {"keep_default_na": False} if advised else {}
+    if advised and kind == "tsv":
+        options["quoting"] = csv.QUOTE_NONE
+    try:
+        frame = pd.read_csv(io.BytesIO(data), sep="\t" if kind == "tsv" else ",", **options)
+    except Exception as error:  # noqa: BLE001 -- the reader's own failure is the finding
+        return f"{type(error).__name__}: {str(error).splitlines()[0]}"
+    return f"{frame.shape[0]} rows: {frame.to_dict('records')!r}"
+
+
+def jq_reads(name: str, data: bytes) -> str:
+    """jq: each JSON value it reads, or its error."""
+    if not name.endswith(".json"):
+        return ""
+    jq = shutil.which("jq")
+    if jq is None:
+        return "skipped: jq not found"
+    texts = (  # what it reads of the texts (and WhisperX's times): the readings that differ
+        'if has("transcription") then [.transcription[] | .text, (.tokens[]?.text)]'
+        ' elif has("segments") then [.segments[] | .start, .text] else [.start, .text] end'
+    )
+    r = subprocess.run([jq, "-c", texts], input=data, capture_output=True, check=False)
+    if r.returncode:
+        return f"exit {r.returncode}: {r.stderr.decode(errors='replace').strip()}"
+    values = r.stdout.decode().splitlines()  # what it read of the texts and times, in brief
+    return f"{len(values)} values, " + " ".join(f"{v[:200]!r}" for v in values)
+
+
+def ffmpeg_reads(name: str, data: bytes, work: Path) -> str:
+    """ffmpeg: the demuxer that opens the file under its name and the cues it converts to SubRip;
+    or its error."""
+    ffmpeg = shutil.which("ffmpeg")
+    if ffmpeg is None:
+        return "skipped: ffmpeg not found"
+    path = work / name
+    _ = path.write_bytes(data)
+    r = subprocess.run([ffmpeg, "-hide_banner", "-i", str(path), "-f", "srt", "-"],
+                       capture_output=True, text=True, check=False)  # fmt: skip
+    opened = re.search(r"Input #0, (\w+)", r.stderr)
+    if opened is None:
+        return r.stderr.strip().splitlines()[-1].replace(str(path), name)
+    if r.returncode:  # opened, but no subtitle stream to convert
+        return f"opened as {opened[1]}: {r.stderr.strip().splitlines()[-1]}"
+    return f"opened as {opened[1]}: {r.stdout.count(' --> ')} cues"
+
+
+FFMAN_PROBE = """
+import json, sys
+from ffman.errors import REFUSALS
+from ffman.subs.ingest import ingest
+for name, hexed in json.load(sys.stdin).items():
+    try:
+        t = ingest(name, bytes.fromhex(hexed))
+        found = {"chunks": [(c.start, c.end, c.text) for c in t.chunks],
+                 "words": len(t.words), "notes": list(t.notes)}
+    except REFUSALS as e:
+        found = {"refused": str(e), "notes": list(getattr(e, "notes", ()))}
+    print(json.dumps([name, found]))
+"""
+
+
+def ffman_reads() -> dict[str, object]:
+    """ffman's reading of each file, in PYTHON: its chunks, words and notes, or its refusal."""
+    if PYTHON is None:
+        return {}
+    files = {name: data.hex() for name, data in OUTPUTS.items()}
+    r = subprocess.run([PYTHON, "-c", FFMAN_PROBE], input=json.dumps(files).encode(),
+                       capture_output=True, check=True)  # fmt: skip
+    return dict(json.loads(line) for line in r.stdout.decode().splitlines())
+
+
+def encodings() -> None:
+    """A writer's file with a UTF-8 BOM, and in UTF-16 (its BOM): the readers' encodings. And
+    ``-ojf``'s with its raw tab and newline escaped: its bytes alone not UTF-8."""
+    raw = OUTPUTS["cli-ojf.json"]
+    OUTPUTS["cli-ojf-escaped.json"] = raw.replace(b"tab\there\nnewline", b"tab\\there\\nnewline")
+    for name in ("cli.csv", "whisperx.tsv", "whisperx.json"):
+        stem, ext = name.rsplit(".", 1)
+        text = OUTPUTS[name].decode("utf-8")
+        OUTPUTS[f"{stem}-bom.{ext}"] = "\ufeff".encode() + OUTPUTS[name]
+        OUTPUTS[f"{stem}-utf16.{ext}"] = ("\ufeff" + text).encode("utf-16-le")
+
+
+def rule_three() -> None:
+    """A CSV as the skill's rule 3 writes one (``csv.writer``), of the quoted TSV's texts."""
+    out = io.StringIO()
+    rows = [(1000 * i, 1000 * (i + 1), text.strip()) for i, text in enumerate(QUOTED)]
+    csv.writer(out, lineterminator="\n").writerows([("start", "end", "text"), *rows])
+    OUTPUTS["rule-3.csv"] = out.getvalue().encode("utf-8")
+
+
+def run_readers() -> None:
+    print("\n## The readers: Python's json (strict) and csv, pandas, jq, ffmpeg, ffman\n")
+    encodings()
+    rule_three()
+    ffman = ffman_reads()
+    if PYTHON is None:
+        print("ffman: skipped, no PYTHON\n")
+    with tempfile.TemporaryDirectory() as tmp:
+        for name, data in OUTPUTS.items():
+            print(f"{name}:")
+            for reader, found in (
+                ("python", python_reads(name, data)),
+                ("python, QUOTE_NONE", python_reads(name, data, unquoted=True)),
+                ("pandas", pandas_reads(name, data)),
+                ("pandas, as advised", pandas_reads(name, data, advised=True)),
+                ("jq", jq_reads(name, data)),
+                ("ffmpeg", ffmpeg_reads(name, data, Path(tmp))),
+            ):
+                if found:
+                    print(f"    {reader}: {found}")
+            if name in ffman:
+                print(f"    ffman: {ffman[name]!r}")
+
+
+# --- the skill, checked from its own text: its example, its time rule ---------------------------
+
+SKILL = Path(__file__).resolve().parents[1] / "SKILL.md"
+# what the skill states of its example (SKILL.md, "Example"): ffman's sentences and words, in ms
+EXAMPLE_CHUNKS = [(512, 2004, "Good morning, everyone."), (2500, 3800, "Room 101 is open.")]
+EXAMPLE_WORDS = [(512, 730, "Good"), (750, 1210, "morning,"), (1300, 2004, "everyone."),
+                 (2500, 2800, "Room"), (2800, 3100, "101"), (3100, 3200, "is"),
+                 (3250, 3800, "open.")]  # fmt: skip
+EXAMPLE_NOTES = [
+    "1 words had no usable time of their own (untimed, tied, out of order or outside their"
+    " sentence): placed between their neighbours"
+]
+# the time rule's edges, each its ms by hand: ties at the ms (a negative one up, toward +inf, as
+# ffman), a float under or over its decimal
+EDGES = {"0": 0, "0.0005": 1, "0.0004999": 0, "1.0005": 1001, "1.0015": 1002, "2.675": 2675,
+         "3599.9995": 3600000, "0.0015": 2, "1e-3": 1, "2": 2000, "-0.0005": 0,
+         "-1.0005": -1000}  # fmt: skip
+# what JSON's grammar refuses but Fraction or Decimal would read, what is no number at all, and
+# exponents past 10^±400 (their bound: unbounded, 1e999999999 builds a billion-digit integer)
+NOT_NUMBERS = ["1/2", "1_0", " 2.5", "+1", ".5", "NaN", "Infinity", "", True, None, float("nan"),
+               "1e401", "1e-401"]  # fmt: skip
+
+READ_EXAMPLE = """
+import json, sys
+from ffman.subs.ingest import ingest
+t = ingest("x.json", sys.stdin.buffer.read())
+print(json.dumps({"chunks": [(c.start, c.end, c.text) for c in t.chunks],
+                  "words": [(w.start, w.end, w.text) for w in t.words], "notes": list(t.notes)}))
+"""
+READ_STARTS = """
+import json, sys
+import subverter
+print(json.dumps([c.start for c in subverter.read("json", sys.stdin.buffer.read(), "x.json").cues]))
+"""
+
+
+def fenced(text: str, lang: str) -> list[str]:
+    """The skill's code blocks in ``lang``, as written (a list item's indentation off)."""
+    found = re.finditer(rf"^( *)```{lang}\n(.*?)^\1```$", text, re.MULTILINE | re.DOTALL)
+    return [textwrap.dedent(m[2]) for m in found]
+
+
+def attempt(rule: Callable[..., object], *args: object) -> object:
+    """``rule(*args)``, or its failure -- the skill's code run as written, a failure the finding."""
+    try:
+        return rule(*args)
+    except Exception as error:  # noqa: BLE001 -- the rule's own failure is the finding
+        return f"{type(error).__name__}: {error}"
+
+
+def checked(what: str, found: object, stated: object) -> bool:
+    """One of the skill's claims against its measurement, printed either way."""
+    print(f"{'ok' if found == stated else 'MISMATCH'}: {what}: {found!r}")
+    if found != stated:
+        print(f"    stated: {stated!r}")
+    return found == stated
+
+
+def skill() -> bool:
+    """The skill's example read by Python's json, jq and ffman; its time rule by hand and against
+    ffman's."""
+    print("\n## The skill, checked from its own text\n")
+    text = SKILL.read_text(encoding="utf-8")
+    example = fenced(text, "json")[0].encode()
+    results = [checked("the example, Python's json", python_reads("x.json", example), "read")]
+    if shutil.which("jq"):
+        results.append(checked("    jq", jq_reads("x.json", example).split(",")[0], "1 values"))
+    else:
+        print("skipped: the example, jq: not found")
+    if PYTHON:
+        r = subprocess.run([PYTHON, "-c", READ_EXAMPLE], input=example, capture_output=True,
+                           check=False)  # fmt: skip
+        if r.returncode:
+            error = r.stderr.decode(errors="replace").strip().splitlines()[-1:]
+            results.append(checked("    ffman", error, []))
+        else:
+            read = json.loads(r.stdout)
+            results.append(checked("    ffman's sentences", [tuple(c) for c in read["chunks"]],
+                                   EXAMPLE_CHUNKS))  # fmt: skip
+            results.append(checked("    its words", [tuple(w) for w in read["words"]],
+                                   EXAMPLE_WORDS))  # fmt: skip
+            results.append(checked("    its notes", read["notes"], EXAMPLE_NOTES))
+    else:
+        print("skipped: the example, ffman: no PYTHON")
+
+    space: dict[str, object] = {}
+    exec(fenced(text, "python")[0], space)  # noqa: S102 -- the skill's own rule, run as written
+    to_ms, transcript = space.get("to_ms"), space.get("transcript")
+    if not callable(to_ms) or not callable(transcript):
+        print(f"MISMATCH: the rule's to_ms and transcript: {to_ms!r}, {transcript!r}")
+        return False
+    edges = {s: attempt(to_ms, s) for s in EDGES}
+    results.append(checked("the time rule, its edges", edges, EDGES))
+    # the skill's reader on a raw tab, its numbers as written
+    parsed = attempt(transcript, '{"start": 1.0005, "end": 2, "text": "a\tb"}')
+    times = (
+        [attempt(to_ms, parsed[k]) for k in ("start", "end")]
+        if isinstance(parsed, dict)
+        else parsed
+    )
+    results.append(checked("    read by its transcript()", times, [1001, 2000]))
+    results.append(checked("    1.0005 as a float", attempt(to_ms, 1.0005), 1000))
+    refused = [x for x in NOT_NUMBERS if isinstance(attempt(to_ms, x), int)]
+    results.append(checked("    no time for what is no JSON number", refused, []))
+    every = [*EDGES, *(f"{k // 10000}.{k % 10000:04d}" for k in range(0, 4_000_000, 997))]
+    ruled = [attempt(to_ms, s) for s in every]
+    floats = sum(round(1000 * float(s)) != ms for s, ms in zip(every, ruled, strict=True))
+    what = f"    {len(every)} times; round(1000 * t) differs on"
+    results.append(checked(what, found=floats > 0, stated=True))
+    print(f"    {floats} of them, 1.0005 s: {round(1000 * 1.0005)} against {edges['1.0005']}")
+    if PYTHON:
+        doc = (
+            '{"segments": ['
+            + ", ".join(f'{{"start": {s}, "end": {s}, "text": "x"}}' for s in every)
+            + "]}"
+        )
+        r = subprocess.run([PYTHON, "-c", READ_STARTS], input=doc.encode(), capture_output=True,
+                           check=True)  # fmt: skip
+        what = "    ffman reads each as the rule writes it"
+        results.append(checked(what, json.loads(r.stdout) == ruled, stated=True))
+    else:
+        print("skipped: the time rule, ffman: no PYTHON")
+    results.append(checked("missing from the prose", missing(text), []))
+    return all(results)
+
+
+def missing(text: str) -> list[str]:
+    """What the skill's prose must say of its example, from the measured values: those missing."""
+    prose = " ".join(text.split())
+    count = ["", "one", "two", "three", "four", "five", "six", "seven"]
+    said = [f"`{t}` from {a / 1000:g} s to {z / 1000:g} s" for a, z, t in EXAMPLE_CHUNKS]
+    said.append(f"{count[len(EXAMPLE_CHUNKS)]} sentences")
+    late = next(w for w in EXAMPLE_WORDS if w[2] == "101")
+    said.append(
+        f"`101` is placed between its neighbours, {late[0] / 1000:g} s to {late[1] / 1000:g} s"
+    )
+    said.append(f"{count[len(EXAMPLE_WORDS)]} words")
+    return [x for x in said if x not in prose]
 
 
 def main() -> None:
@@ -422,7 +838,11 @@ def main() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         run_whisper_cpp(Path(tmp))
         run_wrap(Path(tmp))
+        run_filter(Path(tmp))
     run_python()
+    run_readers()
+    if not skill():
+        sys.exit(1)
 
 
 if __name__ == "__main__":

@@ -139,8 +139,9 @@ def segments(*, spaced: bool = False, unaligned: bool = False) -> list[dict[str,
     """The sentences as the whisper tools' segments: times in seconds, each with its words.
 
     ``spaced``: each word opens with its space, as OpenAI's do;
-    ``unaligned``: as WhisperX writes what its aligner could not place (`alignment.py`) -- `two`
-    its word alone, the second segment no words.
+    ``unaligned``: what WhisperX's aligner could not place (`alignment.py`) -- `two` its word
+    alone, as 3.1.0 to 3.3.2 and the releases tagged 2026-03-10 write it (3.8.3 on, a
+    neighbour's times), the second segment no words, as 3.8.5 writes one it fails to align.
     """
 
     def word(t: str, a: int, z: int) -> dict[str, object]:

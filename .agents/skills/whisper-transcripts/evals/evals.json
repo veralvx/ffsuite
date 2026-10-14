@@ -1,0 +1,29 @@
+{
+  "skill_name": "whisper-transcripts",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "I ran whisper-cli -m ggml-small.bin -f interview.wav -oj -of interview, and my Python script does json.load(open('interview.json')) -- it dies with 'json.decoder.JSONDecodeError: Invalid control character at: line 418 column 27'. The file opens fine in my editor. Is the file broken, and how do I read it?",
+      "expected_output": "The file is whisper-cli's JSON as written: cli.cpp escapes only the double quote and the backslash in a string, so a tab or a newline inside a segment's text is written raw -- a control character a strict JSON reader refuses (RFC 8259; Python's json, and jq: 'control characters from U+0000 through U+001F must be escaped'). Read it with json.loads(text, strict=False), which takes them as text. With -ojf the tokens' bytes are raw too, so a character split across tokens leaves the file not UTF-8: decode with errors='surrogateescape' and join each character across the token texts it spans (jq turns each lone byte into U+FFFD). ffman reads both as they are. Measured (whisper.cpp v1.8.4's writer): a text with a tab and a newline -> 'Invalid control character' in Python, read by ffman as one line.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "pandas.read_csv('lecture.tsv', sep='\\t') on OpenAI whisper's --output_format tsv gives me a row where start is the word 'questions?' and end and text are NaN, and the row before it has its text cut short. What happened, and how should I read it?",
+      "expected_output": "OpenAI whisper's WriteTSV writes each segment's text stripped with its tabs made spaces, but keeps a newline: a segment whose text holds one breaks its row, and the rest of the text becomes a line of its own -- one field, which pandas reads as a row with that text as start and NaN after it (Python's csv: a row of one field). WhisperX's TSV is the same writer. Read it by joining each line without a tab to the record before it (the newline it was) -- reading it unquoted, quoting=csv.QUOTE_NONE (and pandas' keep_default_na=False) -- or read the JSON instead, which keeps the text whole. ffman reads that TSV losing the rest of the text, unnoted. Measured (openai-whisper v20250625): 'past an hour\\nnewline' -> pandas 4 rows, the last start 'newline', end and text NaN.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "I transcribed a podcast with ffmpeg 8's filter: ffmpeg -i ep12.mp3 -af whisper=model=ggml-base.bin:destination=ep12.json:format=json -f null -. jq '.' ep12.json errors out partway, and ffman --burn-subs ep12.json says 'not valid JSON'. What is that file, and what should I do?",
+      "expected_output": "The whisper filter writes format=json as one object a line, {\"start\":ms,\"end\":ms,\"text\":\"...\"} -- not one JSON document, so a reader of a single document refuses it (Python's json: 'Extra data'; ffman: not valid JSON) -- and it writes the text with no escaping at all: a double quote, a backslash or a newline in a segment's text breaks that line's JSON, which is where jq stops (jq reads the clean lines one value each). Ask the filter for format=srt instead (a SubRip, numbered from 0, which ffman and players read), or transcribe with whisper-cli -oj or -ocsv; the file at hand can be salvaged line by line -- each line opening {\"start\": is an object, its text as written from \"text\":\" to the line's last \"}, a line not so opened continuing the one before. Each text also has its first character off when whitespace and [BLANK_AUDIO] removed. Measured (FFmpeg n8.1.2's af_whisper.c writer): a text with a quote -> Python 'Expecting ',' delimiter', jq 'Invalid numeric literal'; clean texts -> jq 2 values, Python 'Extra data'.",
+      "files": []
+    },
+    {
+      "id": 4,
+      "prompt": "My script reads a WhisperX JSON (aligned with --interpolate_method linear) with json.load and turns each word's start into ms with int((Decimal(start) * 1000).to_integral_value(ROUND_HALF_UP)). A word written \"start\": 61.2345 comes out 61234, but ffman highlights it from 61235 ms. Which is right? Would round(start * 1000) fix it?",
+      "expected_output": "61.2345 s is a tie at the ms: half up from the decimal written, it is 61235 ms, as ffman reads it (linear interpolation leaves a word's time unrounded; aligned ones are round(t, 3)). The script's Decimal(start) is of the float json.load made -- its binary value, 61.23449999..., so 61234 whatever the rounding. round(start * 1000) does not fix it: the float product is 61234.5, a tie Python rounds to even, 61234 -- what WhisperX's own SRT and TSV writers do. Keep the number as written: json.loads(text, parse_float=Decimal) (strict=False for whisper-cli's raw control characters), then the decimal * 1000, half up, exactly (Fraction or Decimal of it, never of a float) -> 61235; or the number's text. Measured: round(1000 * 61.2345) = 61234; Decimal(61.2345) half up = 61234; Decimal('61.2345') half up = 61235.",
+      "files": []
+    }
+  ]
+}
