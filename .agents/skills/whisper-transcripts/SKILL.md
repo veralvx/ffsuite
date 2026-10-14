@@ -73,7 +73,7 @@ below: not that reader's format.
 | the filter's `json`, one object a line              | refused whole ("Extra data"); a `"` in a text breaks its line                                                                             | -                                              | one value a line; a `"` breaks it                 | refused: `not valid JSON`                         |
 | whisper-cli's CSV, a newline in a quoted text       | one record                                                                                                                                | one row                                        | -                                                 | one cue, a space                                  |
 | OpenAI's and WhisperX's TSV, a newline in a text    | the rest a row of one field                                                                                                               | a row more: its `start` the rest, NaN after it | -                                                 | read back into its record, a space, noted         |
-| Their TSV, a text opening with `"`                  | read as quoted: its `"` dropped, one left open taking the rows after it into its text; `quoting=csv.QUOTE_NONE` reads it as written       | as Python's `csv`                              | -                                                 | read as written                                   |
+| Their TSV, a text or a line of it opening with `"`  | read as quoted: its `"` dropped, one left open taking the rows after it into its text; `quoting=csv.QUOTE_NONE` reads it as written       | as Python's `csv`                              | -                                                 | read as written                                   |
 | A text `NA`, `None`, `null`, `nan` or empty         | as written                                                                                                                                | NaN (`keep_default_na=False` keeps it)         | -                                                 | as written (empty: no cue)                        |
 | A UTF-8 BOM                                         | `json.loads(bytes)` skips it; text decoded `utf-8` refused ("Unexpected UTF-8 BOM": decode `utf-8-sig`); `csv` keeps it in the first name | skipped                                        | skipped                                           | skipped                                           |
 | UTF-16, its BOM                                     | `json.loads(bytes)` reads it; `csv` needs its encoding named                                                                              | needs `encoding=`                              | refused                                           | read: CSV, TSV, JSON                              |
@@ -103,8 +103,8 @@ below: not that reader's format.
    "text"}]}`, ms; every word timed, inside its segment and in order.
 3. CSV with the header `start,end,text`, RFC 4180's quoting (`csv.writer`); pandas reads a text `NA`
    as NaN unless given `keep_default_na=False`. A TSV only where no text opens with `"` (`csv` and
-   pandas read one as quoted), the same header, a text's tabs and line breaks made spaces (no reader
-   takes them back).
+   pandas read one as quoted), the same header, a text's tabs and line breaks made spaces (Python's
+   csv and pandas take neither back; ffman a line break alone).
 4. Times in whole ms, each end after its start, the segments in order. From seconds as written,
    round once, half up (toward +infinity, as ffman), exactly from the decimal -- not
    `round(1000 * t)`, which rounds the float to even, nor from a float, its binary value
@@ -151,10 +151,11 @@ string that is no number: no time (`to_ms` raises on anything not a JSON number,
 10^±400: test it first; ffman also reads a decimal in a string, blanks and a `+` allowed). Bytes, or
 text decoded `utf-8-sig`: a BOM skipped. CSV and TSV by their header's names (`speaker` may sit
 before `text`), integers of ms (pandas: `keep_default_na=False`, or a text `NA` is NaN); a TSV read
-unquoted (`quoting=csv.QUOTE_NONE`), and a line after a record that holds no tab is that record's
-text, broken by a newline: join it back with one (an empty line too). The filter's `json`: each line
-opening `{"start":` an object, its text from `"text":"` to the line's last `"}`, as written (no
-escape to undo); a line not so opened continues the one before. Plain text: show it as written.
+unquoted (`quoting=csv.QUOTE_NONE`), and a line holding no tab, after a record, is that record's
+text, broken by a newline: join it back with one (an empty line too) -- or read its writer's JSON,
+which keeps a text whole. The filter's `json`: each line opening `{"start":` an object, its text
+from `"text":"` to the line's last `"}`, as written (no escape to undo); a line not so opened
+continues the one before. Plain text: show it as written.
 
 ## Converting to subtitles
 
