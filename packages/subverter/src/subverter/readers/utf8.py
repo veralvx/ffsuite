@@ -25,6 +25,7 @@ __all__ = [
     "Joined",
     "Nuls",
     "Source",
+    "bom_text",
     "by_line",
     "file_text",
     "joined",
@@ -128,6 +129,12 @@ def utf16(data: bytes, name: str, lines: Callable[[str], int]) -> str | None:
     except UnicodeDecodeError as error:  # at a unit's start: what is before it is whole
         whole = data[: error.start].decode("utf-16")
         refuse(f"not UTF-16: {name} (line {lines(whole)})")
+
+
+def bom_text(data: bytes, name: str, lines: Callable[[str], int]) -> str:
+    """A text file's text: UTF-16 by its BOM (``utf16``, ``lines`` counting), else UTF-8."""
+    text = utf16(data, name, lines)
+    return file_text(data) if text is None else text
 
 
 def nul_notes(*nuls: Nuls) -> tuple[str, ...]:

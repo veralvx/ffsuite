@@ -5,8 +5,9 @@ start); without one, the columns are start, end, text. A blank line is no record
 after one is the first (pandas' ``skip_blank_lines``). A record short of a column reads it
 empty, as awk's ``$n`` past the last field: its text "", its time none.
 
-UTF-8, or UTF-16 by its BOM (``table_text``), as a SubRip and an LRC are read: no whisper tool
-writes UTF-16, but a spreadsheet may (Excel's "Unicode Text": UTF-16 LE, a BOM first).
+UTF-8, or UTF-16 by its BOM (``bom_text``), as a SubRip and an LRC are read: no whisper tool
+writes UTF-16, but a spreadsheet may (Excel's "Unicode Text": UTF-16 LE, a BOM first); a unit
+not UTF-16 refused by its line, counted as csv splits them.
 """
 
 import csv
@@ -14,25 +15,27 @@ import io
 import re
 from typing import Final
 
+from subverter._errors import refuse
 from subverter.readers.fields import time_ms
-from subverter.readers.utf8 import by_line, file_text, nul_notes, utf16
-from subverter.transcript import Cue
+from subverter.readers.utf8 import bom_text, by_line, nul_notes
+from subverter.transcript import Cue, Reading
 
-__all__ = ["rows", "table_text"]
+__all__ = ["read"]
 
 _LINE_END: Final = re.compile(r"\r\n|\r|\n")  # csv's: each one a line's end
 
 
-def table_text(data: bytes, name: str) -> str:
-    """A CSV's or TSV's text: UTF-16 by its BOM (``utf16``), else UTF-8 (``file_text``).
+def read(kind: str, data: bytes, name: str) -> Reading:
+    """A ``csv`` or ``tsv`` file's cues (``_rows``); a field past csv's limit refused by name."""
+    text = bom_text(data, name, lambda whole: len(_LINE_END.split(whole)))
+    try:
+        cues, notes = _rows(kind, text, name)
+    except csv.Error as error:  # a field past csv's limit (128 KiB): no subtitle's text
+        refuse(f"unreadable .{kind}: {name}: {error}")
+    return Reading(f".{kind}", has_words=False, cues=tuple(cues), notes=notes)
 
-    A unit not UTF-16 refused by its line, counted as csv splits them.
-    """
-    text = utf16(data, name, lambda whole: len(_LINE_END.split(whole)))
-    return file_text(data) if text is None else text
 
-
-def rows(kind: str, text: str, name: str) -> tuple[list[Cue], tuple[str, ...]]:
+def _rows(kind: str, text: str, name: str) -> tuple[list[Cue], tuple[str, ...]]:
     """whisper-cli .csv (RFC 4180 quoting) or WhisperX .tsv (tabs, none); a time read, or none.
 
     Each character joined across the texts it spans (``utf8.by_line``: what is still not

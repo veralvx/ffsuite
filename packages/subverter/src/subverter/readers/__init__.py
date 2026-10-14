@@ -1,6 +1,5 @@
 """The readers: a transcript's format to what it holds -- cues, word timings, notes, refusals."""
 
-import csv
 from typing import Final
 
 from subverter._errors import refuse
@@ -27,10 +26,6 @@ def read(fmt: str, data: bytes, name: str) -> Reading:
         case "lrc":
             return lrc.read(data, name)
         case "csv" | "tsv":
-            try:
-                rows, notes = table.rows(fmt, table.table_text(data, name), name)
-            except csv.Error as error:  # a field past csv's limit (128 KiB): no subtitle's text
-                refuse(f"unreadable .{fmt}: {name}: {error}")
-            return Reading(f".{fmt}", has_words=False, cues=tuple(rows), notes=notes)
+            return table.read(fmt, data, name)
         case _:
             return whisper.read(data, name)

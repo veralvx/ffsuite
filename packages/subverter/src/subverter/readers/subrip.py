@@ -14,7 +14,7 @@ from subverter._errors import shown
 from subverter.readers.cues import Dialect, Found, Odd, Timed
 from subverter.readers.cues import read as read_cues
 from subverter.readers.fields import exact, ms
-from subverter.readers.utf8 import file_text, utf16
+from subverter.readers.utf8 import bom_text
 from subverter.transcript import Reading
 
 __all__ = ["file_lines", "read", "split_lines"]
@@ -174,13 +174,12 @@ def read(data: bytes, name: str) -> Reading:
 
 
 def file_lines(data: bytes, name: str) -> list[str]:
-    """A SubRip's or an LRC's lines (``split_lines``): UTF-16 by its BOM (``utf16``), else UTF-8.
+    """A SubRip's or an LRC's lines (``split_lines``): UTF-16 by its BOM, else UTF-8 (``bom_text``).
 
     A refusal's line counted as they are split here. ffmpeg's SubRip reader recodes UTF-16 (VLC
     3 alike), stopping at a lone surrogate's NUL, every later cue lost; its LRC one reads none.
     """
-    text = utf16(data, name, lambda whole: len(split_lines(whole)))
-    return split_lines(file_text(data) if text is None else text)
+    return split_lines(bom_text(data, name, lambda whole: len(split_lines(whole))))
 
 
 # its texts hold ASS's escapes, as ffmpeg's subrip decoder passes them to libass, and no HTML
