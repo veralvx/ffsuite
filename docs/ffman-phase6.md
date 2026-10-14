@@ -3970,7 +3970,7 @@ tests with 6.8.3's converters.*
       `past an hour\nnewline`, `newline` lost). Their writers make every tab a space, so a line
       without one after a record is that record's text. To decide: join it to the record before,
       note it, or as now.
-      *Done: in a TSV whose text is its last column, a line of no tab after a record holding it is
+      *Done: in a TSV whose text is its last column, a line of no tab after a record ending at it is
       that record's text, a line break in it -- burned and attached a space -- noted
       (`1 TSV lines of no tab read as the text of the record before ...`); each run of line ends one
       break, a blank line no line of it; a byte not UTF-8 or a NUL on a later line told at its
@@ -3986,7 +3986,23 @@ tests with 6.8.3's converters.*
       the text at each line); an independent reviewer's, the writers run on 19 hostile texts, stated
       and tested the line a refusal or a NUL's note names, and made "whole" "into its record" (a
       blank line in a text is dropped). Left, weighed: a later line's bad byte named by its record's
-      first line (as CSV's); the note quoting the line as written, a NUL raw.*
+      first line (as CSV's); the note quoting the line as written, a NUL raw. Your review, end to
+      end, then an independent reviewer's: a record past its header's columns (or `start`, `end`,
+      `text` without one) had taken the next line, though its text was a field before -- `WriteTSV`
+      writes none -- now a record ending at its text alone, its 6 mutants each caught (`b45384c`);
+      the counted note written once, `counted`, for SubRip's, LRC's and TSV's -- the outcome report
+      511 identical, 3,000 random LRCs' readings identical (`0e47500`); an LRC's and a TSV's note
+      tested shown, a TSV of no header's join tested (`4a226b3`, `eaf6450`); the rows it qualifies
+      named, `WriteTSV` checked at a nixpkgs bump (`7d687d6`); the skill's rule 3 and reading
+      sentence, a quote opening a text's later line, its writer's JSON (`f7d37d9`). Left, weighed: a
+      record of no text taking the next line (kept, noted -- else a record of no time, lost
+      unnoted); the bounded-work test's 1 s (7 times its 0.13 s). It found a box: a cue of no time
+      dropped unnoted.*
+- [ ] Found by the TSV line breaks box's review: a transcript's cue of no time -- a CSV or TSV
+      record whose `start` or `end` is no number, a JSON segment's `NaN`, `null` or text -- is
+      dropped by ffman unnoted, its text lost (measured: a CSV's `abc,900,lost words`, WhisperX's
+      `NaN` start, whisper-cli's `"x"` offset), against the owner's rule, silent only when nothing
+      is lost (decisions' "Dropped cues"). To decide: note it, counted, the first named, or as now.
 - [ ] Found by the `whisper-transcripts` box: ffmpeg's `whisper` filter (FFmpeg 8, nixpkgs'
       `ffmpeg-full`, ffman's runtime) writes `format=json` one object a line,
       `{"start":ms,"end":ms,"text":"..."}`, its text not escaped -- ffman refuses it, `not valid
