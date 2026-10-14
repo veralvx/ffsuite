@@ -3776,10 +3776,14 @@ tests with 6.8.3's converters.*
       `-sub_charenc` recodes the events alone; mpv never draws the last event ending before it
       starts (by source). Each measured where it could be, now in `measure_ffmpeg.py`
       (`f5ae8fa`..`2520e71`). The evals untouched by them, not rerun.*
-- [ ] Found by the `ass` box: ffman passes an ASS through unread, so where libass alone (its
-      burn) and ffmpeg's reading (`--add-subs`) differ, the two differ, unnoted -- measured:
-      fields in another order or CR line ends alone, burned, attached with no cue; a comma
-      before a fraction or an event ending before it starts, attached, not burned. To decide
+- [ ] Found by the `ass` box: ffman passes an ASS through unread, so where libass alone (its burn)
+      and ffmpeg's reading (`--add-subs`) differ, the two differ, unnoted -- measured: fields in
+      another order or CR line ends alone, burned, attached with no cue; a comma before a fraction
+      or an event ending before it starts, attached, not burned. And its conversion to MP4 and WebM,
+      unnoted (the ASS and LRC review, measured): a block no `}` closes (`a {\b1 b`), drawn as
+      written by a burn, cuts the attached text there (MP4 `a `, WebM `a <b>`); a comment block
+      (`a {x}b`), hidden by a burn, attached as written; a script of no styles section, a type by
+      `ScriptType` alone, its MP4 text of size 0, black and transparent: nothing drawn. To decide
       with 6.8.3's ASS reader: refuse, write the copy as both read it, or note.
 - [x] `lrc`: the same.
       Found by the SubRip and WebVTT review: an LRC in UTF-16, which ffmpeg's reader recodes as a
@@ -3859,6 +3863,56 @@ tests with 6.8.3's converters.*
       refusal, the rest identical. Reviewed by an independent reviewer, two rounds: the spec
       narrowed to the notes ffman gives, the tests' count, the notes typed a tuple (a bare string
       had split into characters), the decision's maker, a row's pointer.*
+- [x] The owner's review (2026-10-14): `ass` and `lrc` end to end -- code, docs and skills, each
+      claim against the sources and binaries.
+      *Done (the owner's standing rule: better by proof, so not asked). Found and fixed. LRC
+      (`d6b46ed`; "LRC repeated lines", "LRC lines", "LRC offset"): lines sharing a stamp, as
+      ffmpeg's lrcenc writes a cue of two lines, each but the last dropped unnoted -- now one cue,
+      their texts joined, noted, a text its start shows already once (as ffmpeg shows it, the
+      earlier of no length), each line counted once; seconds past 60 now read, as Navidrome and
+      Jellyfin read them, noted, of more digits (no reader's) dropped, noted; each `[offset:]`
+      ignored noted by its reason, counted -- after blanks, not whole, past a double's range,
+      another after it. ASS (`d78807f`; "Attach", "ASS styles", "ASS script", "ASS NUL"): attached
+      through its named demuxer (`-f ass`) -- a script after a MiB of blank lines, past ffmpeg's
+      probe, an empty track before; a burn's look (`--font`, `--font-size`, `--font-color`,
+      `--outline-color`, `--margin-bottom`) refused with one, burned in its own styles -- ignored
+      before; refused as no script after its NUL notes; ffman's font no longer noted missing with
+      one, which names its own (`a545937`). The `[Script Info]`-first rule kept, its reason
+      restated: ffmpeg's detection, so the file is one `ffmpeg -i` takes for ASS -- the attach names
+      the demuxer, and libass seeks no signature. Skills (`07504d0`): mpv draws an LRC line not
+      UTF-8 as Latin-1 (`lavc_conv.c`); LRC lines of one stamp; seconds past 60; Navidrome's `.elrc`
+      first, `[bg:]` joined, a mid-line tag losing its lyric; Jellyfin's plain-text fallback; ASS
+      times under 10 hours (`assenc.c` writes past them `9:59:59.99`); a style name's trailing space
+      kept by libass 0.17.4, trimmed by 0.17.1; `\k` read to the millisecond (`ass_parse.c`); the
+      `ass` self-check seeing a one-digit fraction; SubRip keeping strikeout as a tag alone; a block
+      no `}` closes cut there by ffmpeg's conversions, drawn as written by libass (measured, now in
+      `measure_ffmpeg.py`). Tests: 27 failing first on `c6066e6`'s code, then 2 (the squared steps,
+      the blanks); 10 planted mutations of the last two rounds, each caught; the skills' 6 dosed
+      mutations, each caught alone. Suite 2448, coverage 100%; the matrix 770; the outcome report
+      against `c6066e6` on 3.13 and 3.14: 493 identical, 10 changed -- `attach/` `ass-mp4`,
+      `ass-webm`, `nul-ass`, `t.ass`, `t.ssa`, `utf-16-ass` (`-f ass`), `burn/ass-font-size`
+      (refused), `burn/hostile/` `offset.lrc`, `shared.lrc`, `twice.lrc`. Reviewed by three
+      independent reviewers (LRC, ASS, the skills), three rounds each: a line of many equal stamps
+      read in squared steps, its text read once a stamp -- now once a line, its blanks squeezed as
+      shown; an MP4's header lengthened too; a script of no styles transparent in MP4. Left,
+      weighed: one builder for the counted notes (each reader's wording its own); a dropped line's
+      byte not UTF-8 shown `\udcXX` in its note (it need not be UTF-8); `_script`'s scan (linear); a
+      stamp past a double's range beside others (no line, the rest kept, unnoted); an offset within
+      the latest stamp's time of a double's range (every time pushed past it); the `webvtt` skill's
+      script notes; a highlight option with an ASS refused by the highlight rule first (bash's
+      order, M5's); CI for the skills' self-checks (the owner's). Found: the next three boxes.*
+- [ ] Found by the ASS and LRC review: a text holding U+FFFE, a noncharacter but valid UTF-8,
+      read by ffman; ffmpeg's decoders refuse it (`utf8_check`), so the cue is dropped from an
+      attached track with a log line alone, unnoted (measured: a SubRip's second cue, `a` U+FFFE
+      `b`, lost) -- every format alike. To decide: note, replace it, or as now.
+- [ ] Found by the ASS and LRC review: an attached ASS is not clipped, as the other formats are
+      (Attach) -- an event ending past the media's end lengthens the output to that event's end
+      (measured: 3 s to 30 s -- Matroska, WebM, an MP4 in its header, `mvhd`, though ffprobe shows
+      the media's past about a second). To decide with 6.8.3's ASS reader: clip the copy, note, or
+      as now.
+- [ ] Found by the ASS and LRC review: an ASS of no event is burned and attached, unnoted --
+      any other format of no timed text is refused (No timed text). To decide with 6.8.3's ASS
+      reader: refuse it alike, note, or as now.
 - [ ] `whisper-transcripts`: the same -- whisper-cli's and WhisperX's JSON, CSV, TSV and
       plain text.
       Found by the SubRip and WebVTT review: CSV's, TSV's and JSON's typed `\t` and `\n` spaces
