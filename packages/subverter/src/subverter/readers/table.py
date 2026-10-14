@@ -19,7 +19,7 @@ import io
 import re
 from typing import Final
 
-from subverter._errors import refuse, shown
+from subverter._errors import counted, refuse
 from subverter.readers.fields import time_ms
 from subverter.readers.utf8 import bom_text, by_line, nul_notes
 from subverter.transcript import Cue, Reading
@@ -88,14 +88,8 @@ def _rows(kind: str, text: str, name: str) -> tuple[list[Cue], tuple[str, ...]]:
 
 def _joined_notes(joined: list[tuple[int, str]]) -> tuple[str, ...]:
     """The TSV lines read into the record before (``_rows``): counted, the first named."""
-    if not joined:
-        return ()
-    line, text = joined[0]
     how = "read as the text of the record before, a line break in it"
-    first = f"the first, {shown(text)} on line {line}"
-    return (
-        f"{len(joined)} TSV lines of no tab {how} (OpenAI whisper's and WhisperX's TSV): {first}",
-    )
+    return counted(joined, f"TSV lines of no tab {how} (OpenAI whisper's and WhisperX's TSV)")
 
 
 def _field(fields: list[str], column: int) -> str:

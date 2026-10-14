@@ -10,7 +10,7 @@ alone, only empty lines between it and a timing line, the next cue's index; a li
 import re
 from typing import Final
 
-from subverter._errors import shown
+from subverter._errors import counted, shown
 from subverter.readers.cues import Dialect, Found, Odd, Timed
 from subverter.readers.cues import read as read_cues
 from subverter.readers.fields import exact, ms
@@ -104,13 +104,9 @@ def _fraction_notes(odd: list[tuple[int, Timed]]) -> tuple[str, ...]:
 
 def _bare_notes(odd: list[tuple[int, Timed]]) -> tuple[str, ...]:
     """Times without a fraction, read as VLC reads them: counted, the first named."""
-    times = _odd(odd, _BARE)
-    if not times:
-        return ()
-    line, first = times[0]
     how = "read as VLC reads them (ffmpeg reads no such timing line, its cue lost)"
-    named = f"the first, {shown(first.written)} on line {line}"
-    return (f"{len(times)} times had no fraction, {how}: {named}",)
+    times = [(line, time.written) for line, time in _odd(odd, _BARE)]
+    return counted(times, f"times had no fraction, {how}")
 
 
 def _odd(odd: list[tuple[int, Timed]], kind: str) -> list[tuple[int, Odd]]:
@@ -120,32 +116,20 @@ def _odd(odd: list[tuple[int, Timed]], kind: str) -> list[tuple[int, Odd]]:
 
 def _index_notes(indexes: list[tuple[int, str]]) -> tuple[str, ...]:
     """The indexes taken from cues' texts: counted, the first named."""
-    if not indexes:
-        return ()
-    line, number = indexes[0]
     how = "read as the next cue's index, as ffmpeg reads them"
-    first = f"the first, {shown(number)} on line {line}"
-    return (f"{len(indexes)} lines of a number alone before a timing line {how}: {first}",)
+    return counted(indexes, f"lines of a number alone before a timing line {how}")
 
 
 def _continued_notes(continued: list[tuple[int, str]]) -> tuple[str, ...]:
     """The cues read on past an empty line (VLC and Kodi end them there): counted, the first."""
-    if not continued:
-        return ()
-    line, text = continued[0]
     how = "read as theirs, as ffmpeg reads them"
-    first = f"the first, {shown(text)} on line {line}"
-    return (f"{len(continued)} cues held text after an empty line, {how}: {first}",)
+    return counted(continued, f"cues held text after an empty line, {how}")
 
 
 def _spaced_notes(spaced: list[tuple[int, str]]) -> tuple[str, ...]:
     """The cues read on past a line of spaces (ffmpeg's decoder ends them): counted, the first."""
-    if not spaced:
-        return ()
-    line, text = spaced[0]
     how = "read as theirs, as MPC-HC and Subtitle Edit read them (ffmpeg's decoder drops it)"
-    first = f"the first, {shown(text)} on line {line}"
-    return (f"{len(spaced)} cues held text after a line of spaces, {how}: {first}",)
+    return counted(spaced, f"cues held text after a line of spaces, {how}")
 
 
 def _in_seconds(value: int) -> str:

@@ -11,7 +11,7 @@ from fractions import Fraction
 from itertools import groupby
 from typing import Final, NamedTuple
 
-from subverter._errors import shown
+from subverter._errors import counted, shown
 from subverter.markup import LRC_TIME, unstamped
 from subverter.readers.fields import exact, ms
 from subverter.readers.subrip import file_lines
@@ -237,10 +237,9 @@ def _line_notes(odd: _Lines) -> tuple[str, ...]:
         (odd.shared, _SHARED),
         (odd.dropped, _DROPPED),
     )
-    return tuple(_counted(found, how) for found, how in kinds if found)
+    return tuple(note for found, how in kinds for note in _counted(found, how))
 
 
-def _counted(found: list[tuple[int, str]], how: str) -> str:
-    """A kind's note: its lines counted, the first named, by its line."""
-    line, text = found[0]
-    return f"{len(found)} LRC lines {how}: the first, {shown(text.rstrip())} on line {line}"
+def _counted(found: list[tuple[int, str]], how: str) -> tuple[str, ...]:
+    """A kind's note (``counted``), the first named without its trailing blanks."""
+    return counted([(at, text.rstrip()) for at, text in found], f"LRC lines {how}")
