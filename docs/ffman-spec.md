@@ -211,6 +211,10 @@ camcorder:date=D,time=T`.
 - A CSV's, TSV's or JSON's text is as written -- its tags, braces, backslashes and a typed `\n`
   too: whisper-cli, OpenAI whisper and WhisperX mark up none -- its tab or line break a space
   (New).
+- A TSV text broken by a line break, as OpenAI whisper and WhisperX write one, is read back into
+  its record: in a TSV whose text is its last column, a line of no tab after a record holding it
+  is that record's text, noted: `1 TSV lines of no tab read as the text of the record before, a
+  line break in it (OpenAI whisper's and WhisperX's TSV): the first, newline on line 3` (New).
 - An LRC line whose stamps follow blanks is read, as Navidrome and Jellyfin read it (ffmpeg drops
   it), and a stamp's minus as a time before 0, as ffmpeg writes and reads it -- each noted; any
   other line but a tag or an empty one is dropped, noted: `2 LRC lines dropped, opened by no stamp

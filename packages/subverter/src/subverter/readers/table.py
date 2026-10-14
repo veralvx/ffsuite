@@ -1,9 +1,12 @@
-"""CSV and TSV, as whisper-cli and WhisperX write them: start, end, text (ms), columns by header.
+"""CSV and TSV, as the whisper tools write them: start, end, text (ms), columns by header.
 
 A header is a first record naming start and end, in any order (bash: one starting with
 start); without one, the columns are start, end, text. A blank line is no record, so a header
 after one is the first (pandas' ``skip_blank_lines``). A record short of a column reads it
-empty, as awk's ``$n`` past the last field: its text "", its time none.
+empty, as awk's ``$n`` past the last field: its text "", its time none. In a TSV whose text is
+its last column, a line of no tab after a whole record is that record's text, a line break in
+it, noted: OpenAI whisper's and WhisperX's ``WriteTSV`` write each text stripped, its tabs made
+spaces, its line breaks kept (``utils.py``), and quote nothing.
 
 UTF-8, or UTF-16 by its BOM (``bom_text``), as a SubRip and an LRC are read: no whisper tool
 writes UTF-16, but a spreadsheet may (Excel's "Unicode Text": UTF-16 LE, a BOM first); a unit
@@ -15,7 +18,7 @@ import io
 import re
 from typing import Final
 
-from subverter._errors import refuse
+from subverter._errors import refuse, shown
 from subverter.readers.fields import time_ms
 from subverter.readers.utf8 import bom_text, by_line, nul_notes
 from subverter.transcript import Cue, Reading
@@ -36,19 +39,22 @@ def read(kind: str, data: bytes, name: str) -> Reading:
 
 
 def _rows(kind: str, text: str, name: str) -> tuple[list[Cue], tuple[str, ...]]:
-    """whisper-cli .csv (RFC 4180 quoting) or WhisperX .tsv (tabs, none); a time read, or none.
+    """whisper-cli's .csv (RFC 4180 quoting), OpenAI whisper's and WhisperX's .tsv (no quoting).
 
-    Each character joined across the texts it spans (``utf8.by_line``: what is still not
-    UTF-8, refused by the line its record starts on); its notes (``utf8.nul_notes``).
+    A time read, or none. Each character joined across the texts it spans (``utf8.by_line``: what
+    is still not UTF-8, refused by the line its record starts on); its notes (``_joined_notes``,
+    ``utf8.nul_notes``).
     """
-    lines = io.StringIO(text, newline="")
+    source = io.StringIO(text, newline="")
     records = (
-        csv.reader(lines, delimiter="\t", quoting=csv.QUOTE_NONE)
+        csv.reader(source, delimiter="\t", quoting=csv.QUOTE_NONE)
         if kind == "tsv"
-        else csv.reader(lines)
+        else csv.reader(source)
     )
-    si, ei, ti = 1, 2, 3
-    found: list[tuple[int, str, str, str]] = []  # each record's first line, start, end, text
+    si, ei, ti, width = 1, 2, 3, 3
+    found: list[tuple[int, str, str, list[str]]] = []  # each record's first line, start, end, text
+    joined: list[tuple[int, str]] = []  # each line of no tab read into the TSV record before
+    full = False  # the last record held its text's column
     before = 0  # the lines read before a record
     header_due = True  # the first record may be the header
     for fields in records:
@@ -62,14 +68,32 @@ def _rows(kind: str, text: str, name: str) -> tuple[list[Cue], tuple[str, ...]]:
                 si = i if column == "start" else si
                 ei = i if column == "end" else ei
                 ti = i if column == "text" else ti
+            width = len(names)
             continue
-        found.append((line, _field(fields, si), _field(fields, ei), _field(fields, ti)))
-    whole = by_line([(at, cell) for at, *_, cell in found], name)
+        if kind == "tsv" and len(fields) == 1 and full and ti == width:  # its text, broken
+            found[-1][3].append(fields[0])  # its lines joined once, at the end: linear
+            joined.append((line, fields[0]))
+            continue
+        found.append((line, _field(fields, si), _field(fields, ei), [_field(fields, ti)]))
+        full = len(fields) >= ti
+    whole = by_line([(at, "\n".join(parts)) for at, *_, parts in found], name)
     cues = [
         Cue(time_ms(a, 1), time_ms(z, 1), t)
         for (_, a, z, _), t in zip(found, whole.texts, strict=True)
     ]
-    return cues, nul_notes(whole.nuls)
+    return cues, _joined_notes(joined) + nul_notes(whole.nuls)
+
+
+def _joined_notes(joined: list[tuple[int, str]]) -> tuple[str, ...]:
+    """The TSV lines read into the record before (``_rows``): counted, the first named."""
+    if not joined:
+        return ()
+    line, text = joined[0]
+    how = "read as the text of the record before, a line break in it"
+    first = f"the first, {shown(text)} on line {line}"
+    return (
+        f"{len(joined)} TSV lines of no tab {how} (OpenAI whisper's and WhisperX's TSV): {first}",
+    )
 
 
 def _field(fields: list[str], column: int) -> str:

@@ -596,6 +596,17 @@ def test_a_csv_tsv_or_json_text_is_as_its_writer_wrote_it(
     assert t.notes == ()
 
 
+def test_a_tsv_line_of_no_tab_is_the_text_of_the_record_before(tmp_path: Path) -> None:
+    t = ingested(put(tmp_path, "newline.tsv", HOSTILE["newline.tsv"]))
+    assert [(c.start, c.end, c.text) for c in t.chunks] == [
+        (0, 200, "past an hour newline"),
+        (200, 400, "next"),
+    ]
+    assert t.notes == (
+        "1 TSV lines of no tab read as the text of the record before, a line break in it (OpenAI whisper's and WhisperX's TSV): the first, newline on line 3",
+    )
+
+
 def test_a_subrips_ass_escapes_read_as_libass_draws_them(tmp_path: Path) -> None:
     t = ingested(put(tmp_path, "escapes.srt", HOSTILE["escapes.srt"]))
     assert [c.text for c in t.chunks] == ["one two a\u00a0b"]  # the break ffman's to place

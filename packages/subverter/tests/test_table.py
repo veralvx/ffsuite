@@ -6,10 +6,13 @@ before ffman's normalising (no trim, no sort, no clamp, no cue dropped).
 """
 
 import re
+import time
 from typing import Final
 
 import pytest
 import subverter
+from hypothesis import given
+from hypothesis import strategies as st
 from subverter import Cue
 
 # --- CSV and TSV: start, end, text in ms; a header names start and end, any order
@@ -52,6 +55,119 @@ def test_a_tsv_record_short_of_a_column_reads_it_empty() -> None:
         Cue(None, None, "hello"),
         Cue(None, None, "0"),
     )
+
+
+# --- a TSV text broken by a line break: OpenAI whisper's and WhisperX's WriteTSV (utils.py) write
+# each text stripped, its tabs spaces, its line breaks kept -- a line of no tab after a record is
+# that record's text
+_JOINED: Final = (
+    "{n} TSV lines of no tab read as the text of the record before, a line break in it (OpenAI "
+    "whisper's and WhisperX's TSV): the first, {first} on line {line}"
+)
+
+
+def _write_tsv(segments: list[tuple[int, int, str]]) -> str:
+    """OpenAI whisper's ``WriteTSV`` (v20250625; WhisperX 3.8.5's the same), ms given."""
+    texts = [text.strip().replace("\t", " ") for _, _, text in segments]
+    rows = [f"{a}\t{z}\t{text}\n" for (a, z, _), text in zip(segments, texts, strict=True)]
+    return "start\tend\ttext\n" + "".join(rows)
+
+
+@pytest.mark.parametrize(
+    ("text", "joined", "notes"),
+    [
+        (
+            "past an hour\nnewline",
+            "past an hour\nnewline",
+            (_JOINED.format(n=1, first="newline", line=4),),
+        ),
+        # every line end csv reads, each run of them one break: a blank line no line of the text
+        ("a\r\nb\rc\n\nd \n", "a\nb\nc\nd", (_JOINED.format(n=3, first="b", line=4),)),
+        ("\tone\ttwo\t", "one two", ()),  # tabs spaces, stripped: no line of no tab
+    ],
+    ids=["a line break", "every line end", "tabs"],
+)
+def test_a_tsv_line_of_no_tab_is_the_text_of_the_record_before(
+    text: str, joined: str, notes: tuple[str, ...]
+) -> None:
+    data = _write_tsv([(0, 1000, "first"), (1000, 2000, text), (2000, 3000, "last")])
+    found = subverter.read("tsv", data.encode(), "a.tsv")
+    assert found.cues == (Cue(0, 1000, "first"), Cue(1000, 2000, joined), Cue(2000, 3000, "last"))
+    assert found.notes == notes
+
+
+def test_a_tsv_texts_lines_are_its_records_in_a_refusal_and_a_nul_note() -> None:
+    """A byte not UTF-8 or a NUL on a text's later line is told at its record's first, as a quoted
+    CSV field's (``by_line``)."""
+    with pytest.raises(subverter.Error, match=r"^not UTF-8: a\.tsv \(line 2\)$"):
+        _ = subverter.read("tsv", b"start\tend\ttext\n0\t1\ta\nb\xffc\n", "a.tsv")
+    found = subverter.read("tsv", b"start\tend\ttext\n0\t1\ta\nb\x00\n", "a.tsv")
+    assert found.cues == (Cue(0, 1, "a\nb\ufffd"),)
+    assert found.notes == (
+        _JOINED.format(n=1, first="b\\x00", line=3),
+        "1 NULs read as U+FFFD, as the W3C reads them: the first in line 2",
+    )
+
+
+@pytest.mark.parametrize(
+    ("data", "cues"),
+    [
+        ("start\tend\ttext\nalone\n0\t1\tx\n", (Cue(None, None, ""), Cue(0, 1, "x"))),
+        ("text\tstart\tend\nhi\t0\t1\nmore\n", (Cue(0, 1, "hi"), Cue(None, None, "more"))),
+        ("start\tend\ttext\n0\t1\tx\nan\tother\n", (Cue(0, 1, "x"), Cue(None, None, ""))),
+        ("start\tend\ttext\n0\t1\nmore\n", (Cue(0, 1, ""), Cue(None, None, ""))),
+        ("start\tend\ttext\tspeaker\n0\t1\thi\tS1\nmore\n", (Cue(0, 1, "hi"), Cue(None, None, ""))),
+    ],
+    ids=[
+        "no record before",
+        "the text not last",
+        "a tab",
+        "a record short of its text",
+        "a column after the text",
+    ],
+)
+def test_a_tsv_line_no_writer_breaks_is_a_record(data: str, cues: tuple[Cue, ...]) -> None:
+    found = subverter.read("tsv", data.encode(), "a.tsv")
+    assert (found.cues, found.notes) == (cues, ())
+
+
+def test_a_csv_line_of_one_field_is_a_record() -> None:
+    data = 'start,end,text\n0,1,"quoted\nwhole"\nalone\n'  # CSV quotes a break: none to join
+    found = subverter.read("csv", data.encode(), "a.csv")
+    assert (found.cues, found.notes) == ((Cue(0, 1, "quoted\nwhole"), Cue(None, None, "")), ())
+
+
+@given(
+    st.lists(
+        st.tuples(
+            st.integers(0, 10**7),
+            st.integers(0, 10**7),
+            st.lists(st.sampled_from(("a", "b", " ", "\t", "\n", "\r", "\r\n")), max_size=8).map(
+                "".join
+            ),
+        ),
+        max_size=6,
+    )
+)
+def test_a_tsv_whisper_wrote_is_read_back_record_by_record(
+    segments: list[tuple[int, int, str]],
+) -> None:
+    """Each text as written: stripped, its tabs spaces, each run of line ends one line break."""
+    found = subverter.read("tsv", _write_tsv(segments).encode(), "a.tsv")
+    texts = [text.strip().replace("\t", " ") for _, _, text in segments]
+    expected = [re.sub(r"(?:\r\n|\r|\n)+", "\n", t) for t in texts]
+    assert [(c.start, c.end, c.text) for c in found.cues] == [
+        (a, z, t) for (a, z, _), t in zip(segments, expected, strict=True)
+    ]
+
+
+def test_a_tsv_text_of_many_broken_lines_is_read_in_bounded_work() -> None:
+    """Its lines joined once: one by one, 400,000 of them took 5.7 s (each join a copy)."""
+    data = ("start\tend\ttext\n0\t1\tx\n" + "y\n" * 400_000).encode()
+    began = time.monotonic()
+    found = subverter.read("tsv", data, "a.tsv")
+    assert time.monotonic() - began < 1
+    assert found.cues == (Cue(0, 1, "x" + "\ny" * 400_000),)
 
 
 def test_a_tsv_quotes_nothing() -> None:

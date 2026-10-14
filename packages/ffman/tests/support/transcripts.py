@@ -360,6 +360,10 @@ HOSTILE: Final = {
             ]
         }
     ),
+    # a TSV text broken by a line break, as OpenAI whisper and WhisperX write one (the
+    # `whisper-transcripts` box's found box): its rest read back into it, noted. Before: a record
+    # of no time, dropped unnoted
+    "newline.tsv": "start\tend\ttext\n0\t200\tpast an hour\nnewline\n200\t400\tnext\n",
     # a transcript of no timed text (the LRC lines box's found box): refused after the notes that
     # say why. Before: refused, the note dropped
     "no-line.lrc": "[ti:x]\n[1:02:03.00]an hour in\n",
