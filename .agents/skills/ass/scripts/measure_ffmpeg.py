@@ -133,7 +133,8 @@ ENCODED: dict[str, bytes] = {
 
 
 # styles converted to markup: one of every flag, in ffmpeg's defaults (Arial 16, white, bottom
-# centre); one of none, in another font, size, colour and alignment; then the escapes
+# centre); one of none, in another font, size, colour and alignment; then the escapes; a block
+# no "}" closes, which libass draws as written
 MARKUP = (
     INFO
     + STYLES.rstrip("\n")
@@ -146,6 +147,7 @@ MARKUP = (
     + dialogue("{\\b1}b {\\i1}i {\\u1}u {\\s1}s", "0:00:03.00", "0:00:04.00")
     + dialogue("a\\hb\\nc\\Nd \\{x\\}", "0:00:04.00", "0:00:05.00")
     + dialogue("e\\N\\Nf", "0:00:05.00", "0:00:06.00")
+    + dialogue("g {\\b1 h", "0:00:06.00", "0:00:07.00")
 )
 # a CP1252 script whose style's name is not ASCII: what -sub_charenc recodes of it
 CAFE_STYLE = STYLES.replace(

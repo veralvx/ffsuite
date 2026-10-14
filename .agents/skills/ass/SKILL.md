@@ -81,13 +81,14 @@ Converted to SubRip, an event's style becomes markup: bold, italic and underline
 (its strikeout dropped), its font, size and primary colour as `<font>` and its alignment as
 `{\anN}`, each where not ffmpeg's own (Arial, 16, white, bottom centre); the blocks' own tags alike,
 `\s1` as `<s>`; `\N` and `\n` line breaks; every other tag, position, motion, layer and effect
-dropped; `\{`, `\}` and `\h` left as written. Converted to WebVTT, `<b> <i> <u>` alone, `\N` and
-`\n` breaks, the other escapes as written -- a browser shows the backslashes. Into MP4 the text goes
-as `mov_text`; Matroska keeps the script itself, its header the track's private data. Written back
-as ASS -- a stream copy or a transcoding -- the header is kept as read, the events after it in the
-file's order, `Comment:` lines and any line it could not read after them; times `h:mm:ss.cc`,
-9:59:59.99 at most. From SubRip or WebVTT, ffmpeg's own script: `PlayResX: 384`, `PlayResY: 288`,
-one `Default` style (Arial 16).
+dropped; `\{`, `\}` and `\h` left as written; a block no `}` closes cuts the text there --
+`g {\b1 h` to `g <b>`, in WebVTT too, `g ` in MP4's `mov_text` -- where libass draws it as written.
+Converted to WebVTT, `<b> <i> <u>` alone, `\N` and `\n` breaks, the other escapes as written -- a
+browser shows the backslashes. Into MP4 the text goes as `mov_text`; Matroska keeps the script
+itself, its header the track's private data. Written back as ASS -- a stream copy or a transcoding
+-- the header is kept as read, the events after it in the file's order, `Comment:` lines and any
+line it could not read after them; times `h:mm:ss.cc`, 9:59:59.99 at most. From SubRip or WebVTT,
+ffmpeg's own script: `PlayResX: 384`, `PlayResY: 288`, one `Default` style (Arial 16).
 
 ## The writers in use
 

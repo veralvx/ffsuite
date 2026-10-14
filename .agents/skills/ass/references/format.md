@@ -229,15 +229,16 @@ The header -- `[Script Info]`, the styles -- is written back as it was read, ffm
 not added. From SubRip, WebVTT or LRC, ffmpeg's default script instead (their records):
 `PlayResX: 384`, `PlayResY: 288`, one `Default` style.
 
-*Measured* -- converted to SubRip and to WebVTT: a style of every flag in ffmpeg's defaults
-(Arial 16, white, bottom centre) gives `<b><i><u>all</u></i></b>` in both, its strikeout dropped;
-one of none, Times 20, red, top left, gives SubRip's `<font face="Times" size="20"
-color="#ff0000">{\an7}other</font>` and WebVTT's `other`. The tags `{\b1}b {\i1}i {\u1}u {\s1}s`
-give SubRip's `<b>b <i>i <u>u <s>s</s></u></i></b>`, WebVTT's the same but `s`. `a\hb\nc\Nd
-\{x\}` gives both `a\hb`, `c` and `d \{x\}` as three lines; `e\N\Nf` an empty line between.
-A CP1252 script given `-sub_charenc CP1252` (the `subtitles` filter's `charenc`) has its events
-recoded: `café ’x’`, drawn; not its header -- a style `Café` bold, its event `thé` converted as
-`thé`, the style not found; recoded whole first, `<b>thé</b>`.
+*Measured* -- converted to SubRip and to WebVTT: a style of every flag in ffmpeg's defaults (Arial
+16, white, bottom centre) gives `<b><i><u>all</u></i></b>` in both, its strikeout dropped; one of
+none, Times 20, red, top left, gives SubRip's
+`<font face="Times" size="20" color="#ff0000">{\an7}other</font>` and WebVTT's `other`. The tags
+`{\b1}b {\i1}i {\u1}u {\s1}s` give SubRip's `<b>b <i>i <u>u <s>s</s></u></i></b>`, WebVTT's the same
+but `s`. `a\hb\nc\Nd \{x\}` gives both `a\hb`, `c` and `d \{x\}` as three lines; `e\N\Nf` an empty
+line between; `g {\b1 h`, a block no `}` closes, both `g <b>`: cut there, where libass draws it as
+written. A CP1252 script given `-sub_charenc CP1252` (the `subtitles` filter's `charenc`) has its
+events recoded: `café ’x’`, drawn; not its header -- a style `Café` bold, its event `thé` converted
+as `thé`, the style not found; recoded whole first, `<b>thé</b>`.
 
 *Measured* -- libass through ffmpeg's `ass` filter (the frame's digest; that ffmpeg's libass
 0.17.1, whose `ass_get_next_char` 0.17.4 keeps): `a{x}b` draws as `ab` (`{x}` an override
@@ -280,9 +281,10 @@ field's end: a margin not a number), the file not opened; a time's fraction a de
 
 ffman passes an ASS or SSA through, unread: its burn draws ffman's copy with the `ass` filter
 (libass alone), `--add-subs` gives the copy to ffmpeg (its reading). The copy: UTF-8, a UTF-16
-script (its BOM) recoded, each NUL U+FFFD, noted; refused unless `[Script Info]` is first
-(ffmpeg's detection, though its attach names the demuxer) and the script has a type (libass's) -- `subs/ingest.py`. *Measured*
-(`../scripts/measure_ffmpeg.py` with a PYTHON), the scripts of the table above:
+script (its BOM) recoded, each NUL U+FFFD, noted; refused unless `[Script Info]` is first (ffmpeg's
+detection, though its attach names the demuxer) and the script has a type (libass's) --
+`subs/ingest.py`. *Measured* (`../scripts/measure_ffmpeg.py` with a PYTHON), the scripts of the
+table above:
 
 | Script                                                | ffman                                                                                   |
 | ----------------------------------------------------- | --------------------------------------------------------------------------------------- |
