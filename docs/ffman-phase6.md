@@ -3839,10 +3839,26 @@ tests with 6.8.3's converters.*
       rounds, every claim against the sources and binaries: a minus of 0 no longer noted;
       Navidrome reads the colon form as h:m:s; the README's empty line; a test comment; a
       docstring. Found: the next box.*
-- [ ] Found by the LRC lines box: a refusal for no timed text (`subs/ingest.py`) drops the
+- [x] Found by the LRC lines box: a refusal for no timed text (`subs/ingest.py`) drops the
       reading's notes -- an LRC of hours alone is refused `no timed text found in: x.lrc`, without
       why; every format alike (a WebVTT whose every cue is dropped). To decide: the notes printed
       before the refusal, or named in it; or as now.
+      *Done, better by proof (the owner's standing rule): the notes before the refusal, each its
+      own `ffman: NOTE` line, its words unchanged (10 tests') -- the order ffman already tells a
+      transcript's notes and a later refusal in (`burn._check_timings`); folded into the message,
+      several notes one long line. A refusal carries the notes that led to it (`FfmanError.notes`,
+      `refuse(message, notes)`, typed a tuple), `cli.main` telling them first; ingest refuses after
+      building every note -- the normaliser's (cues ending before they begin) and the markup's
+      (braced runs hidden) were built after it (`1a371fa`; "No timed text"). A cue of no text or
+      of no length stays unnoted, as no player shows it (Dropped cues). The `lrc` skill's script
+      records a refusal's notes, its reading refused after them (`b6f3cbe`); the `webvtt` skill's
+      row stays true (refused), its script left; `subtitle-mappings`' for its box. Tests: 7
+      failing first; 8 planted mutations, each caught (one survivor first, pinned: two notes, in
+      order); suite 2420, coverage 100%; the matrix 770; the outcome report on 3.13 and 3.14,
+      `burn/hostile/no-line.lrc` new, `crcrlf.vtt` and `reversed.srt` each its note before the
+      refusal, the rest identical. Reviewed by an independent reviewer, two rounds: the spec
+      narrowed to the notes ffman gives, the tests' count, the notes typed a tuple (a bare string
+      had split into characters), the decision's maker, a row's pointer.*
 - [ ] `whisper-transcripts`: the same -- whisper-cli's and WhisperX's JSON, CSV, TSV and
       plain text.
       Found by the SubRip and WebVTT review: CSV's, TSV's and JSON's typed `\t` and `\n` spaces
