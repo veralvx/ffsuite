@@ -51,6 +51,18 @@ _T1: Final = "00:00:01,000 --> 00:00:02,000"
             f"the first {_LONG_QUOTED} on line 6",
             id="stray",
         ),
+        pytest.param(  # LRC: a line no stamp opens, dropped
+            "lrc",
+            f"[00:01.00]a\n{_LONG}\n",
+            f"the first, {_LONG_QUOTED} on line 2",
+            id="lrc",
+        ),
+        pytest.param(  # TSV: a line of no tab, the text of the record before
+            "tsv",
+            f"start\tend\ttext\n0\t1\ta\n{_LONG}\n",
+            f"the first, {_LONG_QUOTED} on line 3",
+            id="tsv",
+        ),
         pytest.param(  # each character visible: an ESC commands no terminal
             "vtt",
             "WEBVTT\n\n00:01.000 --> 00:02.000\na\n\n\x1b]0;t\x07\x1b[31m\N{NO-BREAK SPACE}red\n",
