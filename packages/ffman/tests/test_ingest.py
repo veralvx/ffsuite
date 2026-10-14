@@ -562,6 +562,32 @@ def test_an_lrcs_text_is_as_its_readers_show_it_but_its_word_stamps(tmp_path: Pa
     assert t.notes == ()
 
 
+_TAGGED: Final = "x<3 and y>2 <i>i</i>"
+_ESCAPED: Final = "C:\\new \\table {\\an8}up"
+
+
+@pytest.mark.parametrize(
+    ("name", "texts", "words"),
+    [
+        ("markup.csv", [_TAGGED, f"{_ESCAPED} &amp;", "tab here line"], []),
+        ("markup.tsv", [_TAGGED, f"{_ESCAPED} &amp;"], []),  # a TSV holds no tab, no break
+        (
+            "markup.json",
+            [_TAGGED, f"{_ESCAPED} tab line"],
+            ["x<3", "and", "y>2", "<i>i</i>", "C:\\new", "\\table", "{\\an8}up tab line"],
+        ),
+    ],
+    ids=["csv", "tsv", "json"],
+)
+def test_a_csv_tsv_or_json_text_is_as_its_writer_wrote_it(
+    tmp_path: Path, name: str, texts: list[str], words: list[str]
+) -> None:
+    t = ingested(put(tmp_path, name, HOSTILE[name]))
+    assert [c.text for c in t.chunks] == texts
+    assert [w.text for w in t.words] == words
+    assert t.notes == ()
+
+
 def test_a_subrips_ass_escapes_read_as_libass_draws_them(tmp_path: Path) -> None:
     t = ingested(put(tmp_path, "escapes.srt", HOSTILE["escapes.srt"]))
     assert [c.text for c in t.chunks] == ["one two a\u00a0b"]  # the break ffman's to place
@@ -1116,14 +1142,15 @@ _LT: Final = "a<" * 200_000  # each < no > closes
 def test_an_unclosed_override_or_tag_is_read_in_bounded_work(
     tmp_path: Path, name: str, data: str, text: str
 ) -> None:
-    """No closer sought from each opener past the last one: squared steps, so many of them."""
+    """No closer sought from each opener past the last one: squared steps, so many of them -- a
+    CSV's, TSV's and JSON's seek none (plain texts), kept as guards."""
     began = time.monotonic()
     assert [c.text for c in ingested(put(tmp_path, name, data)).chunks] == [text]
     assert time.monotonic() - began < 1
 
 
-# what CSV's, TSV's and JSON's texts are cleaned of: tags, overrides, breaks typed or not
-_MARKS: Final = ("{", "}", "\\", "{\\an8}", "<", ">", "<i>", "t", "n", "a", " ", "\t", "\n")
+# the marks of the formats' markup, and the plain texts' breaks
+_MARKS: Final = ("{", "}", "\\", "{\\an8}", "<", ">", "<i>", "t", "n", "a", " ", "\t", "\n", "\r")
 
 
 @given(
@@ -1132,19 +1159,18 @@ _MARKS: Final = ("{", "}", "\\", "{\\an8}", "<", ">", "<i>", "t", "n", "a", " ",
     )
 )
 def test_an_lrcs_clean_is_its_word_stamps_off_alone(text: str) -> None:
-    """LRC's: its word stamps' regex alone, a line break (lines sharing a stamp) a space, then
-    blanks squeezed -- every other mark as written."""
-    plain = re.sub(r"<[0-9]+:[0-9]+(?:\.[0-9]+)?>", "", text).replace("\n", " ")
+    """LRC's: its word stamps' regex alone, then as a plain text's -- a line break (lines sharing a
+    stamp) a space, blanks squeezed -- every other mark as written."""
+    plain = re.sub(r"[\t\n\r]", " ", re.sub(r"<[0-9]+:[0-9]+(?:\.[0-9]+)?>", "", text))
     assert clean(text, Markup.LRC) == re.sub(r"[ \t]+", " ", plain).strip(" ")
 
 
 @given(st.lists(st.sampled_from(_MARKS), max_size=12).map("".join))
-def test_clean_is_its_regexes_wherever_they_read_the_text(text: str) -> None:
-    """CSV's, TSV's and JSON's: the regexes alone, unbounded -- tags, overrides, breaks."""
-    plain = re.sub(
-        r"\\[tn]|[\t\n\r]", " ", re.sub(r"\{\\[^}]*\}", "", re.sub(r"<[^>]*>", "", text))
-    )
-    assert clean(text, Markup.BASH) == re.sub(r"[ \t]+", " ", plain).strip(" ")
+def test_a_plain_clean_is_its_breaks_alone(text: str) -> None:
+    """CSV's, TSV's and JSON's, plain: a tab or line break a space, then blanks squeezed -- every
+    other mark as written."""
+    plain = re.sub(r"[\t\n\r]", " ", text)
+    assert clean(text, Markup.PLAIN) == re.sub(r"[ \t]+", " ", plain).strip(" ")
 
 
 def test_an_lrc_time_its_parts_in_range_past_a_double_is_none(tmp_path: Path) -> None:

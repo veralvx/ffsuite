@@ -4,6 +4,7 @@ Stage A proved its first ones equal to bash's (its bash comparison); a later one
 box. tests/test_ingest.py checks what must hold of any transcript, on each.
 """
 
+import json
 from typing import Final
 
 # an ASS's script and its style, its events to follow: the corpus's t.ass
@@ -317,6 +318,41 @@ HOSTILE: Final = {
     # line no reader reads dropped, noted. Before: `twice twice twice`; the line read, noted as
     # Navidrome's and Jellyfin's
     "twice.lrc": "[00:00.10][00:00.10]twice\n[00:00.10]twice\n[00:00.20]next\n[00:099.00]none\n",
+    # CSV's, TSV's and JSON's texts as their writers write them, plain (the `whisper-transcripts`
+    # box): a tag, a brace, a backslash, a typed escape as written; a tab or line break a space --
+    # each inside the corpus's 0.4 s media, so an attached track holds them all.
+    # Before: bash's rules for jq's @tsv -- tags and overrides off, `\t` and `\n` spaces: `x2`
+    "markup.csv": 'start,end,text\n0,130," x<3 and y>2 <i>i</i>"\n'
+    + '130,260," C:\\new \\table {\\an8}up &amp;"\n260,400,"tab\there\nline"\n',
+    "markup.tsv": "start\tend\ttext\n0\t200\tx<3 and y>2 <i>i</i>\n"
+    + "200\t400\tC:\\new \\table {\\an8}up &amp;\n",
+    "markup.json": json.dumps(
+        {
+            "segments": [
+                {
+                    "start": 0,
+                    "end": 0.2,
+                    "text": " x<3 and y>2 <i>i</i>",
+                    "words": [
+                        {"word": "x<3", "start": 0, "end": 0.05},
+                        {"word": "and", "start": 0.05, "end": 0.1},
+                        {"word": "y>2", "start": 0.1, "end": 0.15},
+                        {"word": "<i>i</i>", "start": 0.15, "end": 0.2},
+                    ],
+                },
+                {
+                    "start": 0.2,
+                    "end": 0.4,
+                    "text": " C:\\new \\table {\\an8}up\ttab\nline",
+                    "words": [
+                        {"word": "C:\\new", "start": 0.2, "end": 0.3},
+                        {"word": "\\table", "start": 0.3, "end": 0.35},
+                        {"word": "{\\an8}up\ttab\nline", "start": 0.35, "end": 0.4},
+                    ],
+                },
+            ]
+        }
+    ),
     # a transcript of no timed text (the LRC lines box's found box): refused after the notes that
     # say why. Before: refused, the note dropped
     "no-line.lrc": "[ti:x]\n[1:02:03.00]an hour in\n",
