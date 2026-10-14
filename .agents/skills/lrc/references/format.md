@@ -165,7 +165,7 @@ after them, sorted, each ending at the next start, the last 3 s on; any other li
 lines noted, each kind counted; `[offset:]` of whole ms moving every time, `+` sooner, noted; the
 text as written but for Enhanced LRC's word stamps, taken off (`markup.unstamped`), its blanks
 squeezed and trimmed; a NUL U+FFFD, noted; a file of no line read refused, `no timed text found`,
-without its notes. The measured table above holds its column.
+after its notes. The measured table above holds its column.
 
 ## The writers
 

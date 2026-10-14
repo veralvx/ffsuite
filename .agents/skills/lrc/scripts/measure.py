@@ -85,7 +85,7 @@ LAST = "[00:01.00]x\n[00:02.00]y\n", "[00:01.00]x\n[00:02.00]y\n[00:04.00]\n"
 DRAWN_AT = (1.5, 2.5, 5.0, 9.5)
 FPS, INK = 10, 100  # the frames looked at, a second; a frame's grey above it: something drawn
 
-# ffman's reading of each file, in PYTHON: refused (its message), or its chunks and notes
+# ffman's reading of each file, in PYTHON: refused (its message), or its chunks; its notes
 FFMAN_PROBE = """
 import json, sys
 from ffman.errors import REFUSALS
@@ -96,7 +96,7 @@ for name, text in json.load(sys.stdin).items():
         t = ingest("x.lrc", text.encode("latin-1"))
         out[name] = {"chunks": [(c.start, c.end, c.text) for c in t.chunks], "notes": t.notes}
     except REFUSALS as e:
-        out[name] = {"refused": str(e)}
+        out[name] = {"refused": str(e), "notes": getattr(e, "notes", ())}  # ffman's refusal's
 print(json.dumps(out))
 """
 
@@ -270,19 +270,19 @@ def decoded(work: Path) -> None:
 
 
 def ffman() -> None:
-    """Each file through ffman's reading, in PYTHON: refused, or its chunks and notes."""
+    """Each file through ffman's reading, in PYTHON: refused, or its chunks; its notes."""
     if not PYTHON:
         return
-    print("\n## ffman: refused, or its chunks (start ms, end ms, text) and notes\n")
+    print("\n## ffman: refused, or its chunks (start ms, end ms, text); its notes\n")
     files = {**{k: v.encode("utf-8") for k, v in READS.items()}, **ENCODED}
     given = json.dumps({n: data.decode("latin-1") for n, data in files.items()})
     r = subprocess.run([PYTHON, "-c", FFMAN_PROBE], input=given,
                        capture_output=True, text=True, check=True)  # fmt: skip
     for name, found in json.loads(r.stdout).items():
+        notes = f" ({'; '.join(found['notes'])})" if found["notes"] else ""
         if "refused" in found:
-            print(f"{name}: refused: {found['refused']}")
+            print(f"{name}: refused: {found['refused']}{notes}")
         else:
-            notes = f" ({'; '.join(found['notes'])})" if found["notes"] else ""
             print(f"{name}: {[tuple(c) for c in found['chunks']]!r}{notes}")
 
 
