@@ -3964,12 +3964,29 @@ tests with 6.8.3's converters.*
       file read as UTF-16 by its first bytes, then refused for no timed text (no writer of one;
       before, as garbled); the bounded-work test's plain cases, kept as guards;
       `untagged(..., webvtt=False)`, public, its last caller gone. Found: the next four boxes.*
-- [ ] Found by the `whisper-transcripts` box: OpenAI whisper's and WhisperX's TSV keep a
-      newline in a text (`WriteTSV`: tabs alone made spaces), so the rest of that text is a line of
-      its own, one field -- ffman reads it as a record of no time, dropped, the text cut unnoted
-      (measured: `past an hour\nnewline`, `newline` lost). Their writers make every tab a space, so
-      a line without one after a record is that record's text. To decide: join it to the record
-      before, note it, or as now.
+- [x] Found by the `whisper-transcripts` box: OpenAI whisper's and WhisperX's TSV keep a newline in
+      a text (`WriteTSV`: tabs alone made spaces), so the rest of that text is a line of its own,
+      one field -- ffman reads it as a record of no time, dropped, the text cut unnoted (measured:
+      `past an hour\nnewline`, `newline` lost). Their writers make every tab a space, so a line
+      without one after a record is that record's text. To decide: join it to the record before,
+      note it, or as now.
+      *Done: in a TSV whose text is its last column, a line of no tab after a record holding it is
+      that record's text, a line break in it -- burned and attached a space -- noted
+      (`1 TSV lines of no tab read as the text of the record before ...`); each run of line ends one
+      break, a blank line no line of it; a byte not UTF-8 or a NUL on a later line told at its
+      record's first, as a quoted CSV field's; a CSV unchanged; the lines joined once, in bounded
+      work (400,000: 0.13 s; one by one, 5.7 s) (`937fecc`; decisions' "TSV line breaks"; the
+      skill's cells and eval 2, `3fe6344`). The owner's standing rule, better by proof: both
+      writers' `WriteTSV` (openai-whisper v20250625, WhisperX 3.8.5, byte-identical outputs) write a
+      record's first line with two tabs, so a line of none is only a text's rest. Tests: 5 failing
+      first (subverter's), 1 (ffman's); 8 mutants of the join's condition, each caught; a property
+      test of `WriteTSV`'s rule, written then read back; suite 2481, coverage 100%; the matrix 770;
+      the outcome report against `9f24545` on 3.13 and 3.14: 510 identical,
+      `burn/hostile/newline.tsv` new. Reviewed: its own review made the join linear (it had copied
+      the text at each line); an independent reviewer's, the writers run on 19 hostile texts, stated
+      and tested the line a refusal or a NUL's note names, and made "whole" "into its record" (a
+      blank line in a text is dropped). Left, weighed: a later line's bad byte named by its record's
+      first line (as CSV's); the note quoting the line as written, a NUL raw.*
 - [ ] Found by the `whisper-transcripts` box: ffmpeg's `whisper` filter (FFmpeg 8, nixpkgs'
       `ffmpeg-full`, ffman's runtime) writes `format=json` one object a line,
       `{"start":ms,"end":ms,"text":"..."}`, its text not escaped -- ffman refuses it, `not valid
