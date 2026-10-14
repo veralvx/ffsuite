@@ -79,10 +79,11 @@ BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, AlphaLevel, 
 | `Encoding`                                                      | a Windows charset number, 1 default; selects nothing in libass                                                                                                |
 | SSA's `TertiaryColour`                                          | ignored: the outline takes `BackColour`'s colour; `AlphaLevel` the alpha of the fill, karaoke and outline colours, the shadow's always 0x80 (VSFilter's)      |
 
-A style's name: leading `*` removed, trailing spaces kept. An event's style is found by exact,
-case-sensitive name (`Default` without case), the last of equal names winning; an unknown name
-warns and takes the file's last `Default` (else libass's own: Arial 18, white, outline 2, shadow
-3, bold, margins 20). Fields a custom Format omits are 0 -- black, size 0 -- not those defaults.
+A style's name: leading `*` removed, trailing spaces kept (0.17.4; 0.17.1 -- Ubuntu 24.04's, which
+the ffmpeg measured here links -- trims them). An event's style is found by exact, case-sensitive
+name (`Default` without case), the last of equal names winning; an unknown name warns and takes the
+file's last `Default` (else libass's own: Arial 18, white, outline 2, shadow 3, bold, margins 20).
+Fields a custom Format omits are 0 -- black, size 0 -- not those defaults.
 
 ## Events
 
@@ -115,7 +116,7 @@ warns and takes the file's last `Default` (else libass's own: Arial 18, white, o
 | `Dialogue:0,...` (no space)                                                                                                | read                                                                     |
 | style `Nope`; `default`; `*Default`                                                                                        | `Default` (a warning); `Default`; `Default`                              |
 | two styles named `Default`                                                                                                 | the second                                                               |
-| a style `My Style ` asked as `My Style`; as `My Style `                                                                    | not found (a warning): the space is the name's; found                    |
+| a style `My Style ` asked as `My Style`; as `My Style `                                                                    | 0.17.4: not found (a warning), the space the name's; found; 0.17.1: both |
 | no styles section                                                                                                          | read: every event in libass's own style                                  |
 | no Format lines                                                                                                            | read in the standard order                                               |
 | `Format: Name, Fontsize, Fontname`                                                                                         | read in that order; the omitted fields 0                                 |
@@ -139,17 +140,17 @@ xshad yshad fax fay iclip blur fscx fscy fsc fsp fs bord move frx fry frz fr fn 
 fade fad org t clip c 1c 2c 3c 4c 1a 2a 3a 4a r be b i kt kf K ko k shad s u pbo p q fe`
 (`ass_parse.c`); an unknown name is ignored.
 
-| Group                 | Tags (Aegisub's page; units as libass reads them)                                                                                                                                                                                                                                                                                           |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Text style            | `\b1`/`\b0` or `\b<weight>`, `\i`, `\u`, `\s`; `\fn<name>`, `\fs<size>`, `\fscx`/`\fscy` (%), `\fsp` (pixels), `\fe`                                                                                                                                                                                                                        |
-| Colour and alpha      | `\c` = `\1c&HBBGGRR&` fill, `\2c` karaoke's before-colour, `\3c` border, `\4c` shadow; `\alpha&HAA&`, `\1a`..`\4a`                                                                                                                                                                                                                          |
-| Border, shadow, blur  | `\bord`, `\xbord`, `\ybord`; `\shad`, `\xshad`, `\yshad`; `\be`, `\blur`                                                                                                                                                                                                                                                                    |
-| Geometry              | `\frx`, `\fry`, `\frz` (`\fr`) degrees; `\fax`, `\fay` shear; `\org(x,y)` the rotation's origin                                                                                                                                                                                                                                             |
-| Position              | `\an1`..`\an9` (numpad), `\a` (legacy); `\pos(x,y)`; `\move(x1,y1,x2,y2[,t1,t2])` (t in ms from the event's start); `\q0`..`\q3` wrap style                                                                                                                                                                                                 |
-| Clip, drawing         | `\clip(x1,y1,x2,y2)`, `\iclip`, or a drawing; `\p<n>` drawing mode, `\pbo`                                                                                                                                                                                                                                                                  |
-| Time                  | `\fad(in,out)` ms; `\fade(a1,a2,a3,t1,t2,t3,t4)`; `\t([t1,t2,][accel,]tags)` animates tags (ms)                                                                                                                                                                                                                                             |
-| Karaoke (word timing) | `\k<d>` (fill at once), `\kf<d>` = `\K<d>` (sweep), `\ko<d>` (border too): each the duration of the syllable after it, centiseconds -- libass reads decimals, truncated to the millisecond (`subtitle-mappings`' `words.md`); no argument 100. `\kt<t>` (v4++, libass 0.17+) the next syllable's start, centiseconds from the event's start |
-| Reset                 | `\r` to the event's style, `\r<style>` to another                                                                                                                                                                                                                                                                                           |
+| Group                 | Tags (Aegisub's page; units as libass reads them)                                                                                                                                                                                                                                                                                             |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Text style            | `\b1`/`\b0` or `\b<weight>`, `\i`, `\u`, `\s`; `\fn<name>`, `\fs<size>`, `\fscx`/`\fscy` (%), `\fsp` (pixels), `\fe`                                                                                                                                                                                                                          |
+| Colour and alpha      | `\c` = `\1c&HBBGGRR&` fill, `\2c` karaoke's before-colour, `\3c` border, `\4c` shadow; `\alpha&HAA&`, `\1a`..`\4a`                                                                                                                                                                                                                            |
+| Border, shadow, blur  | `\bord`, `\xbord`, `\ybord`; `\shad`, `\xshad`, `\yshad`; `\be`, `\blur`                                                                                                                                                                                                                                                                      |
+| Geometry              | `\frx`, `\fry`, `\frz` (`\fr`) degrees; `\fax`, `\fay` shear; `\org(x,y)` the rotation's origin                                                                                                                                                                                                                                               |
+| Position              | `\an1`..`\an9` (numpad), `\a` (legacy); `\pos(x,y)`; `\move(x1,y1,x2,y2[,t1,t2])` (t in ms from the event's start); `\q0`..`\q3` wrap style                                                                                                                                                                                                   |
+| Clip, drawing         | `\clip(x1,y1,x2,y2)`, `\iclip`, or a drawing; `\p<n>` drawing mode, `\pbo`                                                                                                                                                                                                                                                                    |
+| Time                  | `\fad(in,out)` ms; `\fade(a1,a2,a3,t1,t2,t3,t4)`; `\t([t1,t2,][accel,]tags)` animates tags (ms)                                                                                                                                                                                                                                               |
+| Karaoke (word timing) | `\k<d>` (fill at once), `\kf<d>` = `\K<d>` (sweep), `\ko<d>` (border too): each the duration of the syllable after it, centiseconds -- libass reads decimals, truncated to the millisecond (`ass_parse.c`: `dtoi32(val * 10)`); no argument 100. `\kt<t>` (v4++, libass 0.17+) the next syllable's start, centiseconds from the event's start |
+| Reset                 | `\r` to the event's style, `\r<style>` to another                                                                                                                                                                                                                                                                                             |
 
 ## ffmpeg's reading and writing
 
@@ -280,7 +281,7 @@ field's end: a margin not a number), the file not opened; a time's fraction a de
 ffman passes an ASS or SSA through, unread: its burn draws ffman's copy with the `ass` filter
 (libass alone), `--add-subs` gives the copy to ffmpeg (its reading). The copy: UTF-8, a UTF-16
 script (its BOM) recoded, each NUL U+FFFD, noted; refused unless `[Script Info]` is first
-(ffmpeg's detection) and the script has a type (libass's) -- `subs/ingest.py`. *Measured*
+(ffmpeg's detection, though its attach names the demuxer) and the script has a type (libass's) -- `subs/ingest.py`. *Measured*
 (`../scripts/measure_ffmpeg.py` with a PYTHON), the scripts of the table above:
 
 | Script                                                | ffman                                                                                   |
@@ -309,12 +310,12 @@ script (its BOM) recoded, each NUL U+FFFD, noted; refused unless `[Script Info]`
 
 ## What ASS holds
 
-| Property    | ASS (SSA)                                                                                                                                                        |
-| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Times       | start and end, centiseconds; libass reads more digits as centiseconds too, so ms precision cannot be written                                                     |
-| Text        | one line per event, `\N` for breaks; `\{` and `\}` for literal braces (libass; a `{` before a `}` opens a block); no escape for `\` before `N`, `n` or `h`       |
-| Styling     | named styles (font, size, four colours with alpha, bold, italic, underline, strike, scale, spacing, angle, border, shadow) and per-span overrides                |
-| Position    | alignment, margins, `\pos`, `\move`, `\org`, `\clip`, layers; PlayRes as the coordinate space                                                                    |
-| Word timing | `\k` family: syllable durations in centiseconds, from the event's start, consecutive; a gap an empty syllable, or `\kt` (drawn: `subtitle-mappings`' `words.md`) |
-| Speakers    | `Name` (`Actor`), free text                                                                                                                                      |
-| Other       | `Comment:` events, `Effect`, embedded fonts and graphics, the script's header keys                                                                               |
+| Property    | ASS (SSA)                                                                                                                                                  |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Times       | start and end, centiseconds; libass reads more digits as centiseconds too, so ms precision cannot be written                                               |
+| Text        | one line per event, `\N` for breaks; `\{` and `\}` for literal braces (libass; a `{` before a `}` opens a block); no escape for `\` before `N`, `n` or `h` |
+| Styling     | named styles (font, size, four colours with alpha, bold, italic, underline, strike, scale, spacing, angle, border, shadow) and per-span overrides          |
+| Position    | alignment, margins, `\pos`, `\move`, `\org`, `\clip`, layers; PlayRes as the coordinate space                                                              |
+| Word timing | `\k` family: syllable durations in centiseconds, from the event's start, consecutive; a gap an empty syllable, or `\kt` (libass: `effect_skip_timing`)     |
+| Speakers    | `Name` (`Actor`), free text                                                                                                                                |
+| Other       | `Comment:` events, `Effect`, embedded fonts and graphics, the script's header keys                                                                         |

@@ -58,7 +58,7 @@ end in ms, the text):
 | `[00:02,50]two`                                                          | 2 s, the text `,50]two`                                                                   | no line, noted                                                    |
 | `[61:00.00]`; `[100:00.00]`                                              | 3660 s; 6000 s                                                                            | the same                                                          |
 | `[1:02:03.00]` (hours)                                                   | 62 s: read as 1 minute 2 seconds, the hours lost                                          | no line, noted (alone: refused)                                   |
-| `[00:60.50]`                                                             | the line dropped                                                                          | 60.5 s                                                            |
+| `[00:60.50]`                                                             | the line dropped                                                                          | 60.5 s, noted                                                     |
 | `[-00:01.00]`                                                            | -1 s                                                                                      | -1 s (shown from 0), noted                                        |
 | `[00:01.00][00:05.00]chorus`                                             | two events of `chorus`, sorted among the others                                           | the same                                                          |
 | `[00:01.00] [00:05.00]chorus`                                            | one event, at 1 s, the text `chorus`: a stamp after a blank dropped                       | two lines, at 1 and 5 s                                           |
@@ -66,7 +66,8 @@ end in ms, the text):
 | ` \t[00:02.00]two`, after a first line                                   | dropped: `sscanf` given the blanks                                                        | read, noted                                                       |
 | `more`, between two lines                                                | dropped                                                                                   | dropped, noted                                                    |
 | lines out of order                                                       | sorted                                                                                    | sorted                                                            |
-| a line twice at one time (`same`, `same`)                                | both, the first of no length                                                              | one                                                               |
+| a line twice at one time (`same`, `same`)                                | both, the first of no length                                                              | one, `same`: shown once                                           |
+| two lines of one stamp (`line one`, `line two`)                          | `line one` for no time, `line two` to the next: the last alone shown                      | one, `line one line two`, noted                                   |
 | `[00:03.00]` with no text                                                | an event of `\n`: the end of the line before it                                           | the end of the line before it, no line of its own                 |
 | `[00:01.00] Hello`                                                       | `Hello`: blanks after a stamp skipped                                                     | `Hello`                                                           |
 | `<00:01.00>one <00:01.50>two`                                            | the text as written                                                                       | `one two`: the word stamps off                                    |
@@ -116,28 +117,30 @@ mov_text`, `-c:s webvtt` convert it.
 ## mpv's reading (0.41.0)
 
 ffmpeg's: it demuxes with libavformat (`demux_lavf.c`, LRC not among the formats it recodes) and
-converts each line with the `text` decoder (`sd_ass.c`, `lavc_conv`). One difference: a
+converts each line with the `text` decoder (`sd_ass.c`, `lavc_conv`). Two differences: a
 packet of negative duration is of unknown length (`UNKNOWN_DURATION`), so the last line, which the
-demuxer gives -1, is shown to the end.
+demuxer gives -1, is shown to the end; and its decoder checks no UTF-8 (`lavc_conv.c`:
+`FF_SUB_CHARENC_MODE_IGNORE`, which `decode.c`'s `utf8_check` skips), so a line not UTF-8 is
+libass's to draw, each bad byte its Latin-1 character -- ffmpeg drops it.
 
 ## Navidrome's reading (0.64.2)
 
-A sidecar `.lrc` beside a track (`sources.go`), read through `ioutils.UTF8Reader`: a UTF-8 BOM
-skipped, UTF-16 by its BOM recoded (`unicode.BOMOverride`), a byte not UTF-8 U+FFFD; its text
-then through bluemonday's UGCPolicy and `html.UnescapeString` (`str.SanitizeText`). Served to
-OpenSubsonic clients as structured lyrics.
+A sidecar `.elrc` or `.lrc` beside a track, `.elrc` first (`sources.go`; `lyricspriority`'s
+default), read through `ioutils.UTF8Reader`: a UTF-8 BOM skipped, UTF-16 by its BOM recoded
+(`unicode.BOMOverride`), a byte not UTF-8 U+FFFD; its text then through bluemonday's UGCPolicy and
+`html.UnescapeString` (`str.SanitizeText`). Served to OpenSubsonic clients as structured lyrics.
 
-| Rule                                                                                                                                                                 | Source                          |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
-| Lines split at an LF alone, each trimmed: a CR-only file one line                                                                                                    | `parseLRC`                      |
-| Synced when a line opens with a stamp, blanks before it skipped; else every line plain text                                                                          | `syncRegex`                     |
-| A stamp `[h:]mm:ss[.f]`: hours optional, minutes and seconds of one or two digits, a fraction of one to three digits, a decimal (`.5` 500 ms); no sign               | `timeRegexString`, `parseTime`  |
-| A line's stamps at its start, blanks between them, each a line of its text; a stamp after the text is text                                                           | `parseLRC`                      |
-| A line without a stamp at its start, after a timed one: joined to it, a line break before it (`[100:00.00]`, `[00:02,50]` alike)                                     | `parseLRC`                      |
-| `[ar:]`, `[ti:]`, `[lang:]`, `[offset:]` read -- the offset passed on, OpenSubsonic's (ms, `+` sooner, the client's to apply); any other `[name:value]` line skipped | `lrcIdRegex`, `unknownTagRegex` |
-| Enhanced LRC `<[h:]mm:ss[.f]>`: each a word's start, taken off the text, and the text before the first (`Every <00:07.56> night` is `night`)                         | `parseEnhancedLine`             |
-| HTML in the text: UGCPolicy's elements kept (`<b>`, `<i>`, `<u>`...), others off; references decoded (`&amp;` is `&`)                                                | `str.SanitizeText`              |
-| Lines sorted when a line held several stamps; the last line no end                                                                                                   | `parseLRC`                      |
+| Rule                                                                                                                                                                                                                                                                                                       | Source                                        |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| Lines split at an LF alone, each trimmed: a CR-only file one line                                                                                                                                                                                                                                          | `parseLRC`                                    |
+| Synced when a line opens with a stamp, blanks before it skipped; else every line plain text                                                                                                                                                                                                                | `syncRegex`                                   |
+| A stamp `[h:]mm:ss[.f]`: hours optional, minutes and seconds of one or two digits, a fraction of one to three digits, a decimal (`.5` 500 ms); no sign                                                                                                                                                     | `timeRegexString`, `parseTime`                |
+| A line's stamps at its start, blanks between them, each a line of its text; a stamp after the text is text                                                                                                                                                                                                 | `parseLRC`                                    |
+| A line without a stamp at its start, after a timed one: joined to it, a line break before it (`[100:00.00]`, `[00:02,50]` alike)                                                                                                                                                                           | `parseLRC`                                    |
+| `[ar:]`, `[ti:]`, `[lang:]`, `[offset:]` read wherever on a line they stand -- a lyric line holding one lost to it -- the offset passed on, OpenSubsonic's (ms, `+` sooner, the client's to apply); `[bg:...]` after a lyric line, a background vocal, joined to it; any other `[name:value]` line skipped | `lrcIdRegex`, `bgTagRegex`, `unknownTagRegex` |
+| Enhanced LRC `<[h:]mm:ss[.f]>`: each a word's start, taken off the text, and the text before the first (`Every <00:07.56> night` is `night`)                                                                                                                                                               | `parseEnhancedLine`                           |
+| HTML in the text: UGCPolicy's elements kept (`<b>`, `<i>`, `<u>`...), others off; references decoded (`&amp;` is `&`)                                                                                                                                                                                      | `str.SanitizeText`                            |
+| Lines sorted when a line held several stamps; the last line no end                                                                                                                                                                                                                                         | `parseLRC`                                    |
 
 ## Jellyfin's reading (12.2, LrcParser 2025.623.0)
 
@@ -145,27 +148,30 @@ A `.lrc` or `.elrc` (`LrcLyricParser.cs`), read by `File.ReadAllTextAsync(path, 
 a BOM's encoding -- UTF-8, UTF-16 or UTF-32, either order -- detected (.NET's `File.ReadAllText`),
 a byte not UTF-8 replaced (`Encoding.UTF8`'s replacement fallback).
 
-| Rule                                                                                                                                        | Source                                       |
-| ------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
-| Lines split at a CRLF, a CR or an LF; blank lines dropped                                                                                   | `LyricParser.Decode`                         |
-| A stamp `[m:ss.xx]`: minutes of any digits, seconds of exactly two, a fraction of two or three digits (hundredths or ms); no hours, no sign | `TimeTagUtils.LINE_TIME_TAG_REGEX`           |
-| Every stamp on the line, wherever it stands, a start of the line's text, the stamps taken off it, trimmed; a line without one dropped       | `LrcStartTimeUtils.SplitLyricAndTimeTag`     |
-| ID tags and `[offset:]` dropped, as lines without a stamp                                                                                   | `LrcLyricParser`                             |
-| Enhanced LRC `<m:ss.xx>`: word starts, taken off the text -- on a line of one stamp alone; with several, kept as text                       | `LrcLyricParser.Decode`, `LrcTimedTextUtils` |
-| Lines sorted by start; the last line no end                                                                                                 | `LrcLyricParser.ParseLyrics` (Jellyfin's)    |
+| Rule                                                                                                                                                   | Source                                       |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------- |
+| Lines split at a CRLF, a CR or an LF; blank lines dropped                                                                                              | `LyricParser.Decode`                         |
+| A stamp `[m:ss.xx]`: minutes of any digits, seconds of exactly two, a fraction of two or three digits (hundredths or ms); no hours, no sign            | `TimeTagUtils.LINE_TIME_TAG_REGEX`           |
+| Every stamp on the line, wherever it stands, a start of the line's text, the stamps taken off it, trimmed; a line without one dropped                  | `LrcStartTimeUtils.SplitLyricAndTimeTag`     |
+| ID tags and `[offset:]` dropped, as lines without a stamp                                                                                              | `LrcLyricParser`                             |
+| Enhanced LRC `<m:ss.xx>`: word starts, taken off the text -- on a line of one stamp alone; with several, kept as text                                  | `LrcLyricParser.Decode`, `LrcTimedTextUtils` |
+| Lines sorted by start; the last line no end                                                                                                            | `LrcLyricParser.ParseLyrics` (Jellyfin's)    |
+| A file of no line LrcParser reads: none, so the next parser's -- `TxtLyricParser` (`.lrc`, `.elrc`, `.txt`): the whole file plain text, stamps and all | `LyricManager` (parsers by `Priority`)       |
 
 ## ffman's reading
 
 subverter's `readers/lrc.py` and ffman's `subs/markup.py`: UTF-8, or UTF-16 by its BOM, and its
 lines, as a SubRip's (`subrip.file_lines`: a CR or an LF ends one, CR CR LF one end); a line's
 stamps at its start, blanks before and between them, `[m:ss.f]` -- minutes and seconds of any
-digits, the fraction optional, a decimal, a minus a time before 0; each stamp a line of the text
-after them, sorted, each ending at the next start, the last 3 s on; any other line but a tag
-(`[`, a letter or `#`, then `:`) or an empty one dropped; the blanks, the minus and the dropped
-lines noted, each kind counted; `[offset:]` of whole ms moving every time, `+` sooner, noted; the
-text as written but for Enhanced LRC's word stamps, taken off (`markup.unstamped`), its blanks
-squeezed and trimmed; a NUL U+FFFD, noted; a file of no line read refused, `no timed text found`,
-after its notes. The measured table above holds its column.
+digits, the fraction optional, a decimal, a minus a time before 0, seconds past 60 of two digits;
+each stamp a line of the text after them, sorted, those of one start one, their texts joined by a
+line break (burned a space), a text shown already once, each ending at the next start, the last 3 s
+on; any other line but a tag (`[`, a letter or `#`, then `:`) or an empty one dropped; the blanks,
+the minus, the seconds, the shared starts and the dropped lines noted, each kind counted; the last
+`[offset:]` of whole ms moving every time, `+` sooner, noted, each reason another is ignored
+counted; the text as written but for Enhanced LRC's word stamps, taken off (`markup.unstamped`), its
+blanks squeezed and trimmed; a NUL U+FFFD, noted; a file of no line read refused, `no timed text
+found`, after its notes. The measured table above holds its column.
 
 ## The writers
 
@@ -176,11 +182,11 @@ the text breaks the line. ffmpeg's muxer: above.
 
 ## What LRC holds
 
-| Property    | LRC                                                                                                                                    |
-| ----------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| Times       | starts only, hundredths by convention (any decimal read by ffmpeg); a line ends where the next starts                                  |
-| Text        | one line per tag; a cue of several lines becomes several timed lines                                                                   |
-| Styling     | none                                                                                                                                   |
-| Position    | none                                                                                                                                   |
-| Word timing | Enhanced LRC's `<mm:ss.xx>` word starts -- Navidrome and Jellyfin read them; ffmpeg and ffman do not (`subtitle-mappings`' `words.md`) |
-| Other       | ID tags (title, artist, album, author, lyricist, length, the file's author and tool); `offset`                                         |
+| Property    | LRC                                                                                                   |
+| ----------- | ----------------------------------------------------------------------------------------------------- |
+| Times       | starts only, hundredths by convention (any decimal read by ffmpeg); a line ends where the next starts |
+| Text        | one line per tag; a cue of several lines becomes several timed lines                                  |
+| Styling     | none                                                                                                  |
+| Position    | none                                                                                                  |
+| Word timing | Enhanced LRC's `<mm:ss.xx>` word starts -- Navidrome and Jellyfin read them; ffmpeg and ffman do not  |
+| Other       | ID tags (title, artist, album, author, lyricist, length, the file's author and tool); `offset`        |

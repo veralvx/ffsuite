@@ -481,6 +481,9 @@ def checked(what: str, found: object, stated: object) -> bool:
     return found == stated
 
 
+ASS_TIME = re.compile(r"[0-9]:[0-5][0-9]:[0-5][0-9]\.[0-9]{2}")  # rule 5's, under 10 h
+
+
 def skill(work: Path) -> bool:
     """The skill's example read and its prose on it, its time rule, its commands run."""
     text = SKILL.read_text(encoding="utf-8")
@@ -501,15 +504,18 @@ def skill(work: Path) -> bool:
     ass_time = space["ass_time"]
     if not callable(ass_time):
         raise TypeError(ass_time)
-    edges = [0, 4, 5, 994, 995, 999, 1000, 59995, 3599995, 3600000, 35999994, 359999999]
+    edges = [0, 4, 5, 994, 995, 999, 1000, 59995, 3599995, 3600000, 35999994]  # under 10 h
     every = sorted({*edges, *range(0, 7200000, 997)})
     events = "".join(
         f"Dialogue: 0,{ass_time(t)},{ass_time(t + 10)},Default,,0,0,0,,t\n" for t in every
     )
     _ = (work / "rule.ass").write_text(HEAD + events, encoding="utf-8")
     read = sorted(start for start, _length, _data in packets(work / "rule.ass")[1])
-    what = f"the time rule: {len(every)} times to 2 h and the edges to 100 h, as ffmpeg reads them"
+    what = f"the time rule: {len(every)} times to 2 h and the edges to 10 h, as ffmpeg reads them"
     results.append(checked(what, found=read == sorted((t + 5) // 10 for t in every), stated=True))
+    # what Aegisub reads alike: its fraction a decimal, so two digits exactly; an hour's one digit
+    shaped = all(ASS_TIME.fullmatch(str(ass_time(t))) for t in every)
+    results.append(checked("    each h:mm:ss.cc, as Aegisub reads it", found=shaped, stated=True))
 
     for video in ("video.mp4", "video.mkv"):
         _ = run(FFMPEG, "-v", "error", "-y", "-f", "lavfi", "-i", "color=black:s=64x64:d=70",

@@ -42,6 +42,7 @@ READS: dict[str, str] = {
     "a line without a stamp": "[00:01.00]one\nmore\n[00:03.00]two\n",
     "out of order": "[00:05.00]later\n[00:01.00]earlier\n",
     "a line twice": "[00:01.00]same\n[00:01.00]same\n[00:02.00]next\n",
+    "two lines of one stamp": "[00:01.00]line one\n[00:01.00]line two\n[00:03.00]next\n",
     "empty line text": "[00:01.00]sung\n[00:03.00]\n[00:05.00]again\n",
     "a space after the stamp": "[00:01.00] Hello\n[00:02.00]next\n",
     "enhanced word times": "[00:01.00]<00:01.00>one <00:01.50>two <00:02.00>three\n[00:03.00]end\n",
@@ -378,7 +379,8 @@ def missing(text: str) -> list[str]:
     """What the skill's prose must say of its example, from the measured values: those missing."""
     prose = " ".join(text.split())
     said = [f"{a / 1000:g} s for {d / 1000:g} s" for a, d in EXAMPLE_FFMPEG if d is not None]
-    said += [f"`{line}`" for line in EXAMPLE_SRT[:2]]
+    said.append(", ".join(f"`{line}`" for line in EXAMPLE_SRT if line))  # in order
+    said.append(f"ending the last at {EXAMPLE_FFMAN[-1][1] / 1000:g} s")  # ffman's
     whole = r"(?<![\w.]){}(?![\w]|\.\d)"  # no digit nor word glued to it
     return [x for x in said if not re.search(whole.format(re.escape(x)), prose)]
 

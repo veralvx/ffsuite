@@ -68,13 +68,14 @@ burns its own ASS.
 | A NUL in a text                                               | the reading stops there: that cue and every later one lost                                                                                                         | the line cut there (`strlen`)                                                                                                                       | U+FFFD, as the W3C reads one, noted                                                                                                        |
 | Line ends; BOM                                                | LF, CRLF, CR; a UTF-8 BOM skipped, UTF-16 converted                                                                                                                | LF, CRLF (CR alone in a file without LF); UTF-8 and UTF-16 BOMs                                                                                     | LF, CRLF, CR (CR CR LF one end, as ffmpeg's); a UTF-8 BOM; UTF-16 converted, as ffmpeg's                                                   |
 
-ffmpeg's ASS from a cue: `PlayResX: 384`, `PlayResY: 288`, one style, `Default` (Arial 16,
-white, outline 1, bottom centre, margins 10); `X1..Y2` become `{\an5}{\pos(...)}` (a point,
-`{\an1}`) scaled from 720x480. From ASS back to SubRip, ffmpeg keeps bold, italic, underline,
-strikeout, the primary colour, font and size, `\an` (`\a` converted), `\N`; it drops `\pos`,
-`\move`, `\k`, `\fad`, other colours and alpha, and escapes nothing (`a <b> c & d` written as it
-is). `-c:s text` writes the text without markup. Through ASS, times become centiseconds, start
-and duration rounded apart: the example's 62.005-64.000 s came back 62.010-64.010.
+ffmpeg's ASS from a cue: `PlayResX: 384`, `PlayResY: 288`, one style, `Default` (Arial 16, white,
+outline 1, bottom centre, margins 10); `X1..Y2` become `{\an5}{\pos(...)}` (a point, `{\an1}`)
+scaled from 720x480. From ASS back to SubRip, ffmpeg keeps bold, italic, underline, strikeout as a
+tag (`\s1`; a style's, dropped), the primary colour, font and size, `\an` (`\a` converted), `\N`; it
+drops `\pos`, `\move`, `\k`, `\fad`, other colours and alpha, and escapes nothing (`a <b> c & d`
+written as it is). `-c:s text` writes the text without markup. Through ASS, times become
+centiseconds, start and duration rounded apart: the example's 62.005-64.000 s came back
+62.010-64.010.
 
 ## The writers in use
 

@@ -12,10 +12,11 @@ Aegisub writes. Everything here is read in their sources and measured -- libass 
 pin) and 0.17.1, ffmpeg n8.1.2 and ffman measured, VLC 3.0.24, mpv 0.41.0 and Aegisub 3.4.2 by
 source. The full tables are in [references/format.md](references/format.md);
 [scripts/measure.py](scripts/measure.py) re-measures libass through
-[scripts/assdump.c](scripts/assdump.c), and [scripts/measure_ffmpeg.py](scripts/measure_ffmpeg.py)
-ffmpeg, libass through it, and ffman, and checks this file's example, time rule and commands,
-failing on a difference (`python3 scripts/measure_ffmpeg.py [FFMPEG [PYTHON]]`, `PYTHON` an
-interpreter that imports ffman).
+[scripts/assdump.c](scripts/assdump.c) (`python3 scripts/measure.py ASSDUMP`, its build in
+assdump.c), and [scripts/measure_ffmpeg.py](scripts/measure_ffmpeg.py) ffmpeg, libass through it,
+and ffman, and checks this file's example, time rule and commands, failing on a difference
+(`python3 scripts/measure_ffmpeg.py [FFMPEG [PYTHON]]`, `PYTHON` an interpreter that imports
+ffman).
 
 ## The format
 
@@ -107,11 +108,13 @@ none.
    from it), `ScaledBorderAndShadow: yes` (borders and shadows scaled alike; libass's default
    no).
 3. `[V4+ Styles]`, its standard `Format:` line, then each `Style:`: a name without commas,
-   distinct; colours `&HAABBGGRR`.
+   distinct, no `*` first and no space last (libass 0.17.4 keeps that space, 0.17.1 trims it);
+   colours `&HAABBGGRR`.
 4. `[Events]`, its standard `Format:` line -- `Layer, Start, End, Style, Name, MarginL, MarginR,
    MarginV, Effect, Text` -- and every event in that order: ffmpeg, VLC and Aegisub read no
    other.
-5. Times `h:mm:ss.cc`: a `.`, then exactly two digits -- libass and ffmpeg read the digits as
+5. Times `h:mm:ss.cc`, under 10 hours (ffmpeg's muxer writes each later one `9:59:59.99`,
+   Aegisub stops there): a `.`, then exactly two digits -- libass and ffmpeg read the digits as
    centiseconds, Aegisub as a decimal -- each event's end after its start. From milliseconds,
    round each time once to the centisecond, half up, as Aegisub does, then write it:
 
@@ -153,8 +156,8 @@ A burn draws with the fonts the system has, or a folder's (`ass=in.ass:fontsdir=
 `iconv -f CP1252 -t UTF-8 in.ass > in-utf8.ass`; `-sub_charenc CP1252` before its `-i`
 (`subtitles=in.ass:charenc=CP1252` for a burn) recodes its events alone, so a style's name not ASCII
 then matches none; the `ass` filter has neither. ffman burns an ASS with `--burn-subs` (plain mode
-alone: its own styling does not apply) and attaches one with `--add-subs` -- Matroska keeping it as
-ASS, MP4 and WebM converting it.
+alone, in its own styles: `--font` and the other look options refused) and attaches one with
+`--add-subs` -- Matroska keeping it as ASS, MP4 and WebM converting it.
 
 ## Example
 
