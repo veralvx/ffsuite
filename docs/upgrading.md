@@ -30,7 +30,9 @@ that run-book; nixos-config's own couplings stay there.
     it), and `t_dtw` is still -1 without `--dtw`.
 12. WhisperX is not pinned by this flake -- when its writers (`utils.py`: srt/vtt/tsv/json,
     `--highlight_words`) or alignment (`alignment.py`: omitted times, nearest interpolation)
-    change, regenerate the `wx*` fixtures with its own writers.
+    change, regenerate the `wx*` fixtures with its own writers. Its `WriteTSV`, OpenAI whisper's
+    too, still writes three columns, a text's tabs made spaces and its line breaks kept: subverter
+    reads a broken text back by it (`readers/table.py`).
 13. whisper-cli JSON still names the language in `result.language` (the no-space-script rule
     reads it).
 14. mpv's sub_style_conf defaults (sub/osd.c) and its 720-line canvas -- ffman's plain style
