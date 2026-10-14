@@ -308,6 +308,15 @@ HOSTILE: Final = {
     # stamp ffman reads dropped -- each noted. Before: all dropped, unnoted, `blank` and `before 0`
     "lines.lrc": "[ti:x]\n [00:00.10]blank\n[-00:00.50]before 0\n[00:00.20]two\nno stamp\n"
     + "[1:02:03.00]hours\n[00:00.40]\n",
+    # an LRC of lines sharing a stamp, as ffmpeg's lrcenc writes a cue of two lines (the ASS and
+    # LRC review): one cue, noted. Before: each but the last of no length, dropped unnoted
+    "shared.lrc": "[re:Lavf62.12.102]\n[ve:62.12.102]\n\n[00:01.00]line one\n[00:01.00]line two\n"
+    + "[00:04.00]next\n",
+    # an LRC text its start shows already -- a stamp repeated on its line, a line twice -- and
+    # seconds past 60 of three digits (the ASS and LRC review): once, as ffmpeg shows it; the
+    # line no reader reads dropped, noted. Before: `twice twice twice`; the line read, noted as
+    # Navidrome's and Jellyfin's
+    "twice.lrc": "[00:00.10][00:00.10]twice\n[00:00.10]twice\n[00:00.20]next\n[00:099.00]none\n",
     # a transcript of no timed text (the LRC lines box's found box): refused after the notes that
     # say why. Before: refused, the note dropped
     "no-line.lrc": "[ti:x]\n[1:02:03.00]an hour in\n",

@@ -212,6 +212,14 @@ camcorder:date=D,time=T`.
   it), and a stamp's minus as a time before 0, as ffmpeg writes and reads it -- each noted; any
   other line but a tag or an empty one is dropped, noted: `2 LRC lines dropped, opened by no stamp
   ffman reads nor a tag: the first, no stamp on line 5` (New).
+- An LRC stamp's seconds past 60 are read, as Navidrome and Jellyfin read them (ffmpeg drops the
+  line), noted; past 60 of more digits, which no reader reads, the line is dropped, noted (New).
+- An LRC line of several stamps is a line each; lines sharing a start are one, their texts joined,
+  as Navidrome and Jellyfin show each (ffmpeg's lrcenc writes a cue's lines so), noted; a text
+  the start shows already, once (New).
+- An LRC's `[offset:]` moves every line, in ms, `+` sooner, the last of whole ms applied, noted:
+  `LRC offset on line 2 applied: every line 500 ms sooner`; each other ignored -- after blanks,
+  not whole, past a double's range, or another after it -- noted, each reason counted (New).
 - A WebVTT text's `<` with no `>` after it opens a tag to the text's end (W3C), as Chromium and
   ffmpeg show it, noted: `1 texts cut at a < with no > after it, a tag to their end (W3C): the
   first, <3 you`; a SubRip's is text (New).

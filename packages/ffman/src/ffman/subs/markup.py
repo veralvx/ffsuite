@@ -46,7 +46,8 @@ def clean(text: str, markup: Markup) -> str:
     text as ffmpeg and libass read it (``drawn``) -- its tags as ffmpeg's decoder reads them, a
     ``<br>`` a line break; every block off, ``{text}`` too, as ffmpeg and mpv hide it; ``\N`` a
     line break, so a space, ffman wrapping; ``\n`` a space, ``\h`` a no-break space; ``\t``
-    text, as libass draws it. ``LRC``: its word stamps off (``unstamped``), the rest as written.
+    text, as libass draws it. ``LRC``: its word stamps off (``unstamped``), a line break a space,
+    the rest as written.
     """
     match markup:
         case Markup.WEBVTT:
@@ -54,8 +55,8 @@ def clean(text: str, markup: Markup) -> str:
             text = _VTT_BREAK.sub(" ", "".join(decoded(run) for run in runs))
         case Markup.SUBRIP:
             text = _SUBRIP_BREAK.sub(" ", drawn(text).text)
-        case Markup.LRC:
-            text = unstamped(text)
+        case Markup.LRC:  # a line break: lines sharing a stamp, one cue (``readers.lrc``)
+            text = unstamped(text).replace("\n", " ")
         case _:  # Markup.BASH: a case of its own left a branch no member takes
             text = _BREAK.sub(" ", _overrides_off(untagged(text)))
     return _BLANKS.sub(" ", text).removeprefix(" ").removesuffix(" ")

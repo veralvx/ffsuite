@@ -505,8 +505,8 @@ def test_an_lrc_offset_moves_every_time_noted(tmp_path: Path) -> None:
     t = ingested(put(tmp_path, "offset.lrc", HOSTILE["offset.lrc"]))
     assert [(c.start, c.end, c.text) for c in t.chunks] == [(100, 200, "one"), (200, 3200, "two")]
     assert t.notes == (
-        "LRC offset on line 1 ignored: not a whole number of milliseconds",
         "LRC offset on line 2 applied: every line 500 ms sooner",
+        "1 LRC offsets ignored, not a whole number of milliseconds: the first on line 1",
     )
 
 
@@ -639,6 +639,28 @@ def test_an_override_opening_with_an_escape_is_dropped_but_in_webvtt_and_lrc(
     vtt = ingested(put(tmp_path, "a.vtt", "WEBVTT\n\n00:00.000 --> 00:00.400\n{\\t(0,1)}a \\N\n"))
     texts = (srt.chunks[0].text, lrc.chunks[0].text, vtt.chunks[0].text)
     assert texts == ("a b", "{\\t(0,1)}a \\N", "{\\t(0,1)}a \\N")
+
+
+def test_lrc_lines_sharing_a_stamp_are_one_chunk_noted(tmp_path: Path) -> None:
+    t = ingested(put(tmp_path, "shared.lrc", HOSTILE["shared.lrc"]))
+    assert [(c.start, c.end, c.text) for c in t.chunks] == [
+        (1000, 4000, "line one line two"),  # as the SubRip it was written from reads
+        (4000, 7000, "next"),
+    ]
+    assert t.notes == (
+        "1 LRC lines shared a stamp with a line before, joined to it, as Navidrome and Jellyfin show both (ffmpeg shows the last alone): the first, [00:01.00]line two on line 5",
+    )
+
+
+def test_an_lrc_text_its_start_shows_already_is_shown_once(tmp_path: Path) -> None:
+    t = ingested(put(tmp_path, "twice.lrc", HOSTILE["twice.lrc"]))
+    assert [(c.start, c.end, c.text) for c in t.chunks] == [
+        (100, 200, "twice"),
+        (200, 3200, "next"),
+    ]
+    assert t.notes == (
+        "1 LRC lines dropped, opened by no stamp ffman reads nor a tag: the first, [00:099.00]none on line 4",
+    )
 
 
 def test_an_lrc_line_of_several_stamps_is_a_line_each(tmp_path: Path) -> None:
@@ -1097,8 +1119,9 @@ _MARKS: Final = ("{", "}", "\\", "{\\an8}", "<", ">", "<i>", "t", "n", "a", " ",
     )
 )
 def test_an_lrcs_clean_is_its_word_stamps_off_alone(text: str) -> None:
-    """LRC's: its word stamps' regex alone, then blanks squeezed -- every other mark as written."""
-    plain = re.sub(r"<[0-9]+:[0-9]+(?:\.[0-9]+)?>", "", text)
+    """LRC's: its word stamps' regex alone, a line break (lines sharing a stamp) a space, then
+    blanks squeezed -- every other mark as written."""
+    plain = re.sub(r"<[0-9]+:[0-9]+(?:\.[0-9]+)?>", "", text).replace("\n", " ")
     assert clean(text, Markup.LRC) == re.sub(r"[ \t]+", " ", plain).strip(" ")
 
 

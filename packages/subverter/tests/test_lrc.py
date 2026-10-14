@@ -6,6 +6,7 @@ before ffman's normalising (sorted, each line ending where the next starts; no t
 """
 
 import re
+import time
 from typing import Final
 
 import pytest
@@ -38,16 +39,28 @@ def test_lrc_lines_sorted_each_ending_at_the_next_the_last_3_s_later() -> None:
             ("LRC offset on line 1 applied: every line 250 ms later",),
             id="later",
         ),
-        pytest.param(  # the last whole one; each other one noted ("9"*400: no number, exact's)
+        pytest.param(  # the last whole one; the others noted, each reason counted ("9"*400: no
+            # number, exact's)
             f"[offset:+100]\n[offset:abc]\n[offset: -200 ]\n[offset:1.5]\n[offset:{'9' * 400}]\n[00:01.00]a\n",
             (Cue(1200, 4200, "a"),),
             (
-                "LRC offset on line 2 ignored: not a whole number of milliseconds",
-                "LRC offset on line 4 ignored: not a whole number of milliseconds",
-                "LRC offset on line 5 ignored: not a whole number of milliseconds",
                 "LRC offset on line 3 applied: every line 200 ms later",
+                "3 LRC offsets ignored, not a whole number of milliseconds: the first on line 2",
+                "1 LRC offsets ignored, another after it: the first on line 1",
             ),
             id="the last whole one",
+        ),
+        pytest.param(  # one of no shift: none applied, but the one before it ignored all the same
+            "[offset:500]\n[offset:0]\n[00:01.00]a\n",
+            (Cue(1000, 4000, "a"),),
+            ("1 LRC offsets ignored, another after it: the first on line 1",),
+            id="the last of no shift",
+        ),
+        pytest.param(  # a number, but past a double's range in ms: no time would be left
+            f"[offset:-{'9' * 309}]\n[00:01.00]a\n",
+            (Cue(1000, 4000, "a"),),
+            ("1 LRC offsets ignored, past a double's range: the first on line 1",),
+            id="past a double",
         ),
         pytest.param(  # ffmpeg's tag (measured): first on its line, the rest of it ignored
             "[offset:+500] by ear\n[00:01.00]a\n",
@@ -55,11 +68,13 @@ def test_lrc_lines_sorted_each_ending_at_the_next_the_last_3_s_later() -> None:
             ("LRC offset on line 1 applied: every line 500 ms sooner",),
             id="the rest of its line",
         ),
-        pytest.param(  # no offset tag: lower case, first on its line (ffmpeg's); no tag at all
-            # without its colon (Navidrome joins it, as text, to a timed line before it): a line dropped
+        pytest.param(  # no offset tag: lower case, first on its line (ffmpeg's) -- one after
+            # blanks noted, which Navidrome applies; none at all without its colon (Navidrome
+            # joins it, as text, to a timed line before it): a line dropped
             "[OFFSET:+500]\n [offset:+500]\n[offset+500]\n[00:01.00]a\n",
             (Cue(1000, 4000, "a"),),
             (
+                "1 LRC offsets ignored, not first on its line, as ffmpeg's tag (Navidrome applies it): the first on line 2",
                 "1 LRC lines dropped, opened by no stamp ffman reads nor a tag: the first, [offset+500] on line 3",
             ),
             id="no offset tag",
@@ -112,6 +127,24 @@ _DROPPED: Final = "dropped, opened by no stamp ffman reads nor a tag"
             (f"8 LRC lines {_DROPPED}: the first, [1:02:03.00]hours on line 2",),
             id="dropped",
         ),
+        pytest.param(  # seconds past 60: ffmpeg's read_ts drops them, Navidrome and LrcParser
+            # read two digits; past 60 of more no reader reads -- 60 itself every reader reads,
+            # under it of more digits ffmpeg's sscanf
+            "[00:01.00]a\n[00:60.50]b\n[00:99.99]c\n[00:100.00]d\n[00:60.00]e\n"
+            + "[00:099.00]f\n[00:002.00]g\n",
+            (
+                Cue(1000, 2000, "a"),
+                Cue(2000, 60000, "g"),
+                Cue(60000, 60500, "e"),
+                Cue(60500, 99990, "b"),
+                Cue(99990, 102990, "c"),
+            ),
+            (
+                "2 LRC lines had a stamp of seconds past 60, read as Navidrome and Jellyfin read them (ffmpeg drops them): the first, [00:60.50]b on line 2",
+                f"2 LRC lines {_DROPPED}: the first, [00:100.00]d on line 4",
+            ),
+            id="seconds past 60",
+        ),
         pytest.param(  # a tag (a letter or Wikipedia's # first, then a colon), or no text
             "[ti:t]\n[Ar:a]\n[#:comment]\n [la:en] x\n\n \t\n[00:01.00]a\n",
             (Cue(1000, 4000, "a"),),
@@ -121,6 +154,58 @@ _DROPPED: Final = "dropped, opened by no stamp ffman reads nor a tag"
     ],
 )
 def test_an_lrc_line_read_past_its_form_or_dropped_is_noted(
+    data: str, cues: tuple[Cue, ...], notes: tuple[str, ...]
+) -> None:
+    reading = subverter.read("lrc", data.encode(), "a.lrc")
+    assert (reading.cues, reading.notes) == (cues, notes)
+
+
+_SHARED: Final = "shared a stamp with a line before, joined to it, as Navidrome and Jellyfin show both (ffmpeg shows the last alone)"
+
+
+@pytest.mark.parametrize(
+    ("data", "cues", "notes"),
+    [
+        pytest.param(  # ffmpeg's lrcenc writes a cue of two lines so, each with its stamp
+            "[00:01.00]line one\n[00:01.00]line two\n[00:04.00]next\n",
+            (Cue(1000, 4000, "line one\nline two"), Cue(4000, 7000, "next")),
+            (f"1 LRC lines {_SHARED}: the first, [00:01.00]line two on line 2",),
+            id="written by ffmpeg",
+        ),
+        pytest.param(  # a repeated line's stamp shared too, the file's order kept
+            "[00:01.00][00:05.00]chorus\n[00:05.00]verse\n",
+            (Cue(1000, 5000, "chorus"), Cue(5000, 8000, "chorus\nverse")),
+            (f"1 LRC lines {_SHARED}: the first, [00:05.00]verse on line 2",),
+            id="a repeated line's",
+        ),
+        pytest.param(  # a line of no text joins nothing, nor one of word stamps alone
+            "[00:01.00]a\n[00:01.00]\n[00:01.00] \t\n[00:01.00]<00:01.50>\n[00:03.00]b\n",
+            (Cue(1000, 3000, "a"), Cue(3000, 6000, "b")),
+            (),
+            id="no text",
+        ),
+        pytest.param(  # a text its start shows already: once, as ffmpeg shows it (the earlier of
+            # no length)
+            "[00:01.00][00:01.00]x\n[00:01.00]x \n[00:01.00]y\n[00:01.00]<00:01.50>x\n",
+            (Cue(1000, 4000, "x\ny"),),
+            (f"1 LRC lines {_SHARED}: the first, [00:01.00]y on line 3",),
+            id="a text repeated",
+        ),
+        pytest.param(  # the text as shown, its blanks squeezed
+            "[00:01.00]x  y\n[00:01.00]x y\n[00:01.00]x\ty \n",
+            (Cue(1000, 4000, "x  y"),),
+            (),
+            id="blanks squeezed",
+        ),
+        pytest.param(  # each line counted once, the first by the file's order
+            "[00:05.00]late\n[00:09.00]z\n[00:01.00]a\n[00:05.00]b\n[00:01.00][00:05.00]c\n",
+            (Cue(1000, 5000, "a\nc"), Cue(5000, 9000, "late\nb\nc"), Cue(9000, 12000, "z")),
+            (f"2 LRC lines {_SHARED}: the first, [00:05.00]b on line 4",),
+            id="by line",
+        ),
+    ],
+)
+def test_lrc_lines_sharing_a_stamp_are_one_cue_noted(
     data: str, cues: tuple[Cue, ...], notes: tuple[str, ...]
 ) -> None:
     reading = subverter.read("lrc", data.encode(), "a.lrc")
@@ -163,6 +248,15 @@ def test_an_lrc_line_of_several_stamps_is_joined_once() -> None:
         Cue(2000, 3000, " ok"),
         Cue(3000, 6000, "caf\u00e9"),
     )
+
+
+def test_an_lrc_line_of_many_equal_stamps_is_read_in_bounded_work() -> None:
+    # its text read once, not once a stamp: stamps times its length, squared steps
+    text = "<0:0" * 25_000  # no word stamp: no ">" closes one
+    began = time.monotonic()
+    cues = subverter.read("lrc", f"{'[0:0]' * 20_000}{text}\n".encode(), "a.lrc").cues
+    assert time.monotonic() - began < 1
+    assert cues == (Cue(0, 3000, text),)
 
 
 def test_an_lrc_time_past_a_double_in_ms_drops_its_line() -> None:

@@ -73,7 +73,8 @@ class Reading:
     libass do (``drawn``).
 
     ``has_word_stamps``: its texts are LRC's, plain but for Enhanced LRC's word stamps
-    (``<mm:ss.xx>``), for their consumer to take off (``unstamped``).
+    (``<mm:ss.xx>``), for their consumer to take off (``unstamped``); the lines of one start
+    joined by a line break.
     """
 
     source: str
