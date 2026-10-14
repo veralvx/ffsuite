@@ -117,6 +117,9 @@ def test_a_tsv_texts_lines_are_its_records_in_a_refusal_and_a_nul_note() -> None
         ("start\tend\ttext\n0\t1\tx\nan\tother\n", (Cue(0, 1, "x"), Cue(None, None, ""))),
         ("start\tend\ttext\n0\t1\nmore\n", (Cue(0, 1, ""), Cue(None, None, ""))),
         ("start\tend\ttext\tspeaker\n0\t1\thi\tS1\nmore\n", (Cue(0, 1, "hi"), Cue(None, None, ""))),
+        ("start\tend\ttext\tspeaker\n0\t1\thi\nmore\n", (Cue(0, 1, "hi"), Cue(None, None, ""))),
+        ("start\tend\ttext\n0\t1\tx\tS1\nmore\n", (Cue(0, 1, "x"), Cue(None, None, ""))),
+        ("0\t1\tx\tS1\nmore\n", (Cue(0, 1, "x"), Cue(None, None, ""))),
     ],
     ids=[
         "no record before",
@@ -124,6 +127,9 @@ def test_a_tsv_texts_lines_are_its_records_in_a_refusal_and_a_nul_note() -> None
         "a tab",
         "a record short of its text",
         "a column after the text",
+        "a record short of the column after its text",
+        "a record past its header",
+        "a record past its text, no header",
     ],
 )
 def test_a_tsv_line_no_writer_breaks_is_a_record(data: str, cues: tuple[Cue, ...]) -> None:

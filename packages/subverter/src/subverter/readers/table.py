@@ -4,9 +4,10 @@ A header is a first record naming start and end, in any order (bash: one startin
 start); without one, the columns are start, end, text. A blank line is no record, so a header
 after one is the first (pandas' ``skip_blank_lines``). A record short of a column reads it
 empty, as awk's ``$n`` past the last field: its text "", its time none. In a TSV whose text is
-its last column, a line of no tab after a whole record is that record's text, a line break in
-it, noted: OpenAI whisper's and WhisperX's ``WriteTSV`` write each text stripped, its tabs made
-spaces, its line breaks kept (``utils.py``), and quote nothing.
+its last column, a line of no tab after a record ending at its text is that record's text, a
+line break in it, noted: OpenAI whisper's and WhisperX's ``WriteTSV`` write each record a line
+of its columns, its text stripped, its tabs made spaces, its line breaks kept (``utils.py``),
+and quote nothing.
 
 UTF-8, or UTF-16 by its BOM (``bom_text``), as a SubRip and an LRC are read: no whisper tool
 writes UTF-16, but a spreadsheet may (Excel's "Unicode Text": UTF-16 LE, a BOM first); a unit
@@ -52,9 +53,10 @@ def _rows(kind: str, text: str, name: str) -> tuple[list[Cue], tuple[str, ...]]:
         else csv.reader(source)
     )
     si, ei, ti, width = 1, 2, 3, 3
-    found: list[tuple[int, str, str, list[str]]] = []  # each record's first line, start, end, text
+    # each record's first line, start, end, its text's lines
+    found: list[tuple[int, str, str, list[str]]] = []
     joined: list[tuple[int, str]] = []  # each line of no tab read into the TSV record before
-    full = False  # the last record held its text's column
+    at_text = False  # the last record ended at its text, the last column: as WriteTSV writes one
     before = 0  # the lines read before a record
     header_due = True  # the first record may be the header
     for fields in records:
@@ -70,12 +72,12 @@ def _rows(kind: str, text: str, name: str) -> tuple[list[Cue], tuple[str, ...]]:
                 ti = i if column == "text" else ti
             width = len(names)
             continue
-        if kind == "tsv" and len(fields) == 1 and full and ti == width:  # its text, broken
+        if kind == "tsv" and len(fields) == 1 and at_text:  # its text, broken
             found[-1][3].append(fields[0])  # its lines joined once, at the end: linear
             joined.append((line, fields[0]))
             continue
         found.append((line, _field(fields, si), _field(fields, ei), [_field(fields, ti)]))
-        full = len(fields) >= ti
+        at_text = len(fields) == ti == width
     whole = by_line([(at, "\n".join(parts)) for at, *_, parts in found], name)
     cues = [
         Cue(time_ms(a, 1), time_ms(z, 1), t)

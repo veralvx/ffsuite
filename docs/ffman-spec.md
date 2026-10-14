@@ -212,7 +212,7 @@ camcorder:date=D,time=T`.
   too: whisper-cli, OpenAI whisper and WhisperX mark up none -- its tab or line break a space
   (New).
 - A TSV text broken by a line break, as OpenAI whisper and WhisperX write one, is read back into
-  its record: in a TSV whose text is its last column, a line of no tab after a record holding it
+  its record: in a TSV whose text is its last column, a line of no tab after a record ending at it
   is that record's text, noted: `1 TSV lines of no tab read as the text of the record before, a
   line break in it (OpenAI whisper's and WhisperX's TSV): the first, newline on line 3` (New).
 - An LRC line whose stamps follow blanks is read, as Navidrome and Jellyfin read it (ffmpeg drops
