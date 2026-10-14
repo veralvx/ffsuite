@@ -96,6 +96,12 @@ def test_a_tsv_line_of_no_tab_is_the_text_of_the_record_before(
     assert found.notes == notes
 
 
+def test_a_tsv_of_no_header_joins_a_broken_text_as_one_of_start_end_text() -> None:
+    found = subverter.read("tsv", b"0\t1\tx\nmore\n2\t3\ty\n", "a.tsv")
+    assert found.cues == (Cue(0, 1, "x\nmore"), Cue(2, 3, "y"))
+    assert found.notes == (_JOINED.format(n=1, first="more", line=2),)
+
+
 def test_a_tsv_texts_lines_are_its_records_in_a_refusal_and_a_nul_note() -> None:
     """A byte not UTF-8 or a NUL on a text's later line is told at its record's first, as a quoted
     CSV field's (``by_line``)."""
