@@ -1,9 +1,12 @@
 """CSV and TSV against their rules (``readers/table.py``, docs/decisions.md's rows): columns by
-header, a time read or none, RFC 4180 quoting in CSV, none in TSV.
+header, a time read or none, RFC 4180 quoting in CSV, none in TSV; UTF-8, or UTF-16 by its BOM.
 
 Every expectation is worked by hand from a rule, not taken from a run: what a reader yields
 before ffman's normalising (no trim, no sort, no clamp, no cue dropped).
 """
+
+import re
+from typing import Final
 
 import pytest
 import subverter
@@ -62,3 +65,42 @@ def test_a_field_past_csvs_limit_is_refused_by_name() -> None:
         subverter.Error, match=r"^unreadable \.csv: big\.csv: field larger than field limit"
     ):
         _ = subverter.read("csv", data.encode(), "big.csv")
+
+
+# --- encodings: UTF-8, or UTF-16 by its BOM, as a SubRip's and an LRC's (Excel's "Unicode Text"
+# is UTF-16 LE, a BOM first); a refusal's line by csv's line ends, a CR, an LF or a CRLF each one
+_CSV: Final = 'start,end,text\r\n0,1000,"café \U0001f600\r\nline"\r\n1000,2000,two\r\n'
+_TSV: Final = "start\tend\ttext\r\n0\t1000\tcafé \U0001f600\r\n1000\t2000\ttwo\r\n"
+
+
+@pytest.mark.parametrize("codec", ["utf-16-le", "utf-16-be"])
+@pytest.mark.parametrize(
+    ("fmt", "text", "first"),
+    [("csv", _CSV, "café \U0001f600\r\nline"), ("tsv", _TSV, "café \U0001f600")],
+    ids=["csv", "tsv"],
+)
+def test_a_table_in_utf16_by_its_bom_reads_as_in_utf8(
+    fmt: str, text: str, first: str, codec: str
+) -> None:
+    found = subverter.read(fmt, ("\ufeff" + text).encode(codec), f"a.{fmt}")
+    assert found.cues == (Cue(0, 1000, first), Cue(1000, 2000, "two"))
+    assert found.notes == ()
+
+
+@pytest.mark.parametrize(
+    ("data", "line"),
+    [
+        pytest.param(
+            ("\ufeff" + _CSV.replace("two", "t\ud800wo")).encode("utf-16-le", "surrogatepass"),
+            4,
+            id="a lone surrogate",
+        ),
+        pytest.param(("\ufeff" + _CSV).encode("utf-16-le") + b"x", 5, id="an odd byte"),
+        pytest.param(
+            "\ufeffstart,end\r\r\n\udc00".encode("utf-16-be", "surrogatepass"), 3, id="BE"
+        ),
+    ],
+)
+def test_a_tables_unit_not_utf16_is_refused_by_its_line(data: bytes, line: int) -> None:
+    with pytest.raises(subverter.Error, match=f"^{re.escape(f'not UTF-16: a.csv (line {line})')}$"):
+        _ = subverter.read("csv", data, "a.csv")

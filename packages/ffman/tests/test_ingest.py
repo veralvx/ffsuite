@@ -197,6 +197,13 @@ def test_an_lrc_line_read_past_its_form_or_dropped_is_noted(tmp_path: Path) -> N
     )
 
 
+@pytest.mark.parametrize("name", ["utf-16.csv", "utf-16.tsv"])
+def test_a_utf16_table_is_read_as_a_subrip_is(tmp_path: Path, name: str) -> None:
+    t = ingested(put(tmp_path, name, HOSTILE[name]))
+    assert [(c.start, c.end, c.text) for c in t.chunks] == [(0, 200, "café"), (200, 400, "second")]
+    assert t.notes == ()
+
+
 def test_a_utf16_subrip_is_read_as_ffmpeg_recodes_it(tmp_path: Path) -> None:
     t = ingested(put(tmp_path, "utf-16.srt", HOSTILE["utf-16.srt"]))
     assert [(c.start, c.end, c.text) for c in t.chunks] == [(0, 200, "café"), (200, 400, "second")]
@@ -208,6 +215,7 @@ def test_a_utf16_subrip_is_read_as_ffmpeg_recodes_it(tmp_path: Path) -> None:
     [
         ("utf-16-bad.srt", "not UTF-16: {path} (line 3)"),
         ("utf-16-bad.lrc", "not UTF-16: {path} (line 2)"),
+        ("utf-16-bad.tsv", "not UTF-16: {path} (line 3)"),
         ("utf-16.vtt", "not a WebVTT file: {path} (UTF-16: WebVTT is UTF-8)"),
     ],
 )

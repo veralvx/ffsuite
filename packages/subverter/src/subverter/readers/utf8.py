@@ -115,11 +115,11 @@ def file_text(data: bytes) -> str:
 def utf16(data: bytes, name: str, lines: Callable[[str], int]) -> str | None:
     """A file's text by its UTF-16 BOM, either order, as ffmpeg's reader recodes it; else None.
 
-    ffmpeg's ``ff_text_init_avio``, its SubRip's and ASS's alike (its LRC reader reads bytes: an
-    LRC's, as Navidrome and Jellyfin read it). A unit not UTF-16 -- a lone surrogate, an odd last
-    byte -- refused by its line: ``lines``, how many its format's reader counts in a text. ffmpeg's
-    reader takes the one for a NUL (``ff_text_r8``), what follows its format reader's, and the other
-    for a character.
+    ffmpeg's ``ff_text_init_avio``, its SubRip's and ASS's alike; an LRC's as Navidrome and Jellyfin
+    read it (ffmpeg's LRC reader reads bytes); a CSV's and a TSV's as a spreadsheet may write one
+    (ffmpeg reads neither). A unit not UTF-16 -- a lone surrogate, an odd last byte -- refused by
+    its line: ``lines``, how many its format's reader counts in a text. ffmpeg's reader takes the
+    one for a NUL (``ff_text_r8``), what follows its format reader's, and the other for a character.
     """
     if not data.startswith(UTF16_BOMS):
         return None

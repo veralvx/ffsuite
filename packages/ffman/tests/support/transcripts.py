@@ -304,6 +304,13 @@ HOSTILE: Final = {
     # one with a lone surrogate refused by its line. Before: "no timed text found"
     "utf-16.lrc": "\ufeff[00:00.00]café\r\n[00:00.20]second\r\n".encode("utf-16-le"),
     "utf-16-bad.lrc": "\ufeff[ti:x]\n[00:00.00]fi\ud800rst\n".encode("utf-16-be", "surrogatepass"),
+    # a UTF-16 CSV and TSV (the `whisper-transcripts` box): read, as a SubRip and an LRC are --
+    # Excel's "Unicode Text" UTF-16 LE, a BOM first; one with an odd last byte refused by its
+    # line. Before: refused "not UTF-8" (the CSV's line 3, the TSVs' 2) -- an all-ASCII one read,
+    # its NULs noted, then "no timed text found"
+    "utf-16.csv": '\ufeffstart,end,text\r\n0,200,"café"\r\n200,400,second\r\n'.encode("utf-16-le"),
+    "utf-16.tsv": "\ufeffstart\tend\ttext\n0\t200\tcafé\n200\t400\tsecond\n".encode("utf-16-be"),
+    "utf-16-bad.tsv": "\ufeffstart\tend\ttext\n0\t400\tcafé\n".encode("utf-16-le") + b"x",
     # an LRC line past its form (the `lrc` box's found box): blanks before its stamp read, as
     # Navidrome and Jellyfin read them; a minus a time before 0, as ffmpeg writes it; a line of no
     # stamp ffman reads dropped -- each noted. Before: all dropped, unnoted, `blank` and `before 0`

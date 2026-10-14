@@ -193,9 +193,9 @@ camcorder:date=D,time=T`.
 - A WebVTT transcript opens with its signature, `WEBVTT` alone on its line or before a space
   or a tab (W3C): else `not a WebVTT file: FILE (its first line is not WEBVTT)`; in UTF-16,
   `not a WebVTT file: FILE (UTF-16: WebVTT is UTF-8)` (New).
-- A SubRip in UTF-16 (its BOM) is read, as ffmpeg's reader recodes it, and an LRC, as Navidrome
-  and Jellyfin read it; a unit not UTF-16 is refused by its line: `not UTF-16: FILE (line N)`
-  (New).
+- A SubRip in UTF-16 (its BOM) is read, as ffmpeg's reader recodes it, an LRC, as Navidrome and
+  Jellyfin read it, and a CSV or a TSV, as a spreadsheet may write it; a unit not UTF-16 is
+  refused by its line: `not UTF-16: FILE (line N)` (New).
 - A transcript's lines end at an LF, a CRLF or a CR alone: a SubRip's and an LRC's CRs before
   an LF part of that end, as ffmpeg reads them; a WebVTT's each CR an end (W3C) (New).
 - A SubRip cue reads on past an empty line to the next timing line, as ffmpeg reads it, the text

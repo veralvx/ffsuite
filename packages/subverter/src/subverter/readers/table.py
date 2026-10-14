@@ -4,16 +4,32 @@ A header is a first record naming start and end, in any order (bash: one startin
 start); without one, the columns are start, end, text. A blank line is no record, so a header
 after one is the first (pandas' ``skip_blank_lines``). A record short of a column reads it
 empty, as awk's ``$n`` past the last field: its text "", its time none.
+
+UTF-8, or UTF-16 by its BOM (``table_text``), as a SubRip and an LRC are read: no whisper tool
+writes UTF-16, but a spreadsheet may (Excel's "Unicode Text": UTF-16 LE, a BOM first).
 """
 
 import csv
 import io
+import re
+from typing import Final
 
 from subverter.readers.fields import time_ms
-from subverter.readers.utf8 import by_line, nul_notes
+from subverter.readers.utf8 import by_line, file_text, nul_notes, utf16
 from subverter.transcript import Cue
 
-__all__ = ["rows"]
+__all__ = ["rows", "table_text"]
+
+_LINE_END: Final = re.compile(r"\r\n|\r|\n")  # csv's: each one a line's end
+
+
+def table_text(data: bytes, name: str) -> str:
+    """A CSV's or TSV's text: UTF-16 by its BOM (``utf16``), else UTF-8 (``file_text``).
+
+    A unit not UTF-16 refused by its line, counted as csv splits them.
+    """
+    text = utf16(data, name, lambda whole: len(_LINE_END.split(whole)))
+    return file_text(data) if text is None else text
 
 
 def rows(kind: str, text: str, name: str) -> tuple[list[Cue], tuple[str, ...]]:
