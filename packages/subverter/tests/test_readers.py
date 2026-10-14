@@ -1,6 +1,7 @@
 """Each reader against its rules, as recorded (docs/decisions.md's rows, the readers' docstrings):
-the dispatcher, the line ends of every format and the other formats here; SubRip's and WebVTT's
-cues in ``test_cues.py``, LRC's lines in ``test_lrc.py``.
+the dispatcher, and what the formats share -- line ends, text not UTF-8, a NUL, their texts'
+flags; SubRip's and WebVTT's cues in ``test_cues.py``, LRC's lines in ``test_lrc.py``, CSV's and
+TSV's in ``test_table.py``, whisper JSON's in ``test_whisper.py``.
 
 Every expectation is worked by hand from a rule, not taken from a run: what a reader yields
 before ffman's normalising (no trim, no sort but LRC's, no clamp, no cue dropped).
@@ -15,7 +16,7 @@ import pytest
 import subverter
 from hypothesis import assume, given
 from hypothesis import strategies as st
-from subverter import Cue, Reading, Timing
+from subverter import Cue
 from subverter.readers import subrip, webvtt
 
 # --- the dispatcher: a .txt and an unknown format refused, in the words ffman's tests record
@@ -158,61 +159,6 @@ def test_a_run_of_crs_is_read_in_linear_time(fmt: str) -> None:
     assert time.monotonic() - began < 1
 
 
-# --- CSV and TSV: start, end, text in ms; a header names start and end, any order
-
-
-@pytest.mark.parametrize(
-    ("data", "cues"),
-    [
-        ('start,end,text\n0,1000,"a, b"\n', (Cue(0, 1000, "a, b"),)),  # RFC 4180 quoting
-        ("speaker,end,start,text\nS1,2000,1000,hi\n", (Cue(1000, 2000, "hi"),)),  # by header
-        ("500,900,x\n", (Cue(500, 900, "x"),)),  # no header: start, end, text
-        ("start,end,text\nabc,900,y\n", (Cue(None, 900, "y"),)),  # no number: no time
-        # a record short of a column: that field empty, as awk's $n past the last -- a text "", a
-        # time none -- wherever the header puts it; a blank line no record
-        ("start,end,text\n1,2\n", (Cue(1, 2, ""),)),
-        ("text,start,end\nhello\n", (Cue(None, None, "hello"),)),
-        ("text,end,start\nhi,2000\n", (Cue(None, 2000, "hi"),)),
-        ("start,end,text\n\n0,1,x\n", (Cue(0, 1, "x"),)),
-        # the header the first record, a blank line none (pandas' skip_blank_lines): a line of
-        # spaces is one
-        ("\n\r\ntext,start,end\nhello,0,1000\n", (Cue(0, 1000, "hello"),)),
-        (
-            " \nstart,end,text\n0,1,x\n",
-            (Cue(None, None, ""), Cue(None, None, "text"), Cue(0, 1, "x")),
-        ),
-    ],
-)
-def test_a_csv_read_by_its_columns(data: str, cues: tuple[Cue, ...]) -> None:
-    assert subverter.read("csv", data.encode(), "a.csv").cues == cues
-
-
-def test_a_tsv_header_after_a_blank_line_is_its_header() -> None:
-    data = "\ntext\tstart\tend\nhello\t0\t1000\n"
-    assert subverter.read("tsv", data.encode(), "a.tsv").cues == (Cue(0, 1000, "hello"),)
-
-
-def test_a_tsv_record_short_of_a_column_reads_it_empty() -> None:
-    data = "text\tstart\tend\nhello\n0\n"  # its start and end, then its end, past the record
-    assert subverter.read("tsv", data.encode(), "a.tsv").cues == (
-        Cue(None, None, "hello"),
-        Cue(None, None, "0"),
-    )
-
-
-def test_a_tsv_quotes_nothing() -> None:
-    data = 'start\tend\ttext\n0\t1000\t"as written"\n'
-    assert subverter.read("tsv", data.encode(), "a.tsv").cues == (Cue(0, 1000, '"as written"'),)
-
-
-def test_a_field_past_csvs_limit_is_refused_by_name() -> None:
-    data = "start,end,text\n0,1," + "x" * (128 * 1024 + 1) + "\n"
-    with pytest.raises(
-        subverter.Error, match=r"^unreadable \.csv: big\.csv: field larger than field limit"
-    ):
-        _ = subverter.read("csv", data.encode(), "big.csv")
-
-
 # --- not UTF-8: whisper-cli -ml 1 splits a segment between tokens, so inside a character --
 # " Это ёлка и 😀" by whisper's tokens, wrapped by its whisper_wrap_segment: each character
 # joined across the texts it spans, in the one it starts; what is still not UTF-8 refused by line
@@ -334,216 +280,6 @@ def test_a_text_not_utf8_once_joined_is_refused_by_its_line(
         _ = subverter.read(fmt, data, f"a.{fmt}")
 
 
-# --- whisper JSON: refused unless whisper-cli's or WhisperX's
-
-_NOT_A_TRANSCRIPT: Final = (
-    "not a whisper-cli (.transcription) or WhisperX (.segments) JSON transcript"
-)
-
-
-@pytest.mark.parametrize(
-    ("data", "message"),
-    [
-        (b"{", "not valid JSON"),
-        # closed: an unclosed one is invalid JSON too, which a machine whose parser holds
-        # 100000 levels reports first
-        pytest.param(
-            b"[" * 100_000 + b"]" * 100_000,
-            "JSON nested too deeply to be a transcript",
-            id="100000 deep",
-        ),
-        pytest.param(
-            b"[" * 1001 + b"]" * 1001, "JSON nested too deeply to be a transcript", id="1001 deep"
-        ),
-        pytest.param(b"[" * 1000 + b"]" * 1000, _NOT_A_TRANSCRIPT, id="1000 deep"),
-        (b"[]", _NOT_A_TRANSCRIPT),
-        (b"5", _NOT_A_TRANSCRIPT),
-        (b'{"transcription": [{"tokens": [{"text": 5}]}]}', "unreadable whisper-cli -ojf JSON"),
-    ],
-)
-def test_a_json_not_a_transcript_is_refused(data: bytes, message: str) -> None:
-    with pytest.raises(subverter.Error, match=f"^{re.escape(message)}: a\\.json$"):
-        _ = subverter.read("json", data, "a.json")
-
-
-def test_json_past_the_parsers_stack_is_refused_as_too_deep(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    # the machine's limit, wherever it falls: a RecursionError from json.loads itself
-    def out_of_stack(*_args: object, **_kwargs: object) -> object:
-        raise RecursionError
-
-    monkeypatch.setattr(json, "loads", out_of_stack)
-    message = "JSON nested too deeply to be a transcript: a.json"
-    with pytest.raises(subverter.Error, match=f"^{re.escape(message)}$"):
-        _ = subverter.read("json", b"[]", "a.json")
-
-
-# --- whisper-cli: offsets in ms; with -ojf, words from tokens, DTW times where they hold
-
-
-def _cli(entries: list[object], language: str = "en") -> bytes:
-    return json.dumps({"result": {"language": language}, "transcription": entries}).encode()
-
-
-def test_whisper_cli_without_tokens_is_cues_alone_their_text_as_written() -> None:
-    data = _cli([{"offsets": {"from": 0, "to": 1500}, "text": " Hi"}])
-    assert subverter.read("json", data, "a.json") == Reading(
-        "whisper-cli JSON", has_words=False, cues=(Cue(0, 1500, " Hi", "0"),)
-    )
-
-
-def _token(text: object, start: int, end: int, dtw: object = None) -> dict[str, object]:
-    token: dict[str, object] = {"text": text, "offsets": {"from": start, "to": end}}
-    if dtw is not None:
-        token["t_dtw"] = dtw
-    return token
-
-
-def test_words_from_tokens_timed_by_dtw_where_inside_and_in_order() -> None:
-    # " He" + "llo" one word (a leading space starts one); [_TT_] skipped; t_dtw in 10 ms units
-    tokens = [_token(" He", 0, 200, 5), _token("llo", 200, 400, 15), _token(" world", 400, 900, 50)]
-    tokens.append(_token("[_TT_150]", 900, 1000))
-    data = _cli([{"offsets": {"from": 0, "to": 1000}, "text": " Hello world", "tokens": tokens}])
-    reading = subverter.read("json", data, "a.json")
-    assert (reading.source, reading.has_words, reading.notes) == ("whisper-cli -ojf JSON", True, ())
-    # each word from its DTW time to the next's; the last to the sentence's end
-    assert reading.words == (Timing("0", 50, 500, " Hello"), Timing("0", 500, 1000, " world"))
-
-
-def test_dtw_out_of_order_falls_back_to_the_offsets_and_says_so() -> None:
-    tokens = [_token(" one", 0, 400, 60), _token(" two", 400, 900, 20)]  # 600 ms, then 200: back
-    data = _cli([{"offsets": {"from": 0, "to": 1000}, "text": " one two", "tokens": tokens}])
-    reading = subverter.read("json", data, "a.json")
-    assert reading.words == (Timing("0", 0, 400, " one"), Timing("0", 400, 900, " two"))
-    assert reading.notes == (
-        "DTW word times were outside their sentence or not in order in 1 of 1 sentences: used token offsets there",
-    )
-
-
-def test_a_language_without_spaces_makes_every_token_a_word() -> None:
-    tokens = [_token("東", 0, 300), _token("京", 300, 600)]
-    data = _cli(
-        [{"offsets": {"from": 0, "to": 600}, "text": "東京", "tokens": tokens}], language="ja"
-    )
-    assert subverter.read("json", data, "a.json").words == (
-        Timing("0", 0, 300, "東"),
-        Timing("0", 300, 600, "京"),
-    )
-
-
-# whisper-cli writes each token's bytes (whisper_token_to_str) and escapes only `"` and `\`: a
-# character its vocabulary lacks spans tokens, so the file is not UTF-8; a control character raw
-
-
-def _with_bytes(value: object, texts: list[bytes]) -> bytes:
-    """``value`` as JSON, each ``"@N@"`` string written as ``texts[N]``'s bytes: whisper-cli's way."""
-    data = json.dumps(value).encode()
-    for k, text in enumerate(texts):
-        data = data.replace(f'"@{k}@"'.encode(), b'"' + text + b'"')
-    return data
-
-
-def _sentence(start: int, end: int, text: str, *tokens: dict[str, object]) -> dict[str, object]:
-    return {"offsets": {"from": start, "to": end}, "text": text, "tokens": list(tokens)}
-
-
-# " café", its é split over two tokens: C3, then A9
-_SPLIT: Final = _with_bytes(
-    {
-        "transcription": [
-            _sentence(0, 1000, "@0@", _token("@1@", 0, 500, 10), _token("@2@", 500, 1000, 60))
-        ]
-    },
-    [" café".encode(), b" caf\xc3", b"\xa9"],
-)
-
-
-@pytest.mark.parametrize("bom", [b"", b"\xef\xbb\xbf"], ids=["", "a BOM"])
-def test_a_character_split_across_tokens_is_joined_into_its_word(bom: bytes) -> None:
-    reading = subverter.read("json", bom + _SPLIT, "a.json")
-    assert reading.cues == (Cue(0, 1000, " café", "0"),)
-    assert reading.words == (Timing("0", 100, 1000, " café"),)
-
-
-def test_without_spaces_a_split_character_is_one_word_over_its_tokens() -> None:
-    # 鬱 (E9 AC B1), not one of whisper's tokens: two of them -- one word, from the first's start
-    tokens = (_token("@1@", 0, 300), _token("@2@", 300, 600), _token("は", 600, 900))
-    sentence = _sentence(0, 900, "@0@", *tokens)
-    data = _with_bytes(
-        {"result": {"language": "ja"}, "transcription": [sentence]},
-        ["鬱は".encode(), b"\xe9\xac", b"\xb1"],
-    )
-    assert subverter.read("json", data, "a.json").words == (
-        Timing("0", 0, 600, "鬱"),
-        Timing("0", 600, 900, "は"),
-    )
-
-
-def test_a_character_over_three_tokens_is_one() -> None:
-    # 😀 (F0 9F 98 80) over " F0 9F", "98", "80": one word, the three tokens' span
-    tokens = (_token("@0@", 0, 100), _token("@1@", 100, 200), _token("@2@", 200, 300))
-    sentence = _sentence(0, 300, " 😀", *tokens)
-    data = _with_bytes({"transcription": [sentence]}, [b" \xf0\x9f", b"\x98", b"\x80"])
-    assert subverter.read("json", data, "a.json").words == (Timing("0", 0, 300, " 😀"),)
-
-
-def test_a_character_split_across_sentences_is_the_one_where_it_starts() -> None:
-    # -ml N splits a sentence between tokens: é's C3 ends one, its A9 starts the next
-    first = _sentence(0, 500, "@0@", _token("@0@", 0, 500))
-    second = _sentence(500, 1000, "@1@", _token("@2@", 500, 600), _token(" ok", 600, 1000))
-    data = _with_bytes({"transcription": [first, second]}, [b" caf\xc3", b"\xa9 ok", b"\xa9"])
-    reading = subverter.read("json", data, "a.json")
-    assert reading.cues == (Cue(0, 500, " café", "0"), Cue(500, 1000, " ok", "1"))
-    assert reading.words == (Timing("0", 0, 500, " café"), Timing("1", 600, 1000, " ok"))
-
-
-@pytest.mark.parametrize(
-    ("data", "where"),
-    [
-        (_with_bytes({"transcription": [{"text": "@0@"}]}, [b"caf\xe9"]), ".transcription[0].text"),
-        (
-            _with_bytes(
-                {"transcription": [_sentence(0, 500, " ok", _token("@0@", 0, 500))]}, [b" \xc3"]
-            ),
-            ".transcription[0].tokens[0].text",
-        ),
-        (
-            _with_bytes({"transcription": [{"text": "@0@"}, {"text": "@1@"}]}, [b"\xc3", b"x"]),
-            ".transcription[0].text",
-        ),
-        (
-            _with_bytes(
-                {"transcription": [{"text": "@0@"}, {"text": "@1@"}]}, [b"\xc3", b"\xa9\xff"]
-            ),
-            ".transcription[1].text",
-        ),
-        (_with_bytes({"segments": [{"text": "@0@"}]}, [b"\xff"]), ".segments[0].text"),
-        (
-            b'{"segments": [{"text": "a", "words": [{"word": "\\ud800"}]}]}',
-            ".segments[0].words[0].word",
-        ),
-    ],
-    ids=[
-        "a Latin-1 byte",
-        "a character never completed",
-        "a character broken by the next text",
-        "a byte past a character joined",
-        "WhisperX",
-        "a lone surrogate",
-    ],
-)
-def test_text_not_utf8_once_joined_is_refused_where_it_is(data: bytes, where: str) -> None:
-    with pytest.raises(subverter.Error, match=f"^{re.escape(f'not UTF-8: a.json ({where})')}$"):
-        _ = subverter.read("json", data, "a.json")
-
-
-def test_in_a_file_not_utf8_an_escaped_byte_surrogate_is_its_byte() -> None:
-    # surrogateescape's: the raw byte B1 and the escape \udcb1 are one string once read
-    data = b'{"segments": [{"text": "\xe9\xac"}, {"text": "\\udcb1"}]}'
-    assert [c.text for c in subverter.read("json", data, "a.json").cues] == ["鬱", ""]
-
-
 # --- a NUL in a text, any format: U+FFFD, as the W3C's WebVTT parser reads one, noted -- kept, it
 # would end libass's script and ffmpeg's SubRip reading there, every later cue lost (measured)
 _NUL_NOTE: Final = "{n} NULs read as U+FFFD, as the W3C reads them: the first in {where}"
@@ -568,15 +304,17 @@ _SRT_NUL: Final = (
         ("tsv", b"start\tend\ttext\n1000\t2000\tfi\x00rst\n", ["fi\ufffdrst"], "line 2"),
         (
             "json",
-            _cli([{"offsets": {"from": 0, "to": 1500}, "text": " fi\u0000rst"}]),
+            json.dumps(
+                {"transcription": [{"offsets": {"from": 0, "to": 1500}, "text": " fi\u0000rst"}]}
+            ).encode(),
             [" fi\ufffdrst"],
             ".transcription[0].text",
         ),
         (
             "json",
-            _cli([{"offsets": {"from": 0, "to": 1500}, "text": " a"}]).replace(
-                b" a", b" fi\x00rst"
-            ),
+            json.dumps({"transcription": [{"offsets": {"from": 0, "to": 1500}, "text": " a"}]})
+            .encode()
+            .replace(b" a", b" fi\x00rst"),
             [" fi\ufffdrst"],
             ".transcription[0].text",
         ),
@@ -605,71 +343,6 @@ def test_a_nul_is_noted_where_it_is() -> None:
     }
     reading = subverter.read("json", json.dumps(both).encode(), "a.json")
     assert reading.notes == (_NUL_NOTE.format(n=2, where=".segments[0].text"),)
-
-
-def test_a_nul_in_a_word_reads_as_u_fffd_noted_by_its_path() -> None:
-    whisperx = {"segments": [{"start": 1, "end": 2, "text": "ab", "words": [{"word": "a\u0000b"}]}]}
-    reading = subverter.read("json", json.dumps(whisperx).encode(), "a.json")
-    assert [w.text for w in reading.words] == ["a\ufffdb"]
-    assert reading.notes == (_NUL_NOTE.format(n=1, where=".segments[0].words[0].word"),)
-    tokens = [_token(" a\u0000b", 0, 500)]
-    cli = _cli([{"offsets": {"from": 0, "to": 500}, "text": " ab", "tokens": tokens}])
-    reading = subverter.read("json", cli, "a.json")
-    assert [w.text for w in reading.words] == [" a\ufffdb"]
-    where = ".transcription[0].tokens[0].text"
-    assert reading.notes == (_NUL_NOTE.format(n=1, where=where),)
-
-
-def test_a_raw_control_character_reads_as_its_escaped_form() -> None:
-    escaped = _cli([{"offsets": {"from": 0, "to": 1500}, "text": " a\tb\nc"}])
-    raw = escaped.replace(b"\\t", b"\t").replace(b"\\n", b"\n")
-    assert raw != escaped
-    assert subverter.read("json", raw, "a.json") == subverter.read("json", escaped, "a.json")
-
-
-# --- WhisperX: segments in seconds, their words their own; a value of the wrong kind is none
-
-
-def test_whisperx_segments_and_words_in_seconds() -> None:
-    words = [{"word": "Hi", "start": 0.5, "end": 0.8}, {"word": "there", "start": 0.9, "end": 1.25}]
-    data = json.dumps(
-        {"segments": [{"start": 0.5, "end": 1.25, "text": "Hi there", "words": words}]}
-    )
-    assert subverter.read("json", data.encode(), "a.json") == Reading(
-        "WhisperX JSON",
-        has_words=True,
-        cues=(Cue(500, 1250, "Hi there", "0"),),
-        words=(Timing("0", 500, 800, "Hi"), Timing("0", 900, 1250, "there")),
-    )
-
-
-def test_whisperx_values_as_typed() -> None:
-    # a decimal string a number, rounded half up to the ms (1.0005 s: 1000.5 ms, 1001); true no
-    # time; null text nothing; a number as text its JSON; a JSON number past a double no time
-    segments = [
-        {"start": "1.0005", "end": True, "text": None},
-        {"start": 1e999, "end": 0, "text": 5},
-    ]
-    data = b'{"segments": ' + json.dumps(segments).replace("Infinity", "1e999").encode() + b"}"
-    assert subverter.read("json", data, "a.json") == Reading(
-        "WhisperX JSON", has_words=False, cues=(Cue(1001, None, "", "0"), Cue(None, 0, "5", "1"))
-    )
-
-
-@pytest.mark.parametrize(("seconds", "end"), [("1e305", 10**308), ("1e306", None)])
-def test_a_time_past_a_doubles_range_is_none(seconds: str, end: int | None) -> None:
-    # in ms: 10**308 is inside a double's range (its largest, ~1.8e308), 10**309 past it
-    data = f'{{"segments": [{{"start": 0, "end": {seconds}, "text": "x"}}]}}'.encode()
-    assert subverter.read("json", data, "a.json").cues == (Cue(0, end, "x", "0"),)
-
-
-def test_a_token_or_word_not_an_object_is_no_value() -> None:
-    tokens = [5, _token(" ok", 0, 500)]  # a malformed token: skipped
-    cli = _cli([{"offsets": {"from": 0, "to": 500}, "text": " ok", "tokens": tokens}])
-    assert subverter.read("json", cli, "a.json").words == (Timing("0", 0, 500, " ok"),)
-    words = ["nope", {"word": "ok", "start": 0, "end": 0.5}]  # a malformed word: skipped
-    wx = json.dumps({"segments": [{"start": 0, "end": 0.5, "text": "ok", "words": words}]}).encode()
-    assert subverter.read("json", wx, "a.json").words == (Timing("0", 0, 500, "ok"),)
 
 
 @pytest.mark.parametrize(
