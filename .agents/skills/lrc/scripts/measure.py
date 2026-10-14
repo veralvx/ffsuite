@@ -96,7 +96,7 @@ for name, text in json.load(sys.stdin).items():
         t = ingest("x.lrc", text.encode("latin-1"))
         out[name] = {"chunks": [(c.start, c.end, c.text) for c in t.chunks], "notes": t.notes}
     except REFUSALS as e:
-        out[name] = {"refused": str(e), "notes": getattr(e, "notes", ())}  # ffman's refusal's
+        out[name] = {"refused": str(e), "notes": getattr(e, "notes", ())}  # ffman's own hold them
 print(json.dumps(out))
 """
 
