@@ -17,6 +17,7 @@ not UTF-16 refused by its line, counted as csv splits them.
 import csv
 import io
 import re
+from collections.abc import Sequence
 from typing import Final
 
 from subverter._errors import counted, refuse
@@ -24,27 +25,47 @@ from subverter.readers.fields import time_ms
 from subverter.readers.utf8 import bom_text, by_line, nul_notes
 from subverter.transcript import Cue, Reading
 
-__all__ = ["read"]
+__all__ = ["read", "split_lines", "timed"]
 
 _LINE_END: Final = re.compile(r"\r\n|\r|\n")  # csv's: each one a line's end
 
 
 def read(kind: str, data: bytes, name: str) -> Reading:
     """A ``csv`` or ``tsv`` file's cues (``_rows``); a field past csv's limit refused by name."""
-    text = bom_text(data, name, lambda whole: len(_LINE_END.split(whole)))
+    text = bom_text(data, name, lambda whole: len(split_lines(whole)))
     try:
         cues, notes = _rows(kind, text, name)
     except csv.Error as error:  # a field past csv's limit (128 KiB): no subtitle's text
         refuse(f"unreadable .{kind}: {name}: {error}")
-    return Reading(f".{kind}", has_words=False, cues=tuple(cues), notes=notes)
+    return Reading(f".{kind}", has_words=False, cues=cues, notes=notes)
 
 
-def _rows(kind: str, text: str, name: str) -> tuple[list[Cue], tuple[str, ...]]:
+def split_lines(text: str) -> list[str]:
+    """``text``'s lines, as csv ends them: at each CRLF, CR or LF."""
+    return _LINE_END.split(text)
+
+
+def timed(
+    rows: Sequence[tuple[int, str, str, str]], name: str
+) -> tuple[tuple[Cue, ...], tuple[str, ...]]:
+    """Rows of a line (from 1), a start and an end in ms, a text: their cues, their NULs' notes.
+
+    Each character joined across the texts it spans (``utf8.by_line``: what is still not UTF-8,
+    refused by its row's line); a time read, or none (``fields.time_ms``).
+    """
+    whole = by_line([(line, text) for line, *_, text in rows], name)
+    cues = tuple(
+        Cue(time_ms(a, 1), time_ms(z, 1), t)
+        for (_, a, z, _), t in zip(rows, whole.texts, strict=True)
+    )
+    return cues, nul_notes(whole.nuls)
+
+
+def _rows(kind: str, text: str, name: str) -> tuple[tuple[Cue, ...], tuple[str, ...]]:
     """whisper-cli's .csv (RFC 4180 quoting), OpenAI whisper's and WhisperX's .tsv (no quoting).
 
-    A time read, or none. Each character joined across the texts it spans (``utf8.by_line``: what
-    is still not UTF-8, refused by the line its record starts on); its notes (``_joined_notes``,
-    ``utf8.nul_notes``).
+    Its cues and their NULs' notes (``timed``), its lines read into a record before noted
+    (``_joined_notes``).
     """
     source = io.StringIO(text, newline="")
     records = (
@@ -78,12 +99,8 @@ def _rows(kind: str, text: str, name: str) -> tuple[list[Cue], tuple[str, ...]]:
             continue
         found.append((line, _field(fields, si), _field(fields, ei), [_field(fields, ti)]))
         at_text = len(fields) == ti == width
-    whole = by_line([(at, "\n".join(parts)) for at, *_, parts in found], name)
-    cues = [
-        Cue(time_ms(a, 1), time_ms(z, 1), t)
-        for (_, a, z, _), t in zip(found, whole.texts, strict=True)
-    ]
-    return cues, _joined_notes(joined) + nul_notes(whole.nuls)
+    cues, nuls = timed([(at, a, z, "\n".join(parts)) for at, a, z, parts in found], name)
+    return cues, _joined_notes(joined) + nuls
 
 
 def _joined_notes(joined: list[tuple[int, str]]) -> tuple[str, ...]:
