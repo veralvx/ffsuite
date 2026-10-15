@@ -4038,11 +4038,43 @@ tests with 6.8.3's converters.*
       other digits, a dropped record's name). Left, weighed: JSON lines of the filter's form another
       tool writes, read as the filter's (no form tells them apart); the shared helpers kept in
       `table.py`, as LRC takes SubRip's `file_lines`.*
-- [ ] Found by the `whisper-transcripts` box: OpenAI whisper's JSON is read as WhisperX's
+- [x] Found by the `whisper-transcripts` box: OpenAI whisper's JSON is read as WhisperX's
       (`.segments`) and named so -- `WhisperX JSON has none` in a word mode's refusal, the JSON
       refusal naming whisper-cli and WhisperX alone, the `.txt` refusal suggesting their outputs
-      alone. To decide: name each by its keys (OpenAI's `text` and `segments[].id`) or one name
-      for both, `whisper JSON (.segments)`.
+      alone. To decide: name each by its keys (OpenAI's `text` and `segments[].id`) or one name for
+      both, `whisper JSON (.segments)`.
+      *Done: named by the key that proves the writer (`readers/whisper.py`): a `.segments` JSON with
+      a top-level `text` string is OpenAI whisper's (`OpenAI whisper JSON`), any other WhisperX's --
+      openai-whisper v20250625's `transcribe()` returns `dict(text, segments, language)`,
+      `WriteJSON` dumping it whole; no WhisperX JSON writes one (`asr.py`, `alignment.py`,
+      `diarize.py`, `transcribe.py` at 3.0.0, 3.0.2, 3.1.0, 3.3.2, 3.4.2, 3.8.5 and 3.8.6). Probing
+      found the same defect in highlighted cues: OpenAI whisper's own `--highlight_words` SubRip and
+      WebVTT, read as words, were named WhisperX's -- one writer's in both tools, undistinguishable,
+      now `OpenAI whisper or WhisperX --highlight_words .srt`. The JSON and `.txt` refusals name
+      OpenAI whisper's outputs; the word modes' name `OpenAI whisper --word_timestamps True JSON`
+      and either's `--highlight_words` among the sources of word timings (`f75f826`, `31b5044`;
+      decisions' "Whisper names"; `upgrading.md` 26). The owner's standing rule, better by proof:
+      exact for both writers at every tag checked, where one generic name would drop what the key
+      proves. Tests: OpenAI's JSON with and without words, its empty `text`, a `text` no string,
+      OpenAI's own highlighted SubRip, the word modes' messages whole, failing first; the naming
+      rule's mutants caught; suite 2529, coverage 100%; the matrix 770; the outcome report against
+      `d783f05` on 3.13 and 3.14: 493 identical, 21 refusals reworded, `openai.json` (OpenAI
+      whisper's own `WriteJSON`) new -- its chunk-word refusal `OpenAI whisper JSON has none`,
+      before `WhisperX JSON has none`. Reviewed: its own review renamed `_whisperx` `_segments`; an
+      independent reviewer's, two rounds: the word modes' hint without `JSON`
+      (`--word_timestamps True` times words in the JSON alone), the refusals' count, the WhisperX
+      key claim made exact (`speaker_embeddings` from 3.4.2, no `language` before), the ffman
+      README, `text` `""` tested, "byte-identical" bounded (wrapped lines, `ja` and `zh`). Left,
+      weighed: one name for highlighted cues (nothing marks OpenAI whisper's); the
+      `subtitle-mappings` skill's WhisperX-only rows, its own box's. It found a box: highlighted
+      cues not read as such.*
+- [ ] Found by the Whisper names box's review: a highlighted SubRip or WebVTT not read as
+      highlighted, its words lost -- one underlined word a cue (OpenAI whisper
+      `--highlight_words --max_words_per_line 1`: no gap cues), or WhisperX's in `ja` or `zh`
+      (`utils.py` joins a gap's cue by nothing, a highlighted one by spaces: neighbours of no one
+      text). Read as plain cues; a chunk-word burn refused `.srt has none`, its remedy the
+      `--highlight_words` it was written with. To decide: read each as words (by `<u>` alone where
+      each cue is one word; by `<u>` and the text without spaces), refuse it named, or as now.
 - [ ] Found by the `whisper-transcripts` review: the OpenAI API's `verbose_json` (its
       `segments`, and with word timestamps its top-level `words`) is read by its segments alone,
       its words ignored, unnoted -- a word mode has none to show (measured: two words, `0` read, no
