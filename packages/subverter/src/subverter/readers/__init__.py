@@ -3,7 +3,7 @@
 from typing import Final
 
 from subverter._errors import refuse
-from subverter.readers import lrc, subrip, table, webvtt, whisper
+from subverter.readers import lrc, subrip, table, webvtt, whisper, whisper_filter
 from subverter.transcript import Reading
 
 __all__ = ["FORMATS", "read"]
@@ -27,5 +27,7 @@ def read(fmt: str, data: bytes, name: str) -> Reading:
             return lrc.read(data, name)
         case "csv" | "tsv":
             return table.read(fmt, data, name)
+        case "json" if whisper_filter.written(data):  # one object a line, no JSON document
+            return whisper_filter.read(data, name)
         case _:
             return whisper.read(data, name)

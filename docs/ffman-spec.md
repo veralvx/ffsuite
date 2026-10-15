@@ -172,14 +172,14 @@ camcorder:date=D,time=T`.
 
 ### 3.4 Burned subtitles (A; from `overlay`)
 
-| Option               | Value                                                           | Rule and message                                                                                                                                   |
-| -------------------- | --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--burn-subs FILE`   | srt, vtt, lrc, csv, tsv, json (whisper-cli, WhisperX), ass, ssa | the source must be a video: `convert: --burn-subs needs a video, not an image`                                                                     |
-| `--overlay-mode M`   | `plain` (default), `chunk-word`, `word`, `word-highlight`       | `--overlay-mode must be plain, chunk-word, word or word-highlight: X`; ass/ssa only `plain`; word timing requirements as bash (its three messages) |
-| `--highlight-mode M` | `plain` (default), `pop`                                        | `--highlight-mode must be plain or pop: X`; only with `chunk-word` or `word-highlight`                                                             |
-| `-f/--font NAME`     | family, no comma (default IBM Plex Sans)                        | `--font must not contain a comma: X`                                                                                                               |
-| `--font-size N`      | a positive number: points on a 1080-line frame                  | `--font-size must be a positive number: X`                                                                                                         |
-| `--margin-bottom M`  | a fraction in [0, 1) or a percentage                            | `--margin-bottom must be a fraction in [0, 1) or a percentage: X`                                                                                  |
+| Option               | Value                                                                                    | Rule and message                                                                                                                                   |
+| -------------------- | ---------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--burn-subs FILE`   | srt, vtt, lrc, csv, tsv, json (whisper-cli, WhisperX, ffmpeg's whisper filter), ass, ssa | the source must be a video: `convert: --burn-subs needs a video, not an image`                                                                     |
+| `--overlay-mode M`   | `plain` (default), `chunk-word`, `word`, `word-highlight`                                | `--overlay-mode must be plain, chunk-word, word or word-highlight: X`; ass/ssa only `plain`; word timing requirements as bash (its three messages) |
+| `--highlight-mode M` | `plain` (default), `pop`                                                                 | `--highlight-mode must be plain or pop: X`; only with `chunk-word` or `word-highlight`                                                             |
+| `-f/--font NAME`     | family, no comma (default IBM Plex Sans)                                                 | `--font must not contain a comma: X`                                                                                                               |
+| `--font-size N`      | a positive number: points on a 1080-line frame                                           | `--font-size must be a positive number: X`                                                                                                         |
+| `--margin-bottom M`  | a fraction in [0, 1) or a percentage                                                     | `--margin-bottom must be a fraction in [0, 1) or a percentage: X`                                                                                  |
 
 - The styling options need `--burn-subs`: `--X needs --burn-subs` (New).
 - The old `-s/--standard`, `--chunk-word`, `--word` and `--word-highlight`
@@ -187,15 +187,16 @@ camcorder:date=D,time=T`.
 - The output must be a video: `the output must be a video to burn subtitles
   into`.
 - A transcript's texts are UTF-8: a character whisper-cli splits between tokens
-  or, with `-ml`, cues is joined into the text it starts in; what else is not
+  or, with `-ml`, cues -- or the whisper filter, with `max_len`, records -- is joined into the
+  text it starts in; what else is not
   UTF-8 is refused by its line, `not UTF-8: FILE (line N)`, a JSON's by the
   text's path, `not UTF-8: FILE (.transcription[0].tokens[3].text)` (New).
 - A WebVTT transcript opens with its signature, `WEBVTT` alone on its line or before a space
   or a tab (W3C): else `not a WebVTT file: FILE (its first line is not WEBVTT)`; in UTF-16,
   `not a WebVTT file: FILE (UTF-16: WebVTT is UTF-8)` (New).
 - A SubRip in UTF-16 (its BOM) is read, as ffmpeg's reader recodes it, an LRC, as Navidrome and
-  Jellyfin read it, and a CSV or a TSV, as a spreadsheet may write it; a unit not UTF-16 is
-  refused by its line: `not UTF-16: FILE (line N)` (New).
+  Jellyfin read it, a CSV or a TSV, as a spreadsheet may write it, and the whisper filter's JSON;
+  a unit not UTF-16 is refused by its line: `not UTF-16: FILE (line N)` (New).
 - A transcript's lines end at an LF, a CRLF or a CR alone: a SubRip's and an LRC's CRs before
   an LF part of that end, as ffmpeg reads them; a WebVTT's each CR an end (W3C) (New).
 - A SubRip cue reads on past an empty line to the next timing line, as ffmpeg reads it, the text
@@ -209,12 +210,15 @@ camcorder:date=D,time=T`.
   them -- but for Enhanced LRC's word stamps, `<mm:ss.xx>`, taken off, as Navidrome and Jellyfin
   read them: `x<3 and y>2` as written (New).
 - A CSV's, TSV's or JSON's text is as written -- its tags, braces, backslashes and a typed `\n`
-  too: whisper-cli, OpenAI whisper and WhisperX mark up none -- its tab or line break a space
-  (New).
+  too: whisper-cli, OpenAI whisper, WhisperX and ffmpeg's whisper filter mark up none -- its tab
+  or line break a space (New).
 - A TSV text broken by a line break, as OpenAI whisper and WhisperX write one, is read back into
   its record: in a TSV whose text is its last column, a line of no tab after a record ending at it
   is that record's text, noted: `1 TSV lines of no tab read as the text of the record before, a
   line break in it (OpenAI whisper's and WhisperX's TSV): the first, newline on line 3` (New).
+- ffmpeg's `whisper` filter's JSON (`format=json`: one object a line, its text unescaped) is read
+  by its form, each text as written; a record not of it is dropped, noted: `1 records not as
+  ffmpeg's whisper filter writes one dropped: the first, ... on line N` (New).
 - An LRC line whose stamps follow blanks is read, as Navidrome and Jellyfin read it (ffmpeg drops
   it), and a stamp's minus as a time before 0, as ffmpeg writes and reads it -- each noted; any
   other line but a tag or an empty one is dropped, noted: `2 LRC lines dropped, opened by no stamp

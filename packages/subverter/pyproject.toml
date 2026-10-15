@@ -7,7 +7,7 @@ build-backend = "hatchling.build"
 [project]
 name = "subverter"
 version = "0.1.1"
-description = "Subtitle and transcript readers -- SubRip, WebVTT, LRC, CSV, TSV, whisper-cli's and WhisperX's JSON -- into one model"
+description = "Subtitle and transcript readers -- SubRip, WebVTT, LRC, CSV, TSV, whisper-cli's, WhisperX's and ffmpeg's whisper filter's JSON -- into one model"
 readme = "README.md"
 # the owner's: MIT or Apache-2.0, the user's choice
 license = "MIT OR Apache-2.0"

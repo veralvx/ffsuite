@@ -364,6 +364,12 @@ HOSTILE: Final = {
     # `whisper-transcripts` box's found box): its rest read back into it, noted. Before: a record
     # of no time, dropped unnoted
     "newline.tsv": "start\tend\ttext\n0\t200\tpast an hour\nnewline\n200\t400\tnext\n",
+    # ffmpeg's whisper filter's JSON, one object a line, its text unescaped (`af_whisper.c`; the
+    # `whisper-transcripts` box's found box): read as written. Before: refused, `not valid JSON`
+    "filter.json": (
+        '{"start":0,"end":200,"text":"Hello "world" \\ C:\\new"}\n'
+        '{"start":200,"end":400,"text":" tab\there\nnewline"}\n'
+    ),
     # a transcript of no timed text (the LRC lines box's found box): refused after the notes that
     # say why. Before: refused, the note dropped
     "no-line.lrc": "[ti:x]\n[1:02:03.00]an hour in\n",

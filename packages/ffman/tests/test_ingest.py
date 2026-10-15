@@ -607,6 +607,15 @@ def test_a_tsv_line_of_no_tab_is_the_text_of_the_record_before(tmp_path: Path) -
     )
 
 
+def test_the_whisper_filters_json_is_read_its_texts_as_written(tmp_path: Path) -> None:
+    t = ingested(put(tmp_path, "filter.json", HOSTILE["filter.json"]))
+    assert [(c.start, c.end, c.text) for c in t.chunks] == [
+        (0, 200, 'Hello "world" \\ C:\\new'),
+        (200, 400, "tab here newline"),
+    ]
+    assert (t.source, t.has_words, t.notes) == ("ffmpeg whisper filter JSON", False, ())
+
+
 def test_a_subrips_ass_escapes_read_as_libass_draws_them(tmp_path: Path) -> None:
     t = ingested(put(tmp_path, "escapes.srt", HOSTILE["escapes.srt"]))
     assert [c.text for c in t.chunks] == ["one two a\u00a0b"]  # the break ffman's to place

@@ -65,3 +65,7 @@ that run-book; nixos-config's own couplings stay there.
     marker's text and the documents name them (`git grep -niE '8\.1\.2|ffmpeg 8\.1|flac 1\.5'`); the
     skills' tables were measured on them, and ffmeta's tests read them as oracles -- re-measure
     each (`.agents/skills/*/scripts/measure.py`).
+25. ffmpeg's `whisper` filter's `format=json` still one `av_asprintf` a segment,
+    `{"start":S,"end":E,"text":"T"}` and an LF, `S` and `E` by `PRId64`, the text unescaped
+    (`af_whisper.c`): subverter reads it by that form (`readers/whisper_filter.py`). Master's
+    `split_on_word` (after 8.1) splits a segment at words alone with `max_len`.

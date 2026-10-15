@@ -35,15 +35,15 @@ class Markup(Enum):
 def clean(text: str, markup: Markup) -> str:
     r"""``text`` as its format's readers show it, breaks spaces, blanks squeezed, trimmed.
 
-    ``PLAIN``, CSV's, TSV's and JSON's: as their writers write it -- whisper-cli, OpenAI whisper and
-    WhisperX mark no text up -- a tab or line break a space. ``WEBVTT``: no override, no escape --
-    a ``{\...}`` and a typed ``\n`` or ``\t`` text, as every reader shows them -- a tag no ``>``
-    closes run to the text's end (``untagged``), and each run between tags decoded, a decoded ``<``
-    or ``{`` text, a break, written or decoded, a space. ``SUBRIP``: the text as ffmpeg and libass
-    read it (``drawn``) -- its tags as ffmpeg's decoder reads them, a ``<br>`` a line break; every
-    block off, ``{text}`` too, as ffmpeg and mpv hide it; ``\N`` a line break, so a space, ffman
-    wrapping; ``\n`` a space, ``\h`` a no-break space; ``\t`` text, as libass draws it. ``LRC``:
-    plain but for its word stamps, off (``unstamped``).
+    ``PLAIN``, CSV's, TSV's and JSON's: as their writers write it -- whisper-cli, OpenAI whisper,
+    WhisperX and ffmpeg's whisper filter mark no text up -- a tab or line break a space.
+    ``WEBVTT``: no override, no escape -- a ``{\...}`` and a typed ``\n`` or ``\t`` text, as every
+    reader shows them -- a tag no ``>`` closes run to the text's end (``untagged``), and each run
+    between tags decoded, a decoded ``<`` or ``{`` text, a break, written or decoded, a space.
+    ``SUBRIP``: the text as ffmpeg and libass read it (``drawn``) -- its tags as ffmpeg's decoder
+    reads them, a ``<br>`` a line break; every block off, ``{text}`` too, as ffmpeg and mpv hide
+    it; ``\N`` a line break, so a space, ffman wrapping; ``\n`` a space, ``\h`` a no-break space;
+    ``\t`` text, as libass draws it. ``LRC``: plain but for its word stamps, off (``unstamped``).
     """
     match markup:
         case Markup.WEBVTT:
