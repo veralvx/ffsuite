@@ -1042,7 +1042,7 @@ def test_a_subrip_files_cues_are_ffmpegs_but_for_the_recorded_readings(lines: li
     assert subverter.read("srt", text.encode(), "a.srt").cues == _ffmpeg_srt(text)
 
 
-# --- WhisperX --highlight_words: by structure, a run of one text a sentence, each <u> a word
+# --- OpenAI whisper's and WhisperX's --highlight_words: by structure, a run of one text a sentence, each <u> a word
 
 
 def _srt(cues: list[tuple[str, str, str]]) -> bytes:
@@ -1059,7 +1059,7 @@ def test_highlighted_cues_become_sentences_and_words() -> None:
         ]
     )
     assert subverter.read("srt", data, "a.srt") == Reading(
-        "WhisperX --highlight_words .srt",
+        "OpenAI whisper or WhisperX --highlight_words .srt",
         has_words=True,
         cues=(Cue(0, 1000, "Hello world", "0"), Cue(1000, 2000, "Bye now", "1")),
         words=(
@@ -1072,7 +1072,36 @@ def test_highlighted_cues_become_sentences_and_words() -> None:
     )
 
 
-def test_a_highlighted_sentence_keeps_its_markup_but_whisperxs_underline() -> None:
+# OpenAI whisper's own WriteSRT (openai-whisper v20250625, utils.py, run on a result of two segments
+# and their words, highlight_words=True): a cue a word, and one for each gap between words
+_OPENAI_HIGHLIGHTED: Final = (
+    "1\n00:00:00,000 --> 00:00:00,400\n<u>Hello</u> big world.\n\n"
+    "2\n00:00:00,400 --> 00:00:00,500\nHello big world.\n\n"
+    "3\n00:00:00,500 --> 00:00:00,800\nHello <u>big</u> world.\n\n"
+    "4\n00:00:00,800 --> 00:00:01,500\nHello big <u>world.</u>\n\n"
+    "5\n00:00:02,000 --> 00:00:02,400\n<u>Bye</u> now.\n\n"
+    "6\n00:00:02,400 --> 00:00:02,500\nBye now.\n\n"
+    "7\n00:00:02,500 --> 00:00:03,000\nBye <u>now.</u>\n\n"
+)
+
+
+def test_openai_whispers_highlighted_cues_read_into_sentences_and_words() -> None:
+    assert subverter.read("srt", _OPENAI_HIGHLIGHTED.encode(), "a.srt") == Reading(
+        "OpenAI whisper or WhisperX --highlight_words .srt",
+        has_words=True,
+        cues=(Cue(0, 1500, "Hello big world.", "0"), Cue(2000, 3000, "Bye now.", "1")),
+        words=(
+            Timing("0", 0, 400, "Hello"),
+            Timing("0", 500, 800, "big"),
+            Timing("0", 800, 1500, "world."),
+            Timing("1", 2000, 2400, "Bye"),
+            Timing("1", 2500, 3000, "now."),
+        ),
+        has_ass_escapes=True,
+    )
+
+
+def test_a_highlighted_sentence_keeps_its_markup_but_its_underline() -> None:
     # its text as written, for its reader to read as any cue's -- before, every tag off as SubRip
     # and WebVTT read none: `x < 5 and y > 3` lost `< 5 and y >`
     data = _srt(

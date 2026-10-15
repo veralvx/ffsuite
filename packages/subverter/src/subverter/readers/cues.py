@@ -1,7 +1,7 @@
 """SubRip's and WebVTT's cues: one reading of their cue blocks, each format's grammar its own.
 
-``Dialect``: a format's grammar (``subrip``, ``webvtt``). WhisperX's highlighted cues, in
-either, read back into words.
+``Dialect``: a format's grammar (``subrip``, ``webvtt``). OpenAI whisper's and WhisperX's
+highlighted cues, in either, read back into words: one writer's, WhisperX's copied, so one name.
 """
 
 import re
@@ -15,7 +15,7 @@ from subverter.transcript import Cue, Reading, Timing
 
 __all__ = ["Dialect", "Found", "Odd", "Timed", "read"]
 
-_UNDERLINE: Final = re.compile(r"<u>([^<]*)</u>")  # WhisperX --highlight_words: the word
+_UNDERLINE: Final = re.compile(r"<u>([^<]*)</u>")  # --highlight_words: the word
 _UNDERLINES: Final = re.compile(r"</?u>")  # its tags (``_plain``)
 
 
@@ -83,7 +83,7 @@ class Dialect:
 
 
 def read(lines: list[str], name: str, dialect: Dialect) -> Reading:
-    """The cues, or WhisperX's sentences and words (``_is_highlighted``); notes (``_rows``)."""
+    """The cues, or highlighted sentences and words (``_is_highlighted``); notes (``_rows``)."""
     cues, notes = _rows(lines, name, dialect)
     references, escapes = dialect.has_references, dialect.has_ass_escapes
     if not _is_highlighted(cues):
@@ -97,7 +97,7 @@ def read(lines: list[str], name: str, dialect: Dialect) -> Reading:
         )
     sentences, words = _highlighted(cues)
     return Reading(
-        f"WhisperX --highlight_words {dialect.source}",
+        f"OpenAI whisper or WhisperX --highlight_words {dialect.source}",
         has_words=True,
         cues=tuple(sentences),
         words=tuple(words),
@@ -108,7 +108,7 @@ def read(lines: list[str], name: str, dialect: Dialect) -> Reading:
 
 
 def _rows(lines: list[str], name: str, dialect: Dialect) -> tuple[list[Cue], tuple[str, ...]]:
-    """Cues, their text kept with its tags (a WhisperX <u> marks a word); notes (``dialect``).
+    """Cues, their text kept with its tags (a highlighting <u> marks a word); notes (``dialect``).
 
     A cue opens at its timing line and closes at its dialect's end line, or at the next cue; its
     lines joined (``_joined``: what is still not UTF-8, refused by its line).
@@ -235,12 +235,12 @@ def _joined(
 
 
 def _plain(text: str) -> str:
-    """A highlighted cue's text without WhisperX's underline: its sentence's, as written."""
+    """A highlighted cue's text without its underline: its sentence's, as written."""
     return _UNDERLINES.sub("", text)
 
 
 def _is_highlighted(cues: list[Cue]) -> bool:
-    """WhisperX --highlight_words, by structure: <u> somewhere, most neighbours one text."""
+    """--highlight_words, by structure: <u> somewhere, most neighbours one text."""
     plains = [_plain(c.text) for c in cues]
     underlined = any("<u>" in c.text for c in cues)
     same = sum(1 for i in range(1, len(plains)) if plains[i] == plains[i - 1])

@@ -5,11 +5,11 @@ metadata files; lossless by default -- and the two Python libraries it is built 
 for metadata files and subverter for subtitles and transcripts. A uv workspace of three packages,
 each its own pyproject.toml, published on its own:
 
-| Package                                     | What                                                                                                                                            |
-| ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`ffman`](packages/ffman/README.md)         | the command line: resize, effects, subtitles, encoding, metadata files -- lossless by default                                                   |
-| [`ffmeta`](packages/ffmeta/README.md)       | metadata files -- ffmetadata, Vorbis comments, cue sheets -- read, written and converted                                                        |
-| [`subverter`](packages/subverter/README.md) | subtitles and transcripts -- SubRip, WebVTT, LRC, CSV, TSV, whisper-cli's, WhisperX's and ffmpeg's whisper filter's JSON -- read into one model |
+| Package                                     | What                                                                                                                                                              |
+| ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`ffman`](packages/ffman/README.md)         | the command line: resize, effects, subtitles, encoding, metadata files -- lossless by default                                                                     |
+| [`ffmeta`](packages/ffmeta/README.md)       | metadata files -- ffmetadata, Vorbis comments, cue sheets -- read, written and converted                                                                          |
+| [`subverter`](packages/subverter/README.md) | subtitles and transcripts -- SubRip, WebVTT, LRC, CSV, TSV, whisper-cli's, OpenAI whisper's, WhisperX's and ffmpeg's whisper filter's JSON -- read into one model |
 
 ## Install
 

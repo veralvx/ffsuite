@@ -1,5 +1,6 @@
 """whisper JSON against its rules (``readers/whisper.py``, docs/decisions.md's rows): whisper-cli's
-offsets and tokens, WhisperX's seconds and words, each value as typed; its refusals.
+offsets and tokens, OpenAI whisper's and WhisperX's seconds and words, each value as typed; its
+refusals.
 
 Every expectation is worked by hand from a rule, not taken from a run: what a reader yields
 before ffman's normalising (no trim, no sort, no clamp, no cue dropped).
@@ -15,10 +16,10 @@ from subverter import Cue, Reading, Timing
 
 _NUL_NOTE: Final = "{n} NULs read as U+FFFD, as the W3C reads them: the first in {where}"
 
-# --- whisper JSON: refused unless whisper-cli's or WhisperX's
+# --- whisper JSON: refused unless whisper-cli's, OpenAI whisper's or WhisperX's
 
 _NOT_A_TRANSCRIPT: Final = (
-    "not a whisper-cli (.transcription) or WhisperX (.segments) JSON transcript"
+    "not a whisper-cli (.transcription), OpenAI whisper or WhisperX (.segments) JSON transcript"
 )
 
 
@@ -272,6 +273,76 @@ def test_whisperx_values_as_typed() -> None:
     assert subverter.read("json", data, "a.json") == Reading(
         "WhisperX JSON", has_words=False, cues=(Cue(1001, None, "", "0"), Cue(None, 0, "5", "1"))
     )
+
+
+# --- OpenAI whisper: .segments shaped as WhisperX's, by the same rules; its top-level text names it
+
+# transcribe() returns dict(text, segments, language), WriteJSON dumping it whole -- its text ""
+# when nothing is decoded; no WhisperX result writes a top-level text (decisions' "Whisper names")
+_OPENAI_SEGMENT: Final = {
+    "id": 0, "seek": 0, "start": 0.5, "end": 1.25, "text": " Hi there", "tokens": [50364],
+    "temperature": 0.0, "avg_logprob": -0.2, "compression_ratio": 0.9, "no_speech_prob": 0.01,
+}  # fmt: skip
+_OPENAI_WORDS: Final = [
+    {"word": " Hi", "start": 0.5, "end": 0.8, "probability": 0.9},
+    {"word": " there", "start": 0.9, "end": 1.25, "probability": 0.8},
+]
+
+
+@pytest.mark.parametrize(
+    ("doc", "source", "words"),
+    [
+        (
+            {"text": " Hi there", "segments": [_OPENAI_SEGMENT], "language": "en"},
+            "OpenAI whisper JSON",
+            (),
+        ),
+        (
+            {
+                "text": " Hi there",
+                "segments": [{**_OPENAI_SEGMENT, "words": _OPENAI_WORDS}],
+                "language": "en",
+            },
+            "OpenAI whisper JSON",
+            (Timing("0", 500, 800, " Hi"), Timing("0", 900, 1250, " there")),
+        ),
+        (
+            {"segments": [{"start": 0.5, "end": 1.25, "text": " Hi there"}], "language": "en"},
+            "WhisperX JSON",
+            (),
+        ),
+        (
+            {"text": 5, "segments": [{"start": 0.5, "end": 1.25, "text": " Hi there"}]},
+            "WhisperX JSON",
+            (),
+        ),
+        (
+            {"text": " Hi there", "segments": [{"start": 0.5, "end": 1.25, "text": " Hi there"}]},
+            "OpenAI whisper JSON",
+            (),
+        ),
+    ],
+    ids=[
+        "OpenAI",
+        "OpenAI, --word_timestamps",
+        "WhisperX unaligned",
+        "a text no string",
+        "a text, no other key",
+    ],
+)
+def test_a_segments_json_is_named_by_its_writers_keys(
+    doc: dict[str, object], source: str, words: tuple[Timing, ...]
+) -> None:
+    found = subverter.read("json", json.dumps(doc).encode(), "a.json")
+    assert found == Reading(
+        source, has_words=bool(words), cues=(Cue(500, 1250, " Hi there", "0"),), words=words
+    )
+
+
+def test_openai_whispers_json_of_nothing_decoded_is_named_so() -> None:
+    doc: dict[str, object] = {"text": "", "segments": [], "language": "en"}
+    found = subverter.read("json", json.dumps(doc).encode(), "a.json")
+    assert (found.source, found.cues) == ("OpenAI whisper JSON", ())
 
 
 @pytest.mark.parametrize(("seconds", "end"), [("1e305", 10**308), ("1e306", None)])

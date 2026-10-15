@@ -66,7 +66,7 @@ class Reading:
     ``has_references``: its texts are WebVTT's, where ``&`` begins an HTML character
     reference (W3C WebVTT, the cue text tokenizer: "HTML character reference in data
     state") -- each run between tags decoded (``decoded``), so a decoded ``<`` stays text. A
-    highlighted reading's sentences come without WhisperX's ``<u>``, which wraps whole words:
+    highlighted reading's sentences come without the ``<u>`` that wraps whole words:
     the rest of their markup as written, as any cue's.
 
     ``has_ass_escapes``: its texts are SubRip's, which ffmpeg's subrip decoder passes to ASS,

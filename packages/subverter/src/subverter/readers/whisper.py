@@ -1,4 +1,4 @@
-r"""whisper-cli's and WhisperX's JSON: chunks and word timings, their values as they are typed.
+r"""whisper-cli's, OpenAI whisper's and WhisperX's JSON: chunks and word timings, values as typed.
 
 A time is a number (fields.number: a JSON number, or a decimal string); any other value
 is no time. A text is the JSON string, or a non-string written as JSON (jq's tostring).
@@ -7,6 +7,11 @@ whisper-cli writes each token's bytes as they are and escapes only ``"`` and ``\
 (``cli.cpp``): the file is read as bytes where it is not UTF-8, each character joined across
 the texts it spans (``utf8``) -- what still is not, refused by the text's jq path; a tab or
 newline, written raw, is text, as its escaped form reads.
+
+OpenAI whisper's ``.segments`` are shaped as WhisperX's, read alike; its result's top-level
+``text`` names it (``transcribe.py``: ``dict(text, segments, language)``, ``WriteJSON`` dumping it
+whole, ``""`` when nothing is decoded) -- no WhisperX JSON holds one (``asr.py``, ``alignment.py``,
+``diarize.py``, ``transcribe.py`` at the tags docs/decisions.md's "Whisper names" row names).
 """
 
 import json
@@ -43,10 +48,11 @@ def read(data: bytes, name: str) -> Reading:
     if isinstance(doc.get("transcription"), list):
         return _whisper_cli(doc, source)
     if not isinstance(doc.get("segments"), list):
-        kinds = "a whisper-cli (.transcription) or WhisperX (.segments) JSON transcript"
-        refuse(f"not {kinds}: {name}")
-    cues, words, notes = _whisperx(doc, source)
-    return Reading("WhisperX JSON", has_words=bool(words), cues=cues, words=words, notes=notes)
+        kinds = "a whisper-cli (.transcription), OpenAI whisper or WhisperX (.segments) JSON"
+        refuse(f"not {kinds} transcript: {name}")
+    writer = "OpenAI whisper" if isinstance(doc.get("text"), str) else "WhisperX"
+    cues, words, notes = _segments(doc, source)
+    return Reading(f"{writer} JSON", has_words=bool(words), cues=cues, words=words, notes=notes)
 
 
 def _loads(data: bytes) -> tuple[object, Errors]:
@@ -238,10 +244,10 @@ def _token_words(tokens: list[_Token], *, no_spaces: bool) -> list[_Word]:
     return ws
 
 
-# WhisperX: .segments[] -- seconds; their words, each its own
+# OpenAI whisper's and WhisperX's: .segments[] -- seconds; their words, each its own
 
 
-def _whisperx(
+def _segments(
     doc: dict[str, object], source: Source
 ) -> tuple[tuple[Cue, ...], tuple[Timing, ...], tuple[str, ...]]:
     segments = [_obj(s) for s in _list(doc["segments"])]

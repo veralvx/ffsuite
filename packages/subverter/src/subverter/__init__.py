@@ -1,7 +1,7 @@
 """Subtitle and transcript readers into one model: cues, word timings, notes, refusals.
 
-SubRip, WebVTT, LRC, CSV and TSV, and whisper-cli's, WhisperX's and ffmpeg's whisper filter's JSON
-(``readers.FORMATS``).
+SubRip, WebVTT, LRC, CSV and TSV, and whisper-cli's, OpenAI whisper's, WhisperX's and ffmpeg's
+whisper filter's JSON (``readers.FORMATS``).
 """
 
 from subverter._errors import Error

@@ -80,7 +80,7 @@ def test_highlighted_cues_become_sentences_and_words(tmp_path: Path) -> None:
         for i, text in enumerate(["<u>Hi</u> you", "Hi <u>you</u>", "<u>Hi</u> you"], 1)
     )
     t = ingested(put(tmp_path, "h.srt", cues))
-    assert (t.source, t.has_words) == ("WhisperX --highlight_words .srt", True)
+    assert (t.source, t.has_words) == ("OpenAI whisper or WhisperX --highlight_words .srt", True)
     assert [c.text for c in t.chunks] == [
         "Hi you",
         "Hi you",
@@ -792,7 +792,7 @@ def test_a_sentence_of_no_words_is_counted_as_one_without_timings(
         (
             "b.json",
             "[]",
-            "not a whisper-cli (.transcription) or WhisperX (.segments) JSON transcript",
+            "not a whisper-cli (.transcription), OpenAI whisper or WhisperX (.segments) JSON transcript",
         ),
         (
             "c.json",

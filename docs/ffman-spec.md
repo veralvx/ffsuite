@@ -172,14 +172,14 @@ camcorder:date=D,time=T`.
 
 ### 3.4 Burned subtitles (A; from `overlay`)
 
-| Option               | Value                                                                                    | Rule and message                                                                                                                                   |
-| -------------------- | ---------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--burn-subs FILE`   | srt, vtt, lrc, csv, tsv, json (whisper-cli, WhisperX, ffmpeg's whisper filter), ass, ssa | the source must be a video: `convert: --burn-subs needs a video, not an image`                                                                     |
-| `--overlay-mode M`   | `plain` (default), `chunk-word`, `word`, `word-highlight`                                | `--overlay-mode must be plain, chunk-word, word or word-highlight: X`; ass/ssa only `plain`; word timing requirements as bash (its three messages) |
-| `--highlight-mode M` | `plain` (default), `pop`                                                                 | `--highlight-mode must be plain or pop: X`; only with `chunk-word` or `word-highlight`                                                             |
-| `-f/--font NAME`     | family, no comma (default IBM Plex Sans)                                                 | `--font must not contain a comma: X`                                                                                                               |
-| `--font-size N`      | a positive number: points on a 1080-line frame                                           | `--font-size must be a positive number: X`                                                                                                         |
-| `--margin-bottom M`  | a fraction in [0, 1) or a percentage                                                     | `--margin-bottom must be a fraction in [0, 1) or a percentage: X`                                                                                  |
+| Option               | Value                                                                                                    | Rule and message                                                                                                                                   |
+| -------------------- | -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--burn-subs FILE`   | srt, vtt, lrc, csv, tsv, json (whisper-cli, OpenAI whisper, WhisperX, ffmpeg's whisper filter), ass, ssa | the source must be a video: `convert: --burn-subs needs a video, not an image`                                                                     |
+| `--overlay-mode M`   | `plain` (default), `chunk-word`, `word`, `word-highlight`                                                | `--overlay-mode must be plain, chunk-word, word or word-highlight: X`; ass/ssa only `plain`; word timing requirements as bash (its three messages) |
+| `--highlight-mode M` | `plain` (default), `pop`                                                                                 | `--highlight-mode must be plain or pop: X`; only with `chunk-word` or `word-highlight`                                                             |
+| `-f/--font NAME`     | family, no comma (default IBM Plex Sans)                                                                 | `--font must not contain a comma: X`                                                                                                               |
+| `--font-size N`      | a positive number: points on a 1080-line frame                                                           | `--font-size must be a positive number: X`                                                                                                         |
+| `--margin-bottom M`  | a fraction in [0, 1) or a percentage                                                                     | `--margin-bottom must be a fraction in [0, 1) or a percentage: X`                                                                                  |
 
 - The styling options need `--burn-subs`: `--X needs --burn-subs` (New).
 - The old `-s/--standard`, `--chunk-word`, `--word` and `--word-highlight`
@@ -219,6 +219,10 @@ camcorder:date=D,time=T`.
 - ffmpeg's `whisper` filter's JSON (`format=json`: one object a line, its text unescaped) is read
   by its form, each text as written; a record not of it is dropped, noted: `1 records not as
   ffmpeg's whisper filter writes one dropped: the first, ... on line N` (New).
+- OpenAI whisper's JSON is named so, by its top-level `text`, not WhisperX's, and a highlighted
+  SubRip or WebVTT `OpenAI whisper or WhisperX --highlight_words .srt`; the JSON and `.txt` refusals
+  and the word modes' name OpenAI whisper's outputs too, its `--word_timestamps True` among the
+  sources of word timings (New).
 - An LRC line whose stamps follow blanks is read, as Navidrome and Jellyfin read it (ffmpeg drops
   it), and a stamp's minus as a time before 0, as ffmpeg writes and reads it -- each noted; any
   other line but a tag or an empty one is dropped, noted: `2 LRC lines dropped, opened by no stamp

@@ -195,7 +195,7 @@ def test_a_text_not_utf8_is_refused_by_its_records_line_its_nul_noted() -> None:
 def test_only_the_filters_signature_takes_its_reader() -> None:
     whisperx = b'{"segments": [{"start": 0, "end": 1, "text": "a"}]}'
     assert subverter.read("json", whisperx, "a.json").source == "WhisperX JSON"
-    refusal = "not a whisper-cli (.transcription) or WhisperX (.segments) JSON transcript: a.json"
+    refusal = "not a whisper-cli (.transcription), OpenAI whisper or WhisperX (.segments) JSON transcript: a.json"
     with pytest.raises(subverter.Error, match=f"^{re.escape(refusal)}$"):  # a blank first: JSON's
         _ = subverter.read("json", b' {"start":0,"end":1,"text":"a"}', "a.json")
 

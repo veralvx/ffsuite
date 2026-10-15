@@ -520,8 +520,16 @@ def summary(path: str) -> str:
         pytest.param("wx.vtt", ".vtt|0|5|0", id="S133"),
         pytest.param("wx.tsv", ".tsv|0|5|0", id="S134"),
         pytest.param("wx.json", "WhisperX JSON|1|5|94", id="S135"),
-        pytest.param("wx-highlight.srt", "WhisperX --highlight_words .srt|1|5|94", id="S136"),
-        pytest.param("wx-highlight.vtt", "WhisperX --highlight_words .vtt|1|5|94", id="S137"),
+        pytest.param(
+            "wx-highlight.srt",
+            "OpenAI whisper or WhisperX --highlight_words .srt|1|5|94",
+            id="S136",
+        ),
+        pytest.param(
+            "wx-highlight.vtt",
+            "OpenAI whisper or WhisperX --highlight_words .vtt|1|5|94",
+            id="S137",
+        ),
     ],
 )
 def test_whisperx_outputs(name: str, found: str) -> None:

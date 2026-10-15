@@ -27,7 +27,7 @@ from subverter.readers import subrip, webvtt
     [
         (
             "txt",
-            "a .txt transcript has no timestamps; use whisper-cli -osrt, -ovtt, -olrc, -ocsv, -oj or -ojf, or WhisperX srt, vtt, tsv or json",
+            "a .txt transcript has no timestamps; use whisper-cli -osrt, -ovtt, -olrc, -ocsv, -oj or -ojf, or OpenAI whisper's or WhisperX's srt, vtt, tsv or json",
         ),
         ("xyz", "unsupported subtitle format '.xyz' (srt, vtt, lrc, csv, tsv, json)"),
     ],

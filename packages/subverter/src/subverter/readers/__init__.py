@@ -15,7 +15,8 @@ def read(fmt: str, data: bytes, name: str) -> Reading:
     """One format's reader, on the transcript's bytes (``name``: its name, in messages)."""
     if fmt == "txt":
         use = "use whisper-cli -osrt, -ovtt, -olrc, -ocsv, -oj or -ojf"
-        refuse(f"a .txt transcript has no timestamps; {use}, or WhisperX srt, vtt, tsv or json")
+        theirs = "OpenAI whisper's or WhisperX's"
+        refuse(f"a .txt transcript has no timestamps; {use}, or {theirs} srt, vtt, tsv or json")
     if fmt not in FORMATS:
         refuse(f"unsupported subtitle format '.{fmt}' ({', '.join(FORMATS)})")
     match fmt:
