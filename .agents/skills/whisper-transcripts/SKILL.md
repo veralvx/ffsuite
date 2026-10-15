@@ -60,17 +60,17 @@ the default, copies it; `linear` interpolates, unrounded); 3.1.0 to 3.3.2 and th
 
 **Python's json** (`json.loads`, strict) and **csv**, **pandas** (`read_csv`), **jq** -- what a
 script reading a transcript uses -- and **ffman**, through subverter (`readers/whisper.py`,
-`readers/table.py`). No ffmpeg demuxer reads a JSON, CSV, TSV, `.aud` or `.txt` ("Invalid data found
-when processing input") -- but a `.txt` whose first line opens with `[` (WhisperX's
-`[SPEAKER_00]: `, a `[Music]`), which opens as an LRC (`lrc_probe`), no line timed: no cue. A `-`
-below: not that reader's format.
+`readers/whisper_filter.py`, `readers/table.py`). No ffmpeg demuxer reads a JSON, CSV, TSV, `.aud`
+or `.txt` ("Invalid data found when processing input") -- but a `.txt` whose first line opens with
+`[` (WhisperX's `[SPEAKER_00]: `, a `[Music]`), which opens as an LRC (`lrc_probe`), no line timed:
+no cue. A `-` below: not that reader's format.
 
 | Where                                               | Python (`json`, `csv`)                                                                                                                    | pandas                                         | jq                                                | ffman                                             |
 | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- | ------------------------------------------------- | ------------------------------------------------- |
 | whisper-cli `-oj`, a tab or newline in a text (raw) | refused: "Invalid control character"                                                                                                      | -                                              | refused: "control characters ... must be escaped" | read, a space                                     |
 | `-ojf`, a character split across tokens             | refused: not UTF-8                                                                                                                        | -                                              | each lone byte U+FFFD: the character lost         | joined into the token where it starts             |
 | WhisperX's `NaN`                                    | `nan`                                                                                                                                     | -                                              | `null`                                            | no time: that segment dropped                     |
-| the filter's `json`, one object a line              | refused whole ("Extra data"); a `"` in a text breaks its line                                                                             | -                                              | one value a line; a `"` breaks it                 | refused: `not valid JSON`                         |
+| the filter's `json`, one object a line              | refused whole ("Extra data"); a `"` in a text breaks its line                                                                             | -                                              | one value a line; a `"` breaks it                 | read by its form: each text as written            |
 | whisper-cli's CSV, a newline in a quoted text       | one record                                                                                                                                | one row                                        | -                                                 | one cue, a space                                  |
 | OpenAI's and WhisperX's TSV, a newline in a text    | the rest a row of one field                                                                                                               | a row more: its `start` the rest, NaN after it | -                                                 | read back into its record, a space, noted         |
 | Their TSV, a text or a line of it opening with `"`  | read as quoted: its `"` dropped, one left open taking the rows after it into its text; `quoting=csv.QUOTE_NONE` reads it as written       | as Python's `csv`                              | -                                                 | read as written                                   |
@@ -154,8 +154,8 @@ before `text`), integers of ms (pandas: `keep_default_na=False`, or a text `NA` 
 unquoted (`quoting=csv.QUOTE_NONE`), and a line holding no tab, after a record, is that record's
 text, broken by a newline: join it back with one (an empty line too) -- or read its writer's JSON,
 which keeps a text whole. The filter's `json`: each line opening `{"start":` an object, its text
-from `"text":"` to the line's last `"}`, as written (no escape to undo); a line not so opened
-continues the one before. Plain text: show it as written.
+from `"text":"` to its last `"}`, as written (no escape to undo); a line not so opened continues the
+one before. Plain text: show it as written.
 
 ## Converting to subtitles
 
@@ -168,8 +168,10 @@ ffman convert -i talk.mp4 --add-subs talk.csv -o talk.mkv
 
 ffman burns or attaches whisper-cli's JSON and CSV, OpenAI's and WhisperX's JSON and TSV -- their
 words, where the JSON holds them, for its word modes; any CSV or TSV by its header's `start`, `end`
-(ms) and `text`, any order -- and refuses a `.txt` (no times), the filter's `json`
-(`not valid JSON`) and an `.aud`; the filter's `srt` is a SubRip, read from its cue 0.
+(ms) and `text`, any order -- and the filter's `json` and `srt`: the `json` read as the filter
+writes it, each text as written, the `srt` a SubRip, read from its cue 0. It refuses a `.txt` (no
+times) and an `.aud`. A burn needs a video; an audio file takes a transcript as a track,
+`--add-subs` into an `.mka`.
 
 ## Example
 
@@ -198,5 +200,6 @@ whisper.cpp v1.8.4 (`examples/cli/cli.cpp`, `examples/common-whisper.cpp`, `src/
 FFmpeg n8.1.2 (`libavfilter/af_whisper.c`); openai-whisper v20250625 (`whisper/utils.py`,
 `transcribe.py`, `timing.py`); WhisperX v3.8.5 (`whisperx/utils.py`, `alignment.py`, `asr.py`);
 RFC 8259 (JSON), RFC 4180 (CSV); pandas 3.0.5, jq 1.7, ffmpeg 8.1.2 (`libavformat/lrcdec.c`);
-subverter's `readers/whisper.py`, `readers/table.py`, `readers/utf8.py`, ffman's `subs/markup.py`;
-WhisperX's `alignment.py` at each tag from 3.0.0 to 3.8.6. Measurements: `scripts/measure.py`.
+subverter's `readers/whisper.py`, `readers/whisper_filter.py`, `readers/table.py`,
+`readers/utf8.py`, ffman's `subs/markup.py`; WhisperX's `alignment.py` at each tag from 3.0.0 to
+3.8.6. Measurements: `scripts/measure.py`.
