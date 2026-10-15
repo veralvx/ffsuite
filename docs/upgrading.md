@@ -1,15 +1,15 @@
 # At a nixpkgs bump
 
-ffman holds to behaviour of the tools nixpkgs pins -- whisper-cli's and WhisperX's outputs,
-ffmpeg's filters and encoders, libass, mpv's defaults -- each read in its source or measured,
-then held by the suite. `flake.lock` holds nixpkgs alone, at nixos-config's node: its `ffsuite`
-input follows that nixpkgs, so the system builds ffman on its channel, and ffsuite tests the
-same. The two move together, a tool ffsuite needs sooner included; here, `nix flake lock
---override-input nixpkgs github:NixOS/nixpkgs/<its rev>`. At every bump, re-check these, then
-run the checks: `nix flake check` (the suite, the matrix, the installed binary, on each Python).
-nixos-config builds the same checks on its own channel, the system's Python alone and `pins` left
-out (its run-book 11.49), and takes ffsuite's changes by `nix flake update ffsuite`. Moved from
-that run-book; nixos-config's own couplings stay there.
+ffman holds to behaviour of the tools nixpkgs pins -- whisper-cli's, OpenAI whisper's and WhisperX's
+outputs, ffmpeg's filters and encoders, libass, mpv's defaults -- each read in its source or
+measured, then held by the suite. `flake.lock` holds nixpkgs alone, at nixos-config's node: its
+`ffsuite` input follows that nixpkgs, so the system builds ffman on its channel, and ffsuite tests
+the same. The two move together, a tool ffsuite needs sooner included; here,
+`nix flake lock --override-input nixpkgs github:NixOS/nixpkgs/<its rev>`. At every bump, re-check
+these, then run the checks: `nix flake check` (the suite, the matrix, the installed binary, on each
+Python). nixos-config builds the same checks on its own channel, the system's Python alone and
+`pins` left out (its run-book 11.49), and takes ffsuite's changes by `nix flake update ffsuite`.
+Moved from that run-book; nixos-config's own couplings stay there.
 
 1. whisper-cli still prints a leading space and has no option to drop it, `-ojf` still turns on
    token timestamps, and `t_dtw` is still in 10 ms units (`cli.cpp`, `whisper.cpp`).
@@ -70,4 +70,5 @@ that run-book; nixos-config's own couplings stay there.
     (`af_whisper.c`): subverter reads it by that form (`readers/whisper_filter.py`). Master's
     `split_on_word` (after 8.1) splits a segment at words alone with `max_len`.
 26. OpenAI whisper's JSON still holds the result's top-level `text`, and WhisperX's none: subverter
-    names each by it (`readers/whisper.py`).
+    names each by it (`readers/whisper.py`). OpenAI whisper is not pinned either: when its
+    `WriteJSON` changes, write the `openai.json` fixture's result again with it.

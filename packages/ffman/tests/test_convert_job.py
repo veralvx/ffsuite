@@ -409,6 +409,29 @@ def test_a_burn_refuses(
     assert said in capsys.readouterr().err
 
 
+_CHUNK_WORD: Final = "--overlay-mode chunk-word needs word timings (whisper-cli -ojf JSON, OpenAI whisper --word_timestamps True JSON, WhisperX JSON, or OpenAI whisper's or WhisperX's --highlight_words srt/vtt); OpenAI whisper JSON has none"
+_WORD: Final = "--overlay-mode word needs word timings or one word per cue; OpenAI whisper JSON has neither (whisper-cli -sow -ml 1 or -ojf, OpenAI whisper --word_timestamps True JSON, WhisperX JSON, or OpenAI whisper's or WhisperX's --highlight_words)"
+
+
+@pytest.mark.parametrize(
+    ("mode", "said"), [("chunk-word", _CHUNK_WORD), ("word", _WORD)], ids=["chunk-word", "word"]
+)
+def test_a_burn_without_word_timings_names_its_transcript_and_what_holds_them(
+    clip: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str], mode: str, said: str
+) -> None:
+    """OpenAI whisper's JSON (its top-level text) without --word_timestamps: named so, not WhisperX's."""
+    doc = {
+        "text": " a b",
+        "language": "en",
+        "segments": [{"id": 0, "seek": 0, "start": 0.0, "end": 1.0, "text": " a b"}],
+    }
+    talk = tmp_path / "talk.json"
+    _ = talk.write_text(json.dumps(doc))
+    argv = ["convert", "-i", str(clip), "--burn-subs", str(talk), "--overlay-mode", mode]
+    assert main([*argv, "-o", str(tmp_path / "b.mkv"), "--dry-run"]) == 1
+    assert f"error: {said}\n" in capsys.readouterr().err
+
+
 GAPS = str(Path(__file__).parent / "fixtures" / "transcripts" / "wx-gaps.json")
 
 # ffman's own entry, in a fresh Python: its argv the command line

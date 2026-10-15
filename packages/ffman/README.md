@@ -62,7 +62,8 @@ its presets in `ffmpeg-normalize/presets/`). Converting metadata files alone (wi
 ```sh
 # a 9:16 story, the bars filled with the picture, blurred
 ffman convert -i trip.mp4 -a 9:16 -w 1080 -b -o trip.story.mp4
-# burned subtitles, the spoken word highlighted (word timings: whisper-cli -ojf, WhisperX)
+# burned subtitles, the spoken word highlighted (word timings: whisper-cli -ojf, WhisperX, or OpenAI
+# whisper --word_timestamps True)
 ffman convert -i talk.mp4 --burn-subs talk.json --overlay-mode chunk-word --highlight-mode pop
 # the same, the spoken word in a colour of your own
 ffman convert -i talk.mp4 --burn-subs talk.json --overlay-mode chunk-word --highlight-colorize '#00BFFF'
