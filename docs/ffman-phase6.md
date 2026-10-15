@@ -4003,11 +4003,41 @@ tests with 6.8.3's converters.*
       dropped by ffman unnoted, its text lost (measured: a CSV's `abc,900,lost words`, WhisperX's
       `NaN` start, whisper-cli's `"x"` offset), against the owner's rule, silent only when nothing
       is lost (decisions' "Dropped cues"). To decide: note it, counted, the first named, or as now.
-- [ ] Found by the `whisper-transcripts` box: ffmpeg's `whisper` filter (FFmpeg 8, nixpkgs'
+- [x] Found by the `whisper-transcripts` box: ffmpeg's `whisper` filter (FFmpeg 8, nixpkgs'
       `ffmpeg-full`, ffman's runtime) writes `format=json` one object a line,
-      `{"start":ms,"end":ms,"text":"..."}`, its text not escaped -- ffman refuses it, `not valid
-      JSON`, without saying why. To decide: read it (each line, a broken one noted), refuse it
-      named (`format=srt` advised), or as now.
+      `{"start":ms,"end":ms,"text":"..."}`, its text not escaped -- ffman refuses it,
+      `not valid JSON`, without saying why. To decide: read it (each line, a broken one noted),
+      refuse it named (`format=srt` advised), or as now.
+      *Done: read as the filter writes it (`readers/whisper_filter.py`): a `.json` opening
+      `{"start":` (after a BOM or none) is the filter's -- no whisper-cli, OpenAI or WhisperX JSON
+      opens so -- its records each a line opening `{"start":`, a line that does not continuing the
+      one before, each fullmatched against the writer's one `av_asprintf` (`S` and `E` by `PRId64`),
+      its text as written: a `"`, a `\` and a line break its own (`C:\new` no line break), blank
+      lines after its `"}` in no text, its lines ending as csv's (a re-saved file's CR LFs or CRs).
+      A record not of that form -- a file cut mid-write -- dropped, noted (`counted`); UTF-8, or
+      UTF-16 by its BOM; a character `max_len` split joined (`table.timed`, with
+      `table.split_lines`, shared, `6dcb9b3`) (`2fffc3b`; decisions' "whisper filter JSON"; the
+      skill's cells, paragraph and eval 3, `d65c522`). The owner's standing rule, better by proof:
+      the format is one `av_asprintf` at n8.1.2 and master (2026-10-15), so read exactly -- refused,
+      a transcription is run again; read as JSON, line by line, `C:\new` becomes a line break.
+      Tests: 21 failing first (subverter's), 1 (ffman's); 14 mutants of the reader caught, the lazy
+      text group equivalent; suite 2521, coverage 100%; the matrix 770; the outcome report against
+      `2b9f05d` on 3.13 and 3.14: 511 identical, `burn/hostile/filter.json` new (refused, now
+      burned). Reviewed: its own review tested a negative time and the notes' order; an independent
+      reviewer's, two rounds, the filter's loop cut and run: a file of CR line ends had been one
+      record unnoted, blank lines at the end had dropped the last record -- now lines end as csv's
+      and blank lines after a record are in no text -- three tests added (a stray line, the UTF-16
+      refusal's line, a negative end), the docs exact (`PRId64`, both Python errors, the earlier
+      refusal of one record), the stale lists of JSON writers named. Left, weighed: a JSON document
+      whose first key is `start` read as the filter's (no writer of one); a text's own CR a line
+      break (no reader tells it from a re-save's). Your review, end to end, then a fresh independent
+      reviewer's: the bounded-work figure re-measured (0.08 s), the signature test made to pin each
+      outcome, a JSON writer's list and the package's description named, the line rule of a refusal
+      stated, a check at a nixpkgs bump (`upgrading.md` 25), eval 3 advising `--add-subs` (an mp3
+      burns nothing), four mutants killed by tests (a brace opening a text's line, an empty time,
+      other digits, a dropped record's name). Left, weighed: JSON lines of the filter's form another
+      tool writes, read as the filter's (no form tells them apart); the shared helpers kept in
+      `table.py`, as LRC takes SubRip's `file_lines`.*
 - [ ] Found by the `whisper-transcripts` box: OpenAI whisper's JSON is read as WhisperX's
       (`.segments`) and named so -- `WhisperX JSON has none` in a word mode's refusal, the JSON
       refusal naming whisper-cli and WhisperX alone, the `.txt` refusal suggesting their outputs
