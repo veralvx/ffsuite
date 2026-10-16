@@ -4082,7 +4082,7 @@ tests with 6.8.3's converters.*
       suite 2530, coverage 100%; the matrix 770. Left, weighed: WhisperX's `--task translate`,
       unaligned from 3.1.1 -- no words for any remedy; two test lines past 100 columns (the tests'
       E501 exemption).*
-- [ ] Found by the Whisper names box's review: a highlighted SubRip or WebVTT not read as
+- [x] Found by the Whisper names box's review: a highlighted SubRip or WebVTT not read as
       highlighted, its words lost -- one underlined word a cue (OpenAI whisper
       `--word_timestamps True --highlight_words True --max_words_per_line 1`: no gap cues), or
       WhisperX's in `ja` or `zh` (`utils.py` joins a gap's cue by nothing, a highlighted one by
@@ -4090,6 +4090,48 @@ tests with 6.8.3's converters.*
       `.srt has none`, its remedy the `--highlight_words` it was written with. To decide: read each
       as words (by `<u>` alone where each cue is one word; by `<u>` and the text without spaces),
       refuse it named, or as now.
+      *Done: read each as words (`readers/cues.py`), by the writers' own `utils.py` -- OpenAI
+      whisper v20250625's and WhisperX's at 3.1.1, 3.2.0, 3.3.2, 3.4.2, 3.7.6, 3.7.7, 3.7.9, 3.8.0
+      and 3.8.6, run on results in `en`, `ja`, `zh`, diarized, wrapped and a word a cue. Neighbours
+      compared without the underline, WhisperX's `[SPEAKER]: ` and spaces: its `ja` and `zh` join a
+      gap's cue by nothing and a highlighted one by spaces (3.2.0 on), its 3.1 writes a gap's cue
+      without the speaker -- found by the probe, English too. Where a gap's cue shows the spaces
+      WhisperX's, a sentence is without them, its speaker kept: its JSON's; a file of no such cue is
+      read as written, nothing telling WhisperX's spaces from OpenAI whisper's `ja` own. Every cue
+      wholly underlined (OpenAI whisper's `--max_words_per_line 1`, a word `- I` among them;
+      WhisperX's from 3.7.7): a sentence a word. A sentence's text its first highlighted cue's
+      (3.1's gap cue first had dropped its speaker). Proof: the writer matrix, 350 cases against the
+      same result's JSON as ffman ingests it -- 122 better, none worse; every case probed from
+      OpenAI whisper and WhisperX 3.7.7 its JSON's words; the fixtures `wx-ja-highlight.srt` and
+      `openai-words.{srt,json}`, each tool's writers' (`a115b8e`; decisions' "Highlighted cues";
+      `upgrading.md` 26, 27). Tests failing first, the rules' mutants caught; suite 2549, coverage
+      100% (2548 passed, the LRC timing test its third found box's); the matrix 770; the outcome
+      report against `b99bb16` on 3.13 and 3.14: 521 identical, the new fixtures' 3 changed --
+      `wx-ja-highlight.srt` burned as its JSON, unspaced, and chunk-word refusing `openai-words.srt`
+      as word-level, before `.srt has none`. Reviewed: an independent reviewer's, three rounds -- a
+      word with a space (`- I`), the 3.1 sentence's speaker, WhisperX's version bounds, the helpers,
+      the pre-3.7.7 `ja` and `zh` one-word reading documented (3.2.0's on before, 3.1's now: its gap
+      cues each a word's, overlapping); a bare one-word cue (WhisperX 3.7.7 and 3.8.0 writing a word
+      it could not align, at its segment's times) weighed and left as cues: read as words, its span
+      hid its neighbours' in ffman. Left, weighed: cues underlined by hand read as words alike
+      (their plain burn the same); naming a `ja` or `zh` file WhisperX's by its gap cues, one name
+      kept for both; the word-level refusal's `e.g.`, whisper-cli's. It found two boxes: a CJK cue's
+      line break read as a space; a highlighted sentence's speaker in chunk-word; and a third, the
+      suite's: an LRC timing test near its bound.*
+- [ ] Found by the highlighted cues box: a SubRip or WebVTT cue's line break is read as a space, in
+      a script written without spaces too -- WhisperX 3.8.6's `ja`
+      `--max_line_width 4 --max_line_count 2` burned `今日は良 い天気で` (measured), its JSON `今日は良い天気です`.
+      To decide: join a line break by nothing between two characters of a script without spaces (UAX
+      #14's), or as now.
+- [ ] Found by the highlighted cues box: a highlighted sentence keeps WhisperX's `[SPEAKER]: `, so
+      its chunk-word line, drawn from its words, shows no speaker, and in `ja` or `zh` spaces its
+      characters (`subs/ass.py`: a text with a space, its words spaced) -- measured
+      `今 日 は 良 い 天 気 で す`, its JSON's line `今日は良い天気です`. To decide: the speaker kept out of the
+      sentence (a field of its own, as the JSON's `speaker`), drawn before its words, or as now.
+- [ ] Found by the highlighted cues box's runs: `test_lrc.py`'s bounded-work test of 20 000 equal
+      stamps takes 0.90 s of its 1 s under coverage alone (0.28 s without), so a parallel run on two
+      cores fails it now and then. To decide: a bound measured against the reading's own scale (a
+      quadratic reading takes minutes), its input halved, or as now.
 - [ ] Found by the `whisper-transcripts` review: the OpenAI API's `verbose_json` (its
       `segments`, and with word timestamps its top-level `words`) is read by its segments alone,
       its words ignored, unnoted -- a word mode has none to show (measured: two words, `0` read, no
