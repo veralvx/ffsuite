@@ -88,6 +88,33 @@ def test_highlighted_cues_become_sentences_and_words(tmp_path: Path) -> None:
     assert [(w.segment, w.text) for w in t.words] == [("0", "Hi"), ("0", "you"), ("1", "Hi")]
 
 
+TRANSCRIPTS: Final = Path(__file__).parent / "fixtures" / "transcripts"
+
+
+@pytest.mark.parametrize(
+    ("highlighted", "written"),
+    [("wx-ja-highlight.srt", "wx-ja.json"), ("openai-words.srt", "openai-words.json")],
+    ids=["WhisperX, ja", "OpenAI whisper, a cue a word"],
+)
+def test_a_highlighted_transcript_holds_its_jsons_words(highlighted: str, written: str) -> None:
+    # each written by its tool's own writers from one result (docs/upgrading.md, 12 and 26)
+    got, want = (
+        [(w.start, w.end, w.text) for w in ingested(TRANSCRIPTS / name).words]
+        for name in (highlighted, written)
+    )
+    assert got == want
+
+
+def test_whisperxs_ja_highlighted_cues_burn_unspaced_as_its_json() -> None:
+    # its sentence its JSON's -- its end its last word's (utils.py, 3.7.7 on), the JSON's its
+    # segment's -- so its chunk-word line abuts its characters as the JSON's (S163)
+    srt, js = (ingested(TRANSCRIPTS / n) for n in ("wx-ja-highlight.srt", "wx-ja.json"))
+    assert [c.text for c in srt.chunks] == [c.text for c in js.chunks] == ["今日は良い天気です"]
+    ass = script(srt, 1920, 1080, Style("chunk-word", "plain"))[0]
+    first = next(line for line in ass.splitlines() if line.startswith("Dialogue: 0"))
+    assert re.sub(r".*\}", "", first) == "日は良い天気です"
+
+
 def test_lrc_and_tables(tmp_path: Path) -> None:
     lrc = ingested(put(tmp_path, "a.lrc", "[00:02.50]Two\n[00:01]One\nno stamp\n"))
     assert lrc.chunks == (

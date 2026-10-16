@@ -1101,6 +1101,196 @@ def test_openai_whispers_highlighted_cues_read_into_sentences_and_words() -> Non
     )
 
 
+# Each the writer's own (`utils.py` loaded by path, run on a result given here): OpenAI whisper
+# v20250625's, WhisperX's at the tag named. 今 abuts 日 (no cue between), a gap before は (its cue)
+_TODAY: Final = (
+    "1\n00:00:01,000 --> 00:00:01,200\n<u>今</u> 日 は\n\n"
+    "2\n00:00:01,200 --> 00:00:01,380\n今 <u>日</u> は\n\n"
+    "3\n00:00:01,380 --> 00:00:01,400\n今日は\n\n"
+    "4\n00:00:01,400 --> 00:00:01,600\n今 日 <u>は</u>\n\n"
+)
+_TODAY_WORDS: Final = (
+    Timing("0", 1000, 1200, "今"),
+    Timing("0", 1200, 1380, "日"),
+    Timing("0", 1400, 1600, "は"),
+)
+
+
+@pytest.mark.parametrize(
+    ("data", "sentence"),
+    [
+        (_TODAY, "今日は"),
+        (
+            re.sub(r"^(?=[今<])", "[SPEAKER_00]: ", _TODAY, flags=re.MULTILINE),
+            "[SPEAKER_00]: 今日は",
+        ),
+        (  # --max_line_width 2 --max_line_count 2: a line break, read as a space
+            _TODAY.replace(" は", " \nは")
+            .replace("今日は", "今日\nは")
+            .replace(" <u>は</u>", " \n<u>は</u>"),
+            "今日は",
+        ),
+    ],
+    ids=["3.8.6", "3.8.6 diarized", "3.8.6 wrapped"],
+)
+def test_whisperxs_highlighted_cues_in_ja_or_zh_read_as_its_json(data: str, sentence: str) -> None:
+    # its `ja` and `zh` cue of a gap between words joins them by nothing, its highlighted ones by
+    # spaces (`LANGUAGES_WITHOUT_SPACES`, from 3.2.0): the spaces its own, the sentence its JSON's
+    reading = subverter.read("srt", data.encode(), "a.srt")
+    assert (reading.has_words, reading.cues, reading.words) == (
+        True,
+        (Cue(1000, 1600, sentence, "0"),),
+        _TODAY_WORDS,
+    )
+
+
+def test_whisperxs_highlighted_webvtt_in_ja_reads_as_its_json() -> None:
+    data = "WEBVTT\n\n" + re.sub(r"^\d+\n", "", _TODAY, flags=re.MULTILINE).replace(
+        "00:00:", "00:"
+    ).replace(",", ".")
+    reading = subverter.read("vtt", data.encode(), "a.vtt")
+    assert (reading.cues, reading.words) == ((Cue(1000, 1600, "今日は", "0"),), _TODAY_WORDS)
+
+
+def test_a_sentence_without_a_gap_is_unspaced_by_its_files_others() -> None:
+    # 天 abuts 気: no cue joins them by nothing, but 今日は's does, in the same file
+    data = _TODAY + "5\n00:00:02,000 --> 00:00:02,200\n<u>天</u> 気\n\n"
+    data += "6\n00:00:02,200 --> 00:00:02,400\n天 <u>気</u>\n\n"
+    assert subverter.read("srt", data.encode(), "a.srt").cues == (
+        Cue(1000, 1600, "今日は", "0"),
+        Cue(2000, 2400, "天気", "1"),
+    )
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        # WhisperX 3.8.6, `ja`, no gap: nothing joined by nothing
+        "1\n00:00:01,000 --> 00:00:01,200\n<u>今</u> 日\n\n2\n00:00:01,200 --> 00:00:01,400\n今 <u>日</u>\n\n",
+        # OpenAI whisper, `ja`, its words' own space: alike
+        "1\n00:00:01,000 --> 00:00:01,200\n<u>山田</u> 太郎\n\n2\n00:00:01,200 --> 00:00:01,400\n山田 <u>太郎</u>\n\n",
+    ],
+    ids=["WhisperX, no gap", "OpenAI whisper, a space"],
+)
+def test_without_a_gaps_cue_a_highlighted_sentences_spaces_are_as_written(data: str) -> None:
+    (cue,) = subverter.read("srt", data.encode(), "a.srt").cues
+    assert " " in cue.text
+
+
+@pytest.mark.parametrize(
+    "second",
+    ["[SPEAKER_01]: ", ""],
+    ids=["another speaker", "no speaker"],
+)
+def test_one_text_of_two_speakers_is_two_sentences(second: str) -> None:
+    # WhisperX 3.7.6, diarized: the second segment's gap cue first -- its speaker its own, or none
+    # (`diarize.py` gives a segment no speaker when it meets no turn)
+    data = (
+        "1\n00:00:00,500 --> 00:00:00,700\n[SPEAKER_00]: <u>Yes,</u> sure.\n\n"
+        "2\n00:00:00,700 --> 00:00:01,000\n[SPEAKER_00]: Yes, <u>sure.</u>\n\n"
+        f"3\n00:00:01,200 --> 00:00:01,500\n{second}Yes, sure.\n\n"
+        f"4\n00:00:01,500 --> 00:00:01,700\n{second}<u>Yes,</u> sure.\n\n"
+        f"5\n00:00:01,700 --> 00:00:02,000\n{second}Yes, <u>sure.</u>\n\n"
+    )
+    assert subverter.read("srt", data.encode(), "a.srt").cues == (
+        Cue(500, 1000, "[SPEAKER_00]: Yes, sure.", "0"),
+        Cue(1200, 2000, f"{second}Yes, sure.", "1"),
+    )
+
+
+def test_whisperx_v31s_gap_cue_without_its_speaker_leaves_its_file_cues() -> None:
+    # the tags v3.1.0 and v3.1.1 (git alone: PyPI's 3.1.x, a third party's, write as 3.2.0) write a
+    # gap's cue without its speaker: a segment of no speaker alike (3.7.6's above), so cues
+    texts = (
+        "[SPEAKER_00]: <u>Hello</u> world.",
+        "Hello world.",
+        "[SPEAKER_00]: Hello <u>world.</u>",
+    )
+    data = _srt(
+        [
+            ("00:00:00,500", "00:00:00,900", texts[0]),
+            ("00:00:00,900", "00:00:01,000", texts[1]),
+            ("00:00:01,000", "00:00:01,500", texts[2]),
+        ]
+    )
+    reading = subverter.read("srt", data, "a.srt")
+    assert (reading.has_words, tuple(c.text for c in reading.cues)) == (False, texts)
+
+
+# OpenAI whisper --max_words_per_line 1; WhisperX 3.8.6 --max_line_width 1 --max_line_count 1 alike
+_A_WORD_A_CUE: Final = (
+    "1\n00:00:00,500 --> 00:00:00,900\n<u>Hello</u>\n\n"
+    "2\n00:00:01,000 --> 00:00:01,300\n<u>big</u>\n\n"
+    "3\n00:00:01,300 --> 00:00:01,900\n<u>world.</u>\n\n"
+)
+
+
+@pytest.mark.parametrize(
+    "speaker", ["", "[SPEAKER_00]: "], ids=["OpenAI whisper", "WhisperX, diarized"]
+)
+def test_a_cue_a_word_underlined_is_a_sentence_of_that_word(speaker: str) -> None:
+    data = re.sub(r"^(?=<u>)", speaker, _A_WORD_A_CUE, flags=re.MULTILINE)
+    reading = subverter.read("srt", data.encode(), "a.srt")
+    times = ((500, 900), (1000, 1300), (1300, 1900))
+    words = ("Hello", "big", "world.")
+    assert (reading.has_words, reading.cues, reading.words) == (
+        True,
+        tuple(
+            Cue(a, z, speaker + t, str(i))
+            for i, ((a, z), t) in enumerate(zip(times, words, strict=True))
+        ),
+        tuple(
+            Timing(str(i), a, z, t) for i, ((a, z), t) in enumerate(zip(times, words, strict=True))
+        ),
+    )
+
+
+def test_a_cue_a_word_holds_one_with_a_space() -> None:
+    # OpenAI whisper merges a prepended `-` into the next word (timing.py, merge_punctuations)
+    data = (
+        "1\n00:00:00,500 --> 00:00:00,900\n<u>Well</u>\n\n"
+        "2\n00:00:01,000 --> 00:00:01,300\n<u>- I</u>\n\n"
+        "3\n00:00:01,300 --> 00:00:01,900\n<u>think.</u>\n\n"
+    )
+    reading = subverter.read("srt", data.encode(), "a.srt")
+    spans = ((500, 900, "Well"), (1000, 1300, "- I"), (1300, 1900, "think."))
+    assert (reading.cues, reading.words) == (
+        tuple(Cue(a, z, w, str(i)) for i, (a, z, w) in enumerate(spans)),
+        tuple(Timing(str(i), a, z, w) for i, (a, z, w) in enumerate(spans)),
+    )
+
+
+def test_a_cue_a_word_with_an_untimed_one_is_cues() -> None:
+    # WhisperX 3.8.2 (3.7.8 alike): a word it could not align, `2024`, a cue of no underline at its
+    # segment's times, over its neighbours' -- no word to read; the file read as written
+    texts = ("<u>In</u>", "2024", "<u>we</u>", "<u>won.</u>")
+    data = _srt(
+        [
+            ("00:00:00,500", "00:00:00,700", texts[0]),
+            ("00:00:00,500", "00:00:01,900", texts[1]),
+            ("00:00:01,200", "00:00:01,400", texts[2]),
+            ("00:00:01,400", "00:00:01,900", texts[3]),
+        ]
+    )
+    reading = subverter.read("srt", data, "a.srt")
+    assert (reading.has_words, tuple(c.text for c in reading.cues)) == (False, texts)
+
+
+@pytest.mark.parametrize(
+    "texts",
+    [
+        ("<u>one</u>", "two three"),  # a cue not underlined
+        ("<u>one</u> two", "<u>three</u> four"),  # each opening underlined, not wholly
+        ("<u>one</u>",),  # one cue: no structure
+    ],
+    ids=["one not underlined", "underlined first", "one cue"],
+)
+def test_underlined_cues_but_not_a_word_each_are_cues(texts: tuple[str, ...]) -> None:
+    data = _srt([(f"00:00:0{i},000", f"00:00:0{i},500", t) for i, t in enumerate(texts)])
+    reading = subverter.read("srt", data, "a.srt")
+    assert (reading.has_words, [c.text for c in reading.cues]) == (False, list(texts))
+
+
 def test_a_highlighted_sentence_keeps_its_markup_but_its_underline() -> None:
     # its text as written, for its reader to read as any cue's -- before, every tag off as SubRip
     # and WebVTT read none: `x < 5 and y > 3` lost `< 5 and y >`

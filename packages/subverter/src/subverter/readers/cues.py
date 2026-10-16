@@ -1,13 +1,14 @@
 """SubRip's and WebVTT's cues: one reading of their cue blocks, each format's grammar its own.
 
 ``Dialect``: a format's grammar (``subrip``, ``webvtt``). OpenAI whisper's and WhisperX's
-highlighted cues, in either, read back into words: one writer's, WhisperX's copied, so one name.
+highlighted cues, in either, read back into words: one name for both, WhisperX's writer OpenAI's
+copied -- its ``ja`` and ``zh`` spaces and its speakers its own.
 """
 
 import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from itertools import groupby
+from itertools import groupby, pairwise
 from typing import Final, NamedTuple
 
 from subverter.readers.utf8 import Nuls, by_line, nul_notes
@@ -17,6 +18,8 @@ __all__ = ["Dialect", "Found", "Odd", "Timed", "read"]
 
 _UNDERLINE: Final = re.compile(r"<u>([^<]*)</u>")  # --highlight_words: the word
 _UNDERLINES: Final = re.compile(r"</?u>")  # its tags (``_plain``)
+_SPEAKER: Final = re.compile(r"\[[^\]\n]*\]: ")  # WhisperX's diarized cue opens f"[{speaker}]: "
+_LIT_WORD: Final = re.compile(r"<u>[^<]+</u>")  # a cue wholly underlined: a word, its writer's
 
 
 class Odd(NamedTuple):
@@ -95,7 +98,7 @@ def read(lines: list[str], name: str, dialect: Dialect) -> Reading:
             has_references=references,
             has_ass_escapes=escapes,
         )
-    sentences, words = _highlighted(cues)
+    sentences, words = _highlighted(cues, unspaced=_is_unspaced(cues))
     return Reading(
         f"OpenAI whisper or WhisperX --highlight_words {dialect.source}",
         has_words=True,
@@ -239,31 +242,88 @@ def _plain(text: str) -> str:
     return _UNDERLINES.sub("", text)
 
 
+def _spoken(text: str) -> int:
+    """Where a cue's text starts after WhisperX's speaker, if it opens with one."""
+    speaker = _SPEAKER.match(text)
+    return speaker.end() if speaker else 0
+
+
+def _unspeakered(text: str) -> str:
+    """A cue's text after WhisperX's speaker."""
+    return text[_spoken(text) :]
+
+
+def _key(text: str) -> str:
+    """A cue's sentence as its neighbours compare it: no underline, no space past its speaker.
+
+    WhisperX joins a ``ja`` or ``zh`` cue of a gap between words by nothing, a highlighted one by
+    spaces (``utils.py`` from 3.2.0; PyPI's 3.1.x, a third party's, alike).
+    """
+    return _sentence(text, unspaced=True)
+
+
 def _is_highlighted(cues: list[Cue]) -> bool:
-    """--highlight_words, by structure: <u> somewhere, most neighbours one text."""
-    plains = [_plain(c.text) for c in cues]
-    underlined = any("<u>" in c.text for c in cues)
-    same = sum(1 for i in range(1, len(plains)) if plains[i] == plains[i - 1])
-    return underlined and len(cues) > 1 and same / (len(cues) - 1) >= 0.5  # noqa: PLR2004 -- most
+    """--highlight_words, by structure: <u> somewhere, most neighbours one text -- or a cue a word.
+
+    A cue a word, each wholly underlined: OpenAI whisper's ``--max_words_per_line 1`` (no gap's
+    cue; ``merge_punctuations``' ``- I`` one word), WhisperX's from 3.7.7 (its cue times its
+    words'). A cue of no underline among them -- a word WhisperX left untimed, at its segment's
+    times -- leaves the file cues.
+    """
+    if len(cues) <= 1 or not any("<u>" in c.text for c in cues):
+        return False
+    if all(_LIT_WORD.fullmatch(_unspeakered(c.text)) for c in cues):
+        return True
+    keys = [_key(c.text) for c in cues]
+    same = sum(1 for a, b in pairwise(keys) if a == b)
+    return same / (len(cues) - 1) >= 0.5  # noqa: PLR2004 -- most
 
 
-def _highlighted(cues: list[Cue]) -> tuple[list[Cue], list[Timing]]:
-    """One sentence a run of one text (new when the underline moves back); each <u> a word."""
+def _is_unspaced(cues: list[Cue]) -> bool:
+    """Whether a gap's cue joins its words by nothing where a highlighted neighbour has spaces.
+
+    WhisperX's ``ja`` and ``zh``: its spaces are its own, none in a word (``alignment.py``: a word
+    a character, a space none). Without such a cue, nothing tells them from a text's own: OpenAI
+    whisper's ``ja`` joins its words by nothing, a space one of them holds kept.
+    """
+    texts = [_plain(c.text) for c in cues]
+    return any(a != b and _key(a) == _key(b) for a, b in pairwise(texts))
+
+
+def _highlighted(cues: list[Cue], *, unspaced: bool) -> tuple[list[Cue], list[Timing]]:
+    """One sentence a run of one text (new when the underline moves back); each <u> a word.
+
+    A sentence's text is its first cue's without the underline -- ``unspaced``, without WhisperX's
+    spaces too, as its gap cues join its words (``_is_unspaced``).
+    """
     sentences: list[Cue] = []
     words: list[Timing] = []
-    current, cs, ce, last, sid = "", None, None, -1, -1
+    current, text, cs, ce, last, sid = "", "", None, None, -1, -1
     for cue in cues:
-        plain = _plain(cue.text)
+        key = _key(cue.text)
         underline = _UNDERLINE.search(cue.text)
         offset = len(_plain(cue.text[: underline.start()])) if underline else -1
-        if plain != current or (underline and offset <= last):
+        if key != current or (underline and offset <= last):
             if current:
-                sentences.append(Cue(cs, ce, current, str(sid)))
-            sid, current, cs, last = sid + 1, plain, cue.start, -1
+                sentences.append(Cue(cs, ce, text, str(sid)))
+            sid, current, cs, last = sid + 1, key, cue.start, -1
+            text = _sentence(cue.text, unspaced=unspaced)
         ce = cue.end
         if underline:
             words.append(Timing(str(sid), cue.start, cue.end, underline[1]))
             last = offset
     if current:
-        sentences.append(Cue(cs, ce, current, str(sid)))
+        sentences.append(Cue(cs, ce, text, str(sid)))
     return sentences, words
+
+
+def _sentence(text: str, *, unspaced: bool) -> str:
+    """A highlighted cue's sentence: its text without the underline (``unspaced``: without spaces).
+
+    WhisperX's spaces are between its words alone; its speaker's ``[X]: `` kept.
+    """
+    plain = _plain(text)
+    if not unspaced:
+        return plain
+    at = _spoken(plain)
+    return plain[:at] + plain[at:].replace(" ", "")

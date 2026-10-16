@@ -223,6 +223,10 @@ camcorder:date=D,time=T`.
   SubRip or WebVTT `OpenAI whisper or WhisperX --highlight_words .srt`; the JSON and `.txt` refusals
   and the word modes' name OpenAI whisper's outputs too, each tool's options as it parses them
   (`--word_timestamps True`, `--highlight_words True`) among the sources of word timings (New).
+- A highlighted SubRip or WebVTT is read into sentences and words in WhisperX's `ja` and `zh` too
+  -- a gap's cue joined by nothing, a highlighted one by spaces: each sentence without those
+  spaces, as its gap cues join it -- and when every cue is a word wholly underlined (OpenAI whisper
+  `--max_words_per_line 1`), a sentence a word; before, plain cues, the words lost (New).
 - An LRC line whose stamps follow blanks is read, as Navidrome and Jellyfin read it (ffmpeg drops
   it), and a stamp's minus as a time before 0, as ffmpeg writes and reads it -- each noted; any
   other line but a tag or an empty one is dropped, noted: `2 LRC lines dropped, opened by no stamp

@@ -426,6 +426,22 @@ def test_a_burn_without_word_timings_names_its_transcript_and_what_holds_them(
     assert f"error: {said}\n" in capsys.readouterr().err
 
 
+WORDS = str(Path(__file__).parent / "fixtures" / "transcripts" / "openai-words.srt")
+
+
+def test_a_highlighted_cue_a_word_is_word_level_to_chunk_word(
+    clip: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """OpenAI whisper's --max_words_per_line 1: its words read, word-level -- before, `none`."""
+    argv = ["convert", "-i", str(clip), "--burn-subs", WORDS, "-o", str(tmp_path / "b.mkv")]
+    assert main([*argv, "--overlay-mode", "word", "--dry-run"]) == 0
+    assert main([*argv, "--overlay-mode", "chunk-word", "--dry-run"]) == 1
+    source = "OpenAI whisper or WhisperX --highlight_words .srt"
+    why = "--overlay-mode chunk-word needs sentences with their words"
+    said = f"error: this {source} is word-level (e.g. whisper-cli -sow/-ml 1): {why}\n"
+    assert said in capsys.readouterr().err
+
+
 GAPS = str(Path(__file__).parent / "fixtures" / "transcripts" / "wx-gaps.json")
 
 # ffman's own entry, in a fresh Python: its argv the command line

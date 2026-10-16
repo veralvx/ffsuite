@@ -71,4 +71,8 @@ Moved from that run-book; nixos-config's own couplings stay there.
     `split_on_word` (after 8.1) splits a segment at words alone with `max_len`.
 26. OpenAI whisper's JSON still holds the result's top-level `text`, and WhisperX's none: subverter
     names each by it (`readers/whisper.py`). OpenAI whisper is not pinned either: when its
-    `WriteJSON` changes, write the `openai.json` fixture's result again with it.
+    writers change, write the `openai*` fixtures' results again with them.
+27. WhisperX's `utils.py` still joins a `ja` or `zh` cue of a gap between words by nothing and a
+    highlighted one by spaces, its `[speaker]: ` before both, and OpenAI whisper's
+    `--max_words_per_line 1` still writes no gap's cue: subverter reads highlighted cues by them
+    (`readers/cues.py`).
