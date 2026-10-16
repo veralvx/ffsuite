@@ -221,8 +221,8 @@ camcorder:date=D,time=T`.
   ffmpeg's whisper filter writes one dropped: the first, ... on line N` (New).
 - OpenAI whisper's JSON is named so, by its top-level `text`, not WhisperX's, and a highlighted
   SubRip or WebVTT `OpenAI whisper or WhisperX --highlight_words .srt`; the JSON and `.txt` refusals
-  and the word modes' name OpenAI whisper's outputs too, its `--word_timestamps True` among the
-  sources of word timings (New).
+  and the word modes' name OpenAI whisper's outputs too, each tool's options as it parses them
+  (`--word_timestamps True`, `--highlight_words True`) among the sources of word timings (New).
 - An LRC line whose stamps follow blanks is read, as Navidrome and Jellyfin read it (ffmpeg drops
   it), and a stamp's minus as a time before 0, as ffmpeg writes and reads it -- each noted; any
   other line but a tag or an empty one is dropped, noted: `2 LRC lines dropped, opened by no stamp

@@ -29,10 +29,13 @@ from ffman.subs.metrics import Metrics, parse
 
 # bash's _SAFE_PATH: nothing in it that ffmpeg's filter syntax would split on
 _SAFE_PATH: Final = re.compile(r"[A-Za-z0-9_./+@-]+")
-# OpenAI whisper's word timings (transcribe.py's options), and the highlighted SubRip and WebVTT
-# both it and WhisperX write: in the word modes' refusals, with whisper-cli's and WhisperX's JSON
-_OPENAI_WORDS: Final = "OpenAI whisper --word_timestamps True JSON"
-_HIGHLIGHTS: Final = "OpenAI whisper's or WhisperX's --highlight_words"
+# Where OpenAI whisper and WhisperX write word timings, in the word modes' refusals: options as
+# they parse them (str2bool: `True` written), OpenAI whisper's --highlight_words refused without
+# --word_timestamps True (transcribe.py), WhisperX aligning by default
+_WHISPERS: Final = (
+    "OpenAI whisper --word_timestamps True or WhisperX: JSON, or srt/vtt with"
+    " --highlight_words True"
+)
 
 
 def run(o: ConvertOptions, subs: str, runner: Runner) -> None:
@@ -100,8 +103,7 @@ def _check_timings(o: ConvertOptions, t: Transcript) -> None:
         refuse(f"an .{t.fmt} file can only be burned with --overlay-mode plain")
     if mode == "chunk-word":
         if not t.has_words:
-            jsons = f"whisper-cli -ojf JSON, {_OPENAI_WORDS}, WhisperX JSON"
-            sources = f"{jsons}, or {_HIGHLIGHTS} srt/vtt"
+            sources = f"whisper-cli -ojf JSON; {_WHISPERS}"
             refuse(f"--overlay-mode chunk-word needs word timings ({sources}); {t.source} has none")
         counts = Counter(w.segment for w in t.words)
         worded = sum(1 for n in counts.values() if n > 1)  # sentences with more than one word
@@ -111,7 +113,7 @@ def _check_timings(o: ConvertOptions, t: Transcript) -> None:
             refuse(f"this {t.source} is word-level (e.g. whisper-cli -sow/-ml 1): {why}")
     spaced = any(" " in c.text for c in t.chunks)  # a cue of more than one word
     if mode in ("word", "word-highlight") and not t.has_words and spaced:
-        tools = f"whisper-cli -sow -ml 1 or -ojf, {_OPENAI_WORDS}, WhisperX JSON, or {_HIGHLIGHTS}"
+        tools = f"whisper-cli -sow -ml 1 or -ojf; {_WHISPERS}"
         why = f"--overlay-mode {mode} needs word timings or one word per cue"
         refuse(f"{why}; {t.source} has neither ({tools})")
 
