@@ -4052,7 +4052,7 @@ tests with 6.8.3's converters.*
       WebVTT, read as words, were named WhisperX's -- one writer's in both tools, undistinguishable,
       now `OpenAI whisper or WhisperX --highlight_words .srt`. The JSON and `.txt` refusals name
       OpenAI whisper's outputs; the word modes' name `OpenAI whisper --word_timestamps True JSON`
-      and either's `--highlight_words` among the sources of word timings (`f75f826`, `31b5044`;
+      and either's `--highlight_words` among the sources of word timings (`c998000`, `ca416e7`;
       decisions' "Whisper names"; `upgrading.md` 26). The owner's standing rule, better by proof:
       exact for both writers at every tag checked, where one generic name would drop what the key
       proves. Tests: OpenAI's JSON with and without words, its empty `text`, a `text` no string,
@@ -4063,23 +4063,39 @@ tests with 6.8.3's converters.*
       before `WhisperX JSON has none`. Reviewed: its own review renamed `_whisperx` `_segments`; an
       independent reviewer's, two rounds: the word modes' hint without `JSON`
       (`--word_timestamps True` times words in the JSON alone), the refusals' count, the WhisperX
-      key claim made exact (`speaker_embeddings` from 3.4.2, no `language` before), the ffman
+      key claim made exact (its keys by tag: `language` on an aligned result from 3.2.0,
+      `speaker_embeddings` from 3.4.2; `text` at none, 3.1.1 to 3.3.1 checked too), the ffman
       README, `text` `""` tested, "byte-identical" bounded (wrapped lines, `ja` and `zh`). Left,
       weighed: one name for highlighted cues (nothing marks OpenAI whisper's); the
       `subtitle-mappings` skill's WhisperX-only rows, its own box's. It found a box: highlighted
-      cues not read as such.*
+      cues not read as such. Your review, end to end, then an independent reviewer's: the word
+      modes' remedies each tool's options as it parses them -- `--highlight_words True`, OpenAI
+      whisper's with `--word_timestamps True` (`str2bool`: a bare flag refused by argparse; OpenAI
+      whisper's `--highlight_words` by its parser without `--word_timestamps True`), one phrase for
+      both tools (`bf64f87`); a third writer weighed: whisper-ctranslate2 0.5.8 writes OpenAI
+      whisper's result and takes its options, named so, the name its JSON's form (decisions);
+      `openai.json` held by the word modes' test, a `text` with no other key tested (the mutant
+      `and "language" in doc` caught); `upgrading.md` names OpenAI whisper's outputs, 26 how to
+      write `openai.json` again; this record's hashes and its WhisperX key claim corrected, the open
+      `verbose_json` box's naming brought up to date. Outcome against `24817d1` on 3.13 and 3.14:
+      495 identical, 20 refusals changed in their remedies alone (17 chunk-word, 3 word modes);
+      suite 2530, coverage 100%; the matrix 770. Left, weighed: WhisperX's `--task translate`,
+      unaligned from 3.1.1 -- no words for any remedy; two test lines past 100 columns (the tests'
+      E501 exemption).*
 - [ ] Found by the Whisper names box's review: a highlighted SubRip or WebVTT not read as
       highlighted, its words lost -- one underlined word a cue (OpenAI whisper
-      `--highlight_words --max_words_per_line 1`: no gap cues), or WhisperX's in `ja` or `zh`
-      (`utils.py` joins a gap's cue by nothing, a highlighted one by spaces: neighbours of no one
-      text). Read as plain cues; a chunk-word burn refused `.srt has none`, its remedy the
-      `--highlight_words` it was written with. To decide: read each as words (by `<u>` alone where
-      each cue is one word; by `<u>` and the text without spaces), refuse it named, or as now.
+      `--word_timestamps True --highlight_words True --max_words_per_line 1`: no gap cues), or
+      WhisperX's in `ja` or `zh` (`utils.py` joins a gap's cue by nothing, a highlighted one by
+      spaces: neighbours of no one text). Read as plain cues; a chunk-word burn refused
+      `.srt has none`, its remedy the `--highlight_words` it was written with. To decide: read each
+      as words (by `<u>` alone where each cue is one word; by `<u>` and the text without spaces),
+      refuse it named, or as now.
 - [ ] Found by the `whisper-transcripts` review: the OpenAI API's `verbose_json` (its
       `segments`, and with word timestamps its top-level `words`) is read by its segments alone,
       its words ignored, unnoted -- a word mode has none to show (measured: two words, `0` read, no
-      note); one of words alone is refused, named whisper-cli's or WhisperX's. To decide: read its
-      `words` into their segments, note them ignored, or as now.
+      note), its JSON named `OpenAI whisper JSON` by its `text` (Whisper names); one of words alone
+      is refused, as no whisper-cli, OpenAI whisper or WhisperX JSON. To decide: read its `words`
+      into their segments, note them ignored, or as now.
 - [ ] `subtitle-mappings`: the mappings, a skill -- its three references and scripts.
 
 *6.8.3 The converters* (pure, from the skills)
