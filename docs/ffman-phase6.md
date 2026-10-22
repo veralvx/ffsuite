@@ -3998,11 +3998,32 @@ tests with 6.8.3's converters.*
       record of no text taking the next line (kept, noted -- else a record of no time, lost
       unnoted); the bounded-work test's 1 s (7 times its 0.13 s). It found a box: a cue of no time
       dropped unnoted.*
-- [ ] Found by the TSV line breaks box's review: a transcript's cue of no time -- a CSV or TSV
+- [x] Found by the TSV line breaks box's review: a transcript's cue of no time -- a CSV or TSV
       record whose `start` or `end` is no number, a JSON segment's `NaN`, `null` or text -- is
       dropped by ffman unnoted, its text lost (measured: a CSV's `abc,900,lost words`, WhisperX's
       `NaN` start, whisper-cli's `"x"` offset), against the owner's rule, silent only when nothing
       is lost (decisions' "Dropped cues"). To decide: note it, counted, the first named, or as now.
+      *Done: noted, counted, the first named, as the other cues dropped -- `normalize.cues` returns
+      their texts (`Chunks.untimed`), `ingest` notes them first:
+      `2 cues dropped: no time read for their start or end, the first, lost words`; one of no text,
+      nothing lost, silent. Every reader path that yields one: a CSV or TSV field no number or
+      empty, a WhisperX JSON `NaN`, `null`, text or missing key, a whisper-cli offset no number, a
+      time past a double's range in the `whisper` filter's JSON, a SubRip, a WebVTT, a highlighted
+      sentence's first cue -- each noted once; an LRC's line, its reader's, already noted. A refusal
+      of no timed text carries it (`2dada03`; decisions' "Dropped cues", "No timed text"; the
+      `whisper-transcripts` skill's NaN cells, `7ac9564`). Tests failing first, every path; the
+      order and the refusal's notes; mutants caught; suite 2561, coverage 100% (2560 passed, the LRC
+      timing test its box's); the matrix 770; the outcome report against `d973bbb` on 3.13 and 3.14:
+      517 identical, 7 `burn/hostile` cases a note more. Reviewed: an independent reviewer's --
+      WebVTT's case untested and misdocumented as already noted, a highlighted sentence's untested,
+      the order and the refusal's notes untested, a name reused (`bare`), the skill's reference
+      cell. It found a box: notes counting what ffman then drops.*
+- [ ] Found by the untimed cues box's review: notes count what ffman then drops -- whisper-cli's DTW
+      fallback counts a sentence of no time (`odd-windows.json`:
+      `DTW word times ... in 2 of 2 sentences: used token offsets there`, then
+      `2 cues dropped: no time read`), the braced runs hidden counts those of a cue dropped
+      (`{aside}back` reversed: `1 braced runs hidden ... {aside}` after
+      `1 cues dropped: ending before they begin`). To decide: count only what is shown, or as now.
 - [x] Found by the `whisper-transcripts` box: ffmpeg's `whisper` filter (FFmpeg 8, nixpkgs'
       `ffmpeg-full`, ffman's runtime) writes `format=json` one object a line,
       `{"start":ms,"end":ms,"text":"..."}`, its text not escaped -- ffman refuses it,
