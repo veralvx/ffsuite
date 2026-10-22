@@ -211,7 +211,7 @@ camcorder:date=D,time=T`.
   read them: `x<3 and y>2` as written (New).
 - A CSV's, TSV's or JSON's text is as written -- its tags, braces, backslashes and a typed `\n`
   too: whisper-cli, OpenAI whisper, WhisperX and ffmpeg's whisper filter mark up none -- its tab
-  or line break a space (New).
+  a space, its line break as a cue's (New).
 - A TSV text broken by a line break, as OpenAI whisper and WhisperX write one, is read back into
   its record: in a TSV whose text is its last column, a line of no tab after a record ending at it
   is that record's text, noted: `1 TSV lines of no tab read as the text of the record before, a
@@ -244,6 +244,10 @@ camcorder:date=D,time=T`.
   first, <3 you`; a SubRip's is text (New).
 - A SubRip's `<` opens a tag as ffmpeg's decoder reads one -- a name it knows or likely one,
   dropped, `<br>` a line break -- else it is text: `1 < 2 and 3 > 2` as written (New).
+- A cue's line break -- a line, `\N`, `<br>`, an LRC's lines of one stamp, one in a CSV, TSV or
+  JSON text -- is a space, but nothing between two CJK characters (East Asian Width F, H or W, not
+  Hangul or an emoji) or beside a zero-width space: WhisperX's `ja` cue `今日は良`, `い天気で` burned
+  `今日は良い天気で` (New).
 - A cue dropped whose text a player shows -- one of no time read for its start or end, one
   ending before it begins, one beginning with the next (one cue shown at a time) -- is noted:
   `1 cues dropped: ending before they begin, the first, backwards` (New).

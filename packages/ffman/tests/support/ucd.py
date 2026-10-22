@@ -1,11 +1,12 @@
 """subs/ucd.py, from the Unicode Character Database: the generator and its check.
 
 Run with the UCD's directory -- UnicodeData.txt, EastAsianWidth.txt, LineBreak.txt,
-PropList.txt and Scripts.txt, Unicode 15.1 -- to print the module; the test compares it with
-src's. Python's unicodedata is never asked: its version is the interpreter's.
+PropList.txt, Scripts.txt and emoji-data.txt, Unicode 15.1 -- to print the module; the test
+compares it with src's. Python's unicodedata is never asked: its version is the interpreter's.
 """
 
 import sys
+from collections.abc import Iterator
 from pathlib import Path
 
 # UAX #14: never before WJ (LB11), GL (LB12a -- even after BA or HY, stricter; never asked after
@@ -42,13 +43,14 @@ NOTES = {
     "MARKS": "UnicodeData's marks, Mn, Mc and Me: never parted from their character (breaks.py)",
     "VIRAMAS": "UnicodeData's canonical combining class 9: a virama, the consonant after it held",
     "WIDE": "EastAsianWidth's W and F: a size, breakable beside -- ranges, for bisect",
+    "UNSPACED": "F, H, W but emoji, Hangul, U+20A9: a line break between two none (breaks.py)",
 }
 # emitted as ranges: 15.1's 182,521 wide points as a frozenset took 40-50 ms and 19 MiB to build
-SPANS = ("WIDE",)
+SPANS = ("WIDE", "UNSPACED")
 
 
-def _property(path: Path) -> dict[int, str]:
-    found: dict[int, str] = {}
+def _values(path: Path) -> Iterator[tuple[int, str]]:
+    """Each code point a line names, and its value: a point once per property it has."""
     for raw in path.read_text(encoding="utf-8").splitlines():
         line = raw.split("#")[0].strip()
         if not line:
@@ -56,8 +58,12 @@ def _property(path: Path) -> dict[int, str]:
         span, value = (x.strip() for x in line.split(";"))
         first, _, last = span.partition("..")
         for c in range(int(first, 16), int(last or first, 16) + 1):
-            found[c] = value
-    return found
+            yield c, value
+
+
+def _property(path: Path) -> dict[int, str]:
+    """A file of one value a point: each point's."""
+    return dict(_values(path))
 
 
 def _unicode_data(path: Path) -> tuple[dict[int, str], dict[int, int]]:
@@ -88,16 +94,25 @@ def sets(ucd: Path) -> dict[str, list[int]]:
     no_end = [c for c, v in classes.items() if v in NO_END_CLASSES]
     no_end += [c for c in quote if category.get(c) == "Pi"]  # an opening quote
     complex_context = [c for c, v in classes.items() if v == "SA"]
-    preposed = [
-        c for c, v in _property(ucd / "PropList.txt").items() if v == "Logical_Order_Exception"
-    ]
+    preposed = [c for c, v in _values(ucd / "PropList.txt") if v == "Logical_Order_Exception"]
     attached = [
         c
         for c, v in classes.items()
         if v in ("CM", "ZWJ") or (v == "SA" and category.get(c) in ("Mn", "Mc"))
     ]
-    narrow = [c for c, v in _property(ucd / "Scripts.txt").items() if v in NARROW_SCRIPTS]
-    wide = [c for c, v in _property(ucd / "EastAsianWidth.txt").items() if v in ("W", "F")]
+    scripts = _property(ucd / "Scripts.txt")
+    narrow = [c for c, v in scripts.items() if v in NARROW_SCRIPTS]
+    width = _property(ucd / "EastAsianWidth.txt")
+    wide = [c for c, v in width.items() if v in ("W", "F")]
+    # CSS Text 3's segment break rule (2013) as Firefox keeps it: IsSegmentBreakSkipChar
+    emoji = {c for c, v in _values(ucd / "emoji-data.txt") if v == "Emoji"}
+    unspaced = [
+        c
+        for c, v in width.items()
+        if (v in ("F", "H") or (v == "W" and c not in emoji))
+        and scripts.get(c) != "Hangul"
+        and c != 0x20A9
+    ]
     found = {
         "NO_START": no_start,
         "NO_END": no_end,
@@ -108,6 +123,7 @@ def sets(ucd: Path) -> dict[str, list[int]]:
         "MARKS": [c for c, v in category.items() if v.startswith("M")],
         "VIRAMAS": [c for c, v in combining.items() if v == 9],  # a virama's class
         "WIDE": wide,
+        "UNSPACED": unspaced,
     }
     return {name: sorted(points) for name, points in found.items()}
 

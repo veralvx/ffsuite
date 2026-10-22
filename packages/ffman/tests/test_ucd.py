@@ -13,10 +13,11 @@ from tests.support.ucd import source
 UCD = Path(os.environ.get("FFMAN_UCD", "/usr/share/texlive/texmf-dist/tex/generic/unicode-data"))
 FILES = ("LineBreak.txt", "PropList.txt", "Scripts.txt", "EastAsianWidth.txt")
 DATA = "UnicodeData.txt"  # no version in it: 15.1's own characters checked instead
+EMOJI = "emoji-data.txt"  # its version in a line of its own
 
 
 @pytest.mark.skipif(
-    not all((UCD / name).is_file() for name in (*FILES, DATA)),
+    not all((UCD / name).is_file() for name in (*FILES, DATA, EMOJI)),
     reason="the Unicode Character Database: FFMAN_UCD",
 )
 def test_the_module_is_unicodes() -> None:
@@ -25,6 +26,7 @@ def test_the_module_is_unicodes() -> None:
         assert (
             f"{name.removesuffix('.txt')}-15.1.0" in (UCD / name).read_text(encoding="utf-8")[:40]
         )
+    assert "\n# Used with Emoji Version 15.1 " in (UCD / EMOJI).read_text(encoding="utf-8")[:400]
     data = (UCD / DATA).read_text(encoding="utf-8")
     assert ";<CJK Ideograph Extension I, First>;" in data  # new in 15.1
     assert ";TODHRI LETTER A;" not in data  # new in 16.0

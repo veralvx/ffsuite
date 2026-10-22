@@ -11,7 +11,8 @@ which needs a dictionary (UAX #14: SA), but never after a vowel written before i
 nor before one written after.
 
 The data: UAX #14's classes, PropList's Logical_Order_Exception, the marks, viramas and wide
-characters -- Unicode 15.1, generated (``ucd.py``), whatever Python's unicodedata; and what
+characters, and those a line break between two of reads as nothing (``joined``; emoji-data's
+read too) -- Unicode 15.1, generated (``ucd.py``), whatever Python's unicodedata; and what
 libass skips (``SKIPPED``), its own list.
 """
 
@@ -26,6 +27,7 @@ from ffman.subs.ucd import (
     NO_START,
     PREPOSED,
     SA,
+    UNSPACED,
     VIRAMAS,
     WIDE,
     points,
@@ -57,6 +59,7 @@ _FOLLOWING: Final = frozenset("\u0e30\u0e32\u0e33\u0e45\u0e46\u0eb0\u0eb2\u0eb3\
 _ZWJ: Final = "\u200d"  # the zero-width joiner: one sequence of the characters around it
 _ZW: Final = "\u200b"  # the zero-width space: a break after it, none before (LB7, LB8)
 _WIDE_FIRSTS: Final = tuple(first for first, _ in WIDE)  # each wide range's first, for bisect
+_UNSPACED_FIRSTS: Final = tuple(first for first, _ in UNSPACED)
 _FIELDS: Final = re.compile(r"[ \t\n]+")  # awk's split(t, a, " "): not NBSP, not U+3000
 
 
@@ -129,6 +132,33 @@ def _base(unit: str) -> str:
 
 def is_wide(c: str) -> bool:
     """East Asian Width W or F: ideographs, kana, hangul, fullwidth -- a size, breakable beside."""
+    return _within(c, WIDE, _WIDE_FIRSTS)
+
+
+def joined(text: str, start: int, end: int) -> bool:
+    """Whether a line break, ``text[start:end]`` with its blanks, is read as nothing, not a space.
+
+    CSS Text 3's rule (2013), as Firefox keeps it (``IsSegmentBreakSkipChar``): beside a
+    zero-width space, or between two characters of East Asian Width F, H or W -- not an emoji,
+    not Hangul, not the won sign -- what libass skips passed over. Firefox also joins beside a
+    wide punctuation mark in Chinese and Japanese: a text's language, which ffman is not told.
+    """
+    if text[start - 1 : start] == _ZW or text[end : end + 1] == _ZW:
+        return True
+    while start > 0 and text[start - 1] in SKIPPED:
+        start -= 1
+    while end < len(text) and text[end] in SKIPPED:
+        end += 1
+    return (
+        start > 0
+        and end < len(text)
+        and _within(text[start - 1], UNSPACED, _UNSPACED_FIRSTS)
+        and _within(text[end], UNSPACED, _UNSPACED_FIRSTS)
+    )
+
+
+def _within(c: str, spans: tuple[tuple[int, int], ...], firsts: tuple[int, ...]) -> bool:
+    """Whether ``c`` is in ``spans``, inclusive ranges in order (``firsts``: their firsts)."""
     point = ord(c)
-    k = bisect_right(_WIDE_FIRSTS, point) - 1
-    return k >= 0 and point <= WIDE[k][1]
+    k = bisect_right(firsts, point) - 1
+    return k >= 0 and point <= spans[k][1]

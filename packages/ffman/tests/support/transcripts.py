@@ -166,6 +166,8 @@ HOSTILE: Final = {
         "1\n00:00:00,000 --> 00:00:00,400\nunder\n\n2\n00:00:00,000 --> 00:00:00,200\nover\n\n"
         "3\n00:00:00,300 --> 00:00:00,250\nbackwards\n"
     ),
+    # WhisperX 3.8.6's `ja` `--max_line_width 4 --max_line_count 2`: a line broken inside a word
+    "wrapped-ja.srt": "1\n00:00:01,000 --> 00:00:02,550\n今日は良\nい天気で\n\n2\n00:00:02,600 --> 00:00:02,750\nす\n",
     "years.srt": "1\n00:00:00,000 --> 00:00:00,400\nWhat changed:\n2024 --> 2025\n",
     "arrows.vtt": (
         "WEBVTT\n\n00:00.000 --> 00:00.200\nx\nNote: 1 --> 2\ny\n\n"

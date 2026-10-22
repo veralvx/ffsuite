@@ -674,6 +674,65 @@ def test_a_subrips_tags_and_escapes_read_as_ffmpeg_then_libass_draw_them(tmp_pat
     assert t.notes == ()
 
 
+# WhisperX 3.8.6's `ja` `--max_line_width 4 --max_line_count 2` (its `utils.py`, run): its JSON's
+# text `今日は良い天気です`, a line broken inside a word
+_WRAPPED_JA: Final = "1\n00:00:01,000 --> 00:00:02,550\n今日は良\nい天気で\n\n"
+
+
+@pytest.mark.parametrize(
+    ("name", "text"),
+    [
+        ("wrapped.srt", _WRAPPED_JA),
+        ("wrapped.vtt", "WEBVTT\n\n00:01.000 --> 00:02.550\n今日は良\nい天気で\n"),
+        ("escaped.srt", _WRAPPED_JA.replace("良\n", "良\\N")),
+        ("br.srt", _WRAPPED_JA.replace("良\n", "良<br>")),
+        ("reference.vtt", "WEBVTT\n\n00:01.000 --> 00:02.550\n今日は良&#13;い天気で\n"),
+        ("lines.lrc", "[00:01.00]今日は良\n[00:01.00]い天気で\n[00:02.55]\n"),
+        ("broken.tsv", "start\tend\ttext\n1000\t2550\t今日は良\nい天気で\n"),
+        (
+            "crlf.json",
+            json.dumps({"segments": [{"start": 1, "end": 2.55, "text": "今日は良\r\nい天気で"}]}),
+        ),
+    ],
+)
+def test_a_cjk_cues_line_break_is_read_as_nothing_in_every_format(
+    tmp_path: Path, name: str, text: str
+) -> None:
+    assert [c.text for c in ingested(put(tmp_path, name, text)).chunks] == ["今日は良い天気で"]
+
+
+@pytest.mark.parametrize(
+    ("text", "shown"),
+    [
+        ("one\ntwo", "one two"),
+        ("今日 \t\n\n い天気", "今日い天気"),  # the blanks round it, the lines after it, one break
+        ("안녕\n하세요", "안녕 하세요"),  # Hangul: spaced
+        ("今日は\nAI", "今日は AI"),  # a narrow side
+        ("😀\n😀", "😀 😀"),  # an emoji, wide
+        ("₩\n日", "₩ 日"),  # the won sign, halfwidth
+        ("ｺ\nﾘ", "ｺﾘ"),  # halfwidth katakana
+        ("a\u200b\nb", "a\u200bb"),  # a zero-width space beside it
+        ("a\n\u200bb", "a\u200bb"),
+        ("今\r日", "今日"),  # a CR alone, a break
+        ("今\ufe00\n日", "今\ufe00日"),  # what libass skips passed over
+        ("今\n\u2060日", "今\u2060日"),  # either side
+        ("\n今", "今"),
+    ],
+)
+def test_a_line_break_is_a_space_but_between_two_cjk_characters(text: str, shown: str) -> None:
+    # CSS Text 3's segment break rule (2013), as Firefox keeps it
+    assert clean(text, Markup.PLAIN) == shown
+
+
+@pytest.mark.parametrize("markup", list(Markup))
+def test_a_texts_blanks_and_breaks_are_cleaned_in_linear_time(markup: Markup) -> None:
+    # `` *\n`` tried from each blank of a run no break ends scans the run again (80,000: 3.5 s)
+    text = f"a{' ' * 100_000}b{'今\n' * 10_000}"
+    began = time.monotonic()
+    assert clean(text, markup) == f"a b{'今' * 10_000}"
+    assert time.monotonic() - began < 1
+
+
 def test_braces_and_backslashes_are_drawn_as_written(tmp_path: Path) -> None:
     t = ingested(put(tmp_path, "braces.srt", HOSTILE["braces.srt"]))
     assert [c.text for c in t.chunks] == ["a{b} c\\x"]  # \{ \} its braces; {d} a block, hidden

@@ -442,6 +442,19 @@ def test_a_highlighted_cue_a_word_is_word_level_to_chunk_word(
     assert said in capsys.readouterr().err
 
 
+@pytest.mark.parametrize(
+    "text", ["今日は良い天気で", "今日は良\nい天気で"], ids=["one line", "wrapped"]
+)
+def test_a_cjk_cue_is_one_word_to_word_mode_wrapped_or_not(
+    clip: Path, tmp_path: Path, text: str
+) -> None:
+    """No space in it, its line break read as none (Line breaks read) -- before, wrapped, refused."""
+    srt = tmp_path / "ja.srt"
+    _ = srt.write_text(f"1\n00:00:01,000 --> 00:00:02,550\n{text}\n", encoding="utf-8")
+    argv = ["convert", "-i", str(clip), "--burn-subs", str(srt), "-o", str(tmp_path / "b.mkv")]
+    assert main([*argv, "--overlay-mode", "word", "--dry-run"]) == 0
+
+
 GAPS = str(Path(__file__).parent / "fixtures" / "transcripts" / "wx-gaps.json")
 
 # ffman's own entry, in a fresh Python: its argv the command line

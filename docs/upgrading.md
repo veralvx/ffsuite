@@ -73,6 +73,6 @@ Moved from that run-book; nixos-config's own couplings stay there.
     names each by it (`readers/whisper.py`). OpenAI whisper is not pinned either: when its
     writers change, write the `openai*` fixtures' results again with them.
 27. WhisperX's `utils.py` still joins a `ja` or `zh` cue of a gap between words by nothing and a
-    highlighted one by spaces, its `[speaker]: ` before both, and OpenAI whisper's
-    `--max_words_per_line 1` still writes no gap's cue: subverter reads highlighted cues by them
-    (`readers/cues.py`).
+    highlighted one by spaces, its `[speaker]: ` before both, its line breaks between words alone
+    (`--max_line_width`), and OpenAI whisper's `--max_words_per_line 1` still writes no gap's cue:
+    subverter reads highlighted cues by them (`readers/cues.py`).
