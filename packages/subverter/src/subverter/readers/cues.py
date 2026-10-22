@@ -294,26 +294,29 @@ def _highlighted(cues: list[Cue], *, unspaced: bool) -> tuple[list[Cue], list[Ti
     """One sentence a run of one text (new when the underline moves back); each <u> a word.
 
     A sentence's text is its first cue's without the underline -- ``unspaced``, without WhisperX's
-    spaces too, as its gap cues join its words (``_is_unspaced``).
+    spaces too, as its gap cues join its words (``_is_unspaced``); its lead, its speaker.
     """
     sentences: list[Cue] = []
     words: list[Timing] = []
-    current, text, cs, ce, last, sid = "", "", None, None, -1, -1
+    current, text, lead, cs, ce, last, sid = "", "", "", None, None, -1, -1
     for cue in cues:
         key = _key(cue.text)
         underline = _UNDERLINE.search(cue.text)
         offset = len(_plain(cue.text[: underline.start()])) if underline else -1
         if key != current or (underline and offset <= last):
             if current:
-                sentences.append(Cue(cs, ce, text, str(sid)))
+                sentences.append(Cue(cs, ce, text, str(sid), lead))
             sid, current, cs, last = sid + 1, key, cue.start, -1
             text = _sentence(cue.text, unspaced=unspaced)
+            lead = text[: _spoken(text)]
         ce = cue.end
         if underline:
             words.append(Timing(str(sid), cue.start, cue.end, underline[1]))
             last = offset
+            if offset < len(lead):  # a word, not a speaker: OpenAI whisper's `[Music]:` underlined
+                lead = ""
     if current:
-        sentences.append(Cue(cs, ce, text, str(sid)))
+        sentences.append(Cue(cs, ce, text, str(sid), lead))
     return sentences, words
 
 

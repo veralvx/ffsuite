@@ -13,6 +13,7 @@ class Chunk:
     end: int
     text: str
     segment: str
+    lead: str = ""  # its text's start no word holds, drawn before its words (``Cue.lead``)
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,6 +46,7 @@ class Cue:
     end: int | None
     text: str
     segment: str = ""  # the sentence its words name, where words are timed
+    lead: str = ""  # its text's start no word holds: a highlighted sentence's speaker, WhisperX's
 
 
 @dataclass(frozen=True, slots=True)

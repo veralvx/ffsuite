@@ -1139,7 +1139,7 @@ def test_whisperxs_highlighted_cues_in_ja_or_zh_read_as_its_json(data: str, sent
     reading = subverter.read("srt", data.encode(), "a.srt")
     assert (reading.has_words, reading.cues, reading.words) == (
         True,
-        (Cue(1000, 1600, sentence, "0"),),
+        (Cue(1000, 1600, sentence, "0", sentence.removesuffix("今日は")),),  # its speaker its lead
         _TODAY_WORDS,
     )
 
@@ -1177,6 +1177,25 @@ def test_without_a_gaps_cue_a_highlighted_sentences_spaces_are_as_written(data: 
     assert " " in cue.text
 
 
+def test_a_speakers_form_underlined_is_a_word_no_lead() -> None:
+    # OpenAI whisper's sentence opening `[Music]: `: its first word, not a speaker -- before, the
+    # lead too, drawn twice in chunk-word
+    data = "".join(
+        f"{n}\n00:00:0{n},000 --> 00:00:0{n},500\n{text}\n\n"
+        for n, text in enumerate(
+            [
+                "<u>[Music]:</u> hello there",
+                "[Music]: <u>hello</u> there",
+                "[Music]: hello <u>there</u>",
+            ],
+            1,
+        )
+    )
+    reading = subverter.read("srt", data.encode(), "a.srt")
+    assert reading.cues == (Cue(1000, 3500, "[Music]: hello there", "0"),)
+    assert [w.text for w in reading.words] == ["[Music]:", "hello", "there"]
+
+
 @pytest.mark.parametrize(
     "second",
     ["[SPEAKER_01]: ", ""],
@@ -1193,8 +1212,8 @@ def test_one_text_of_two_speakers_is_two_sentences(second: str) -> None:
         f"5\n00:00:01,700 --> 00:00:02,000\n{second}Yes, <u>sure.</u>\n\n"
     )
     assert subverter.read("srt", data.encode(), "a.srt").cues == (
-        Cue(500, 1000, "[SPEAKER_00]: Yes, sure.", "0"),
-        Cue(1200, 2000, f"{second}Yes, sure.", "1"),
+        Cue(500, 1000, "[SPEAKER_00]: Yes, sure.", "0", "[SPEAKER_00]: "),
+        Cue(1200, 2000, f"{second}Yes, sure.", "1", second),
     )
 
 
@@ -1236,7 +1255,7 @@ def test_a_cue_a_word_underlined_is_a_sentence_of_that_word(speaker: str) -> Non
     assert (reading.has_words, reading.cues, reading.words) == (
         True,
         tuple(
-            Cue(a, z, speaker + t, str(i))
+            Cue(a, z, speaker + t, str(i), speaker)
             for i, ((a, z), t) in enumerate(zip(times, words, strict=True))
         ),
         tuple(
