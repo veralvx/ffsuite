@@ -4185,11 +4185,44 @@ tests with 6.8.3's converters.*
       the generated set's note naming `breaks.py`, its reader; `clean`'s squeeze of a tab no input
       reaches dropped (200,000 texts each markup alike); the highlighted row's line breaks. Suite
       2589, coverage 100%; the outcome report 524 identical, the new case alone changed.*
-- [ ] Found by the highlighted cues box: a highlighted sentence keeps WhisperX's `[SPEAKER]: `, so
+- [x] Found by the highlighted cues box: a highlighted sentence keeps WhisperX's `[SPEAKER]: `, so
       its chunk-word line, drawn from its words, shows no speaker, and in `ja` or `zh` spaces its
       characters (`subs/ass.py`: a text with a space, its words spaced) -- measured
       `今 日 は 良 い 天 気 で す`, its JSON's line `今日は良い天気です`. To decide: the speaker kept out of the
       sentence (a field of its own, as the JSON's `speaker`), drawn before its words, or as now.
+      *Done: the speaker its sentence's `lead` (`Cue.lead`, `Chunk.lead`: its text's start no word
+      holds), drawn before its words, never lit, the words spaced as the text after it --
+      `[SPEAKER_00]: 今日は良い天気です`, as its plain line and WhisperX's gap cue show it, WhisperX's
+      highlighted cue its words after the speaker, one underlined: chunk-word's form (`8e7071e`,
+      `79a3e25`; decisions' "Highlighted speaker"). Weighed: dropped, as its JSON's (ffman never
+      reads one) -- a text every player shows, lost; read back from the text by ffman -- WhisperX's
+      form in the drawing; a lead, set by the reader that knows it. A lead an underline falls in is
+      a word (OpenAI whisper's `[Music]:`), none; the lead broken as a plain line where a line may
+      break. Proof: OpenAI whisper v20250625's writer and WhisperX's tags v3.1.1 to v3.8.6 on `en`,
+      `ja` and `zh`, diarized or not, wrapped or not -- 584 sentences, each chunk-word line against
+      its plain one: 408 alike before, 584 after; the plain, word and word-highlight modes
+      byte-identical, and every mode without a speaker. Tests failing first, the mutants caught;
+      suite 2597, coverage 100%, and at `8e7071e` alone 2590; the matrix 770; the outcome report
+      against `efb6781` on 3.13 and 3.14: 524 identical, `burn/chunk-word/wx-diarized-wrapped.srt`
+      its speaker leading each line; `subtitle-mappings`' speakers row (`17645ed`). Reviewed: an
+      independent reviewer's two rounds, to convergence -- an underlined `[Music]:` drawn twice,
+      its lead dropped; the layers' hidden and lit words paired by test (two mutants had lived);
+      a speaker wider than a line broken as a plain line's; "gap cue". Then its review, end to end,
+      at the owner's request, and a third independent reviewer's: a lead its cleaned text does not
+      open with (a SubRip speaker's `{` a later `}` closes) none, its brace text no longer drawn; a
+      property that each lit word is a timed one, never a lead's (the strategy's chunks given
+      leads); `led`, not `at`, a method's name. It found two boxes: WhisperX's JSON `speaker` never
+      read; a highlighted sentence's untimed word missing from chunk-word.*
+- [ ] Found by the speaker box: WhisperX's JSON `speaker` (a segment's, a word's) is never read, so
+      a diarized JSON burns no speaker in any mode, where its SubRip, WebVTT and `.txt` show
+      `[SPEAKER_00]: ` before each text (`utils.py`) -- and whisper-cli's `-di` `speaker` alike. To
+      decide: read it as the sentence's text and lead, as WhisperX's SubRip writes it, or as now.
+- [ ] Found by the speaker box's review: a word WhisperX left untimed (digits, symbols: no
+      `start`) has no highlighted cue, so no `<u>`: read from a highlighted SubRip or WebVTT, it is
+      no word, and chunk-word, drawn from words, leaves it out -- `[SPEAKER_00]: there you`, its
+      plain line `[SPEAKER_00]: Hi there you` (its JSON's words keep it, placed by normalize). To
+      decide: the sentence's text the words not underlined fill (an untimed word between timed ones),
+      or as now.
 - [ ] Found by the highlighted cues box's runs: `test_lrc.py`'s bounded-work test of 20 000 equal
       stamps takes 0.90 s of its 1 s under coverage alone (0.28 s without), so a parallel run on two
       cores fails it now and then. To decide: a bound measured against the reading's own scale (a
