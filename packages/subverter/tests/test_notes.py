@@ -78,5 +78,5 @@ def test_a_readers_note_quotes_its_text_shown(fmt: str, data: str, quoted: str) 
 
 def test_a_short_text_is_quoted_whole() -> None:
     reading = subverter.read("srt", f"1\n{_T1}\na\n\nshort\n".encode(), "a.srt")
-    assert reading.cues == (Cue(1000, 2000, "a short"),)
+    assert reading.cues == (Cue(1000, 2000, "a\nshort"),)
     assert reading.notes[0].endswith("the first, short on line 5")

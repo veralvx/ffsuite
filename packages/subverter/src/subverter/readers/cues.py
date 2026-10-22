@@ -228,13 +228,13 @@ def _joined(
     times: list[tuple[int | None, int | None]],
     texts: list[tuple[int, int]],
 ) -> tuple[list[Cue], Nuls]:
-    """Each cue, its text lines joined by a space; their NULs (``utf8.by_line``)."""
+    """Each cue, its text lines joined by a line break; their NULs (``utf8.by_line``)."""
     whole = by_line([(i + 1, lines[i]) for _, i in texts], name)
     parts: list[list[str]] = [[] for _ in times]
     for (cue, _), text in zip(texts, whole.texts, strict=True):
         if text:  # a line of a character's last bytes alone: given to the line it starts in
             parts[cue].append(text)
-    return [Cue(*t, " ".join(p)) for t, p in zip(times, parts, strict=True)], whole.nuls
+    return [Cue(*t, "\n".join(p)) for t, p in zip(times, parts, strict=True)], whole.nuls
 
 
 def _plain(text: str) -> str:
@@ -254,7 +254,7 @@ def _unspeakered(text: str) -> str:
 
 
 def _key(text: str) -> str:
-    """A cue's sentence as its neighbours compare it: no underline, no space past its speaker.
+    """A cue's sentence as its neighbours compare: no underline, no space or break past a speaker.
 
     WhisperX joins a ``ja`` or ``zh`` cue of a gap between words by nothing, a highlighted one by
     spaces (``utils.py`` from 3.2.0; PyPI's 3.1.x, a third party's, alike).
@@ -318,12 +318,13 @@ def _highlighted(cues: list[Cue], *, unspaced: bool) -> tuple[list[Cue], list[Ti
 
 
 def _sentence(text: str, *, unspaced: bool) -> str:
-    """A highlighted cue's sentence: its text without the underline (``unspaced``: without spaces).
+    """A highlighted cue's sentence: its text without the underline (``unspaced``: its spaces too).
 
-    WhisperX's spaces are between its words alone; its speaker's ``[X]: `` kept.
+    WhisperX's spaces and line breaks are between its words alone, which its ``ja`` and ``zh`` join
+    by nothing; its speaker's ``[X]: `` kept.
     """
     plain = _plain(text)
     if not unspaced:
         return plain
     at = _spoken(plain)
-    return plain[:at] + plain[at:].replace(" ", "")
+    return plain[:at] + plain[at:].replace(" ", "").replace("\n", "")

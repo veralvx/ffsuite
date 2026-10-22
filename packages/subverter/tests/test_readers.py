@@ -69,7 +69,7 @@ def test_any_mix_of_a_formats_line_ends_reads_as_lf(fmt: str, data: st.DataObjec
 
 _VTT: Final = _PLAIN["vtt"]
 _SRT: Final = _PLAIN["srt"]
-_BOTH: Final = (Cue(1000, 2000, "first line2"), Cue(3000, 4000, "second"))
+_BOTH: Final = (Cue(1000, 2000, "first\nline2"), Cue(3000, 4000, "second"))
 _NO_TEXT: Final = (Cue(1000, 2000, ""), Cue(3000, 4000, ""))
 
 
@@ -80,7 +80,7 @@ _NO_TEXT: Final = (Cue(1000, 2000, ""), Cue(3000, 4000, ""))
         # so a blank line after each timing line -- its cue of no text
         ("vtt", _VTT.replace("\n", "\r"), _BOTH),
         ("vtt", _VTT.replace("\n", "\r", 3), _BOTH),
-        ("vtt", _VTT.replace("first", "fi\rrst"), (Cue(1000, 2000, "fi rst line2"), _BOTH[1])),
+        ("vtt", _VTT.replace("first", "fi\rrst"), (Cue(1000, 2000, "fi\nrst\nline2"), _BOTH[1])),
         ("vtt", _VTT.replace("line2\n\n", "line2\r\r"), _BOTH),
         ("vtt", _VTT.replace("\n", "\r\r\n"), _NO_TEXT),
         ("vtt", _VTT.replace("\n", "\n\r"), _NO_TEXT),
@@ -88,7 +88,7 @@ _NO_TEXT: Final = (Cue(1000, 2000, ""), Cue(3000, 4000, ""))
         # cue's empty lines skipped (its texts after them noted)
         ("srt", _SRT.replace("\n", "\r"), _BOTH),
         ("srt", _SRT.replace("\n", "\r", 3), _BOTH),
-        ("srt", _SRT.replace("first", "fi\rrst"), (Cue(1000, 2000, "fi rst line2"), _BOTH[1])),
+        ("srt", _SRT.replace("first", "fi\rrst"), (Cue(1000, 2000, "fi\nrst\nline2"), _BOTH[1])),
         ("srt", _SRT.replace("\n", "\r\r\n"), _BOTH),
         ("srt", _SRT.replace("line2\n\n", "line2\n\r\n"), _BOTH),
         ("srt", _SRT.replace("\n", "\n\r"), _BOTH),
@@ -218,9 +218,9 @@ def test_a_character_split_across_cues_is_the_one_where_it_starts(
 
 
 def test_a_cues_lines_are_joined_each_its_characters_whole() -> None:
-    # é begun in a line, ended in the next: its lines joined by a space, as any cue's
+    # é begun in a line, ended in the next: its lines joined by a line break, as any cue's
     data = b"1\n00:00:01,000 --> 00:00:02,000\ncaf\xc3\n\xa9 ok\n"
-    assert subverter.read("srt", data, "a.srt").cues == (Cue(1000, 2000, "café  ok"),)
+    assert subverter.read("srt", data, "a.srt").cues == (Cue(1000, 2000, "café\n ok"),)
 
 
 @pytest.mark.parametrize(
@@ -292,11 +292,11 @@ _SRT_NUL: Final = (
     ("fmt", "data", "texts", "where"),
     [
         ("srt", _SRT_NUL, ["fi\ufffdrst", "second"], "line 3"),
-        # Chromium 141: `fi\ufffdrst\nline2` (measured), its lines joined here by a space
+        # Chromium 141: `fi\ufffdrst\nline2` (measured)
         (
             "vtt",
             b"WEBVTT\n\n00:01.000 --> 00:02.000\nfi\x00rst\nline2\n",
-            ["fi\ufffdrst line2"],
+            ["fi\ufffdrst\nline2"],
             "line 4",
         ),
         ("lrc", b"[00:01.00]fi\x00rst\n[00:03.00]second\n", ["fi\ufffdrst", "second"], "line 1"),
