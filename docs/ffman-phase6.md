@@ -4152,11 +4152,39 @@ tests with 6.8.3's converters.*
       (`alignment.py` drops it), its gap cues' text kept. It found three boxes: a CJK cue's line
       break read as a space; a highlighted sentence's speaker in chunk-word; and the suite's LRC
       timing test near its bound, base and head alike under coverage (0.85-0.97 s).*
-- [ ] Found by the highlighted cues box: a SubRip or WebVTT cue's line break is read as a space, in
+- [x] Found by the highlighted cues box: a SubRip or WebVTT cue's line break is read as a space, in
       a script written without spaces too -- WhisperX 3.8.6's `ja`
       `--max_line_width 4 --max_line_count 2` burned `今日は良 い天気で` (measured), its JSON `今日は良い天気です`.
       To decide: join a line break by nothing between two characters of a script without spaces (UAX
       #14's), or as now.
+      *Done: a line break, the blanks around it, a space, but nothing beside a zero-width space or
+      between two characters of East Asian Width F, H or W, neither emoji, Hangul nor U+20A9, what
+      libass skips passed over -- CSS Text 3's segment break rule (W3C WD 2013-10-10, 4.1.2;
+      UA-defined since), as Firefox keeps it (`IsSegmentBreakSkipChar`); its Chinese and Japanese
+      punctuation rule needs a language ffman is not told. subverter keeps a SubRip or WebVTT cue's
+      lines, as its other readers do (`16b9d66`, breaking: `Cue.text` holds the break); ffman
+      decides, one rule for every format's break; WhisperX's `ja` and `zh` highlighted sentences
+      join theirs by nothing, as their spaces (`3aa68d2`; decisions' "Line breaks read";
+      `upgrading.md` 27). Proof: OpenAI whisper v20250625's and WhisperX 3.8.6's writers run on
+      `ja`, `zh`, `ko`, `th`, `en` and `ja` with Latin, wrapped at 2 to 6, highlighted or not -- 192
+      cues against their JSON as ffman ingests it, 104 equal before, 158 after, none worse; left a
+      space: a break beside Latin in `ja`, OpenAI whisper's `th` (its break may stand for a word's
+      space). Tests failing first, the rule's mutants caught; suite 2587, coverage 100% (2586
+      passed, the LRC timing test its own box's), and at `16b9d66` alone 2561; the matrix 770; the
+      outcome report against `dc22746` on 3.13 and 3.14: 524 identical, `burn/hostile/wrapped-ja.srt`
+      new; the `subrip`, `webvtt` and `lrc` skills (`f783889`), the `subrip` script's example
+      burned through ffman, measured. Reviewed: an independent reviewer's, two rounds -- `clean`
+      quadratic on a run of spaces (80,000: 3.5 s), its pattern made linear, tested; two mutants
+      left alive, killed; six stale decisions rows and a mapping row; subverter's change its own
+      breaking commit, its README; the word modes now taking a wrapped CJK cue as one word, and
+      Firefox's ignorables against libass's, stated. Left: `subtitle-mappings`' `ffmpeg.md`, pinned
+      to subverter at `5853573`, for its own box; the WebVTT unclosed-tag bounded test failed once
+      under load (0.25-0.33 s under coverage alone, base and head alike), the LRC timing box's kind.
+      Then its review, end to end, at the owner's request, and a second independent reviewer's: the
+      word modes taking a wrapped CJK cue tested (refused before); the tests named CJK, Thai spaced;
+      the generated set's note naming `breaks.py`, its reader; `clean`'s squeeze of a tab no input
+      reaches dropped (200,000 texts each markup alike); the highlighted row's line breaks. Suite
+      2589, coverage 100%; the outcome report 524 identical, the new case alone changed.*
 - [ ] Found by the highlighted cues box: a highlighted sentence keeps WhisperX's `[SPEAKER]: `, so
       its chunk-word line, drawn from its words, shows no speaker, and in `ja` or `zh` spaces its
       characters (`subs/ass.py`: a text with a space, its words spaced) -- measured
