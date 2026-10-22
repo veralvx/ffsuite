@@ -60,3 +60,21 @@ def test_libass_draws_each_text_as_written(
     for _, run in groupby((m for m in events if m), key=lambda m: m.group(2, 3, 4, 5, 6, 7, 8, 9)):
         shown.append("".join("".join(libass_reads(m[10])[0].split()) for m in run))
     assert shown == texts
+
+
+_LIT = re.compile(r"\{\\alpha&H00&[^}]*\}(.*)\{\\r\\alpha&HFF&\}")  # layer 1's lit word
+
+
+@settings(max_examples=300, deadline=None)
+@given(transcripts(), STYLES, FRAMES)
+def test_chunk_word_lights_its_timed_words_alone(
+    t: Transcript, style: Style, frame: tuple[int, int]
+) -> None:
+    """Each word lit on layer 1 is one of its words -- never a lead's (a speaker's) unit."""
+    if style.mode != "chunk-word":
+        return
+    words = {"".join(w.text.split()) for w in t.words}
+    for line in script(t, *frame, style)[0].splitlines():
+        m = EVENT.fullmatch(line)
+        if m and m[1] == "1" and (lit := _LIT.search(m[10])):
+            assert "".join(libass_reads(lit[1])[0].split()) in words, (lit[1], words)

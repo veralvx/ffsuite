@@ -460,18 +460,23 @@ class _Events:
                 self._block(self._wrap(*segments(c.text)), c.start, c.end)
                 continue
             words = [w.text for w in timed]
-            # unspaced text: its timed words abut
-            sep = "" if len(words) > 1 and " " not in c.text else " "
-            lines = self._wrap(words, ["", *[sep] * (len(words) - 1)])
-            self._chunk_events(c, timed, lines)
+            # unspaced text: its timed words abut -- its lead, a speaker, before them, no word
+            sep = "" if len(words) > 1 and " " not in c.text.removeprefix(c.lead).strip() else " "
+            lead, between = segments(c.lead)  # broken as a plain line's, where it may
+            gaps = [*between, " " if lead else "", *[sep] * (len(words) - 1)]
+            self._chunk_events(c, timed, self._wrap([*lead, *words], gaps), len(lead))
 
-    def _chunk_events(self, c: Chunk, timed: list[Word], lines: _Lines) -> None:
-        """Every event inside the chunk's window, whatever the word times say."""
+    def _chunk_events(self, c: Chunk, timed: list[Word], lines: _Lines, led: int) -> None:
+        """Every event inside the chunk's window, whatever the word times say.
+
+        Its timed words are the lines' past their first ``led`` units, a lead's, never lit.
+        """
         first = min(max(timed[0].start, c.start), c.end)
         self._block(lines, c.start, first)
-        for k, word in enumerate(timed):
+        for i, word in enumerate(timed):
+            k = led + i
             s = min(max(word.start, c.start), c.end)
-            e = max(min(timed[k + 1].start if k + 1 < len(timed) else c.end, c.end), s)
+            e = max(min(timed[i + 1].start if i + 1 < len(timed) else c.end, c.end), s)
             self._block(lines, s, e, k)
             n = lines.line_of[k]
             shown = self._line(lines, n, k, top=True, s=s, e=e)

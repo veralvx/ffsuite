@@ -41,7 +41,7 @@ def cues(raw: Sequence[Cue], markup: Markup) -> Chunks:
             timed.append((c.start, c.end, c))
         elif text := clean(c.text, markup):
             untimed.append(text)
-    kept: list[tuple[int, int, str, str]] = []
+    kept: list[tuple[int, int, str, Cue]] = []
     reversed_: list[str] = []
     for start, end, cue in sorted(timed, key=lambda t: t[0]):
         text = clean(cue.text, markup)
@@ -49,16 +49,19 @@ def cues(raw: Sequence[Cue], markup: Markup) -> Chunks:
             continue
         a, b = max(start, 0), max(end, 0)
         if b > a:
-            kept.append((a, b, text, cue.segment))
+            kept.append((a, b, text, cue))
         elif end < start:
             reversed_.append(text)
     runs = [list(run) for _, run in groupby(kept, key=lambda k: k[0])]  # each, one start
     chunks: list[Chunk] = []
     same_start: list[str] = []
     for r, run in enumerate(runs):
-        *cut, (a, b, text, segment) = run  # the last of a start shown, to the next start
+        *cut, (a, b, text, cue) = run  # the last of a start shown, to the next start
         nxt = runs[r + 1][0][0] if r + 1 < len(runs) else b
-        chunks.append(Chunk(a, min(b, nxt), text, segment))
+        lead = clean(cue.lead, markup)  # its text's start, as cleaned, or none (a brace it opens)
+        chunks.append(
+            Chunk(a, min(b, nxt), text, cue.segment, lead if text.startswith(lead) else "")
+        )
         same_start += [t for _, _, t, _ in cut if t != text]  # its own text shown: none lost
     return Chunks(tuple(chunks), tuple(untimed), tuple(reversed_), tuple(same_start))
 

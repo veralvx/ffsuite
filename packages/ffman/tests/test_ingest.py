@@ -733,6 +733,95 @@ def test_a_texts_blanks_and_breaks_are_cleaned_in_linear_time(markup: Markup) ->
     assert time.monotonic() - began < 1
 
 
+# WhisperX 3.8.6's `--highlight_words True`, diarized (its `utils.py`, run): `ja` and `en`
+_DIARIZED: Final = "".join(
+    f"{n}\n00:00:01,{a} --> 00:00:01,{z}\n[SPEAKER_00]: {text}\n\n"
+    for n, (a, z, text) in enumerate(
+        [
+            ("000", "150", "<u>{0}</u> {1} {2}"),
+            ("150", "200", "{0}{3}{1}{3}{2}"),
+            ("200", "350", "{0} <u>{1}</u> {2}"),
+            ("350", "400", "{0}{3}{1}{3}{2}"),
+            ("400", "550", "{0} {1} <u>{2}</u>"),
+        ],
+        1,
+    )
+)
+
+
+@pytest.mark.parametrize(
+    "words", [("今", "日", "は", ""), ("Hi", "there", "you", " ")], ids=["ja", "en"]
+)
+def test_a_highlighted_sentences_speaker_leads_its_chunk_word_line_never_lit(
+    tmp_path: Path, words: tuple[str, str, str, str]
+) -> None:
+    """As its plain line and WhisperX's gap cue show it -- before, no speaker, `ja` spaced."""
+    t = ingested(put(tmp_path, "d.srt", _DIARIZED.format(*words)))
+    (chunk,) = t.chunks  # its plain line: the speaker, then the words as its gap cues join them
+    assert chunk.text == f"[SPEAKER_00]: {words[3].join(words[:3])}"
+    events = [e.split(",", 9) for e in script(t, 1920, 1080, Style("chunk-word"))[0].splitlines()]
+    base = {re.sub(r"\{[^}]*\}", "", f[9]) for f in events if f[0] == "Dialogue: 0"}
+    assert base == {chunk.text}
+    lit = [f[9] for f in events if f[0] == "Dialogue: 1"]
+    assert len(lit) == len(t.words) == 3  # a word each, the speaker hidden in every one
+    assert all(e.startswith("{\\an5") and "\\alpha&HFF&}[SPEAKER_00]:" in e for e in lit)
+
+
+def test_a_lead_its_cleaned_text_does_not_open_with_is_none(tmp_path: Path) -> None:
+    """A speaker's `{` a later `}` closes: the text, cleaned, hides it -- so its lead, not drawn."""
+    text = (
+        "[a{b]: x <u>hi</u> there}\n\n2\n00:00:01,500 --> 00:00:02,000\n[a{b]: x hi <u>there</u>}"
+    )
+    t = ingested(put(tmp_path, "b.srt", f"1\n00:00:01,000 --> 00:00:01,500\n{text}\n"))
+    assert [(c.text, c.lead) for c in t.chunks] == [("[a", "")]
+
+
+_HIDDEN: Final = re.compile(r"\\pos\([^,]+,([^)]+)\).*\{\\alpha&HFF&\}(.*?)\{\\alpha&H00&\}")
+_LIT: Final = re.compile(r"\\pos\([^,]+,([^)]+)\).*\{\\alpha&H00&[^}]*\}(.*?)\{\\r")
+
+
+@pytest.mark.parametrize(
+    ("text", "width", "lines"),
+    [
+        (_DIARIZED.format("今", "日", "は", ""), 1920, {"[SPEAKER_00]: 今日は"}),
+        (
+            (
+                Path(__file__).parent / "fixtures" / "transcripts" / "wx-diarized-wrapped.srt"
+            ).read_text(encoding="utf-8"),
+            1920,
+            None,
+        ),
+        (
+            _DIARIZED.format("Hi", "there", "you", " ").replace(
+                "SPEAKER_00", "A speaker named at length"
+            ),
+            480,
+            {"[A speaker", "named at", "length]: Hi", "there you"},  # broken as a plain line
+        ),
+    ],
+    ids=["ja", "wrapped", "a wide speaker"],
+)
+def test_chunk_word_lights_on_layer_1_the_word_it_hides_on_layer_0_past_a_speaker(
+    tmp_path: Path, text: str, width: int, lines: set[str] | None
+) -> None:
+    """Each word, the speaker before it on its line or the lines above, never lit nor hidden."""
+    drawn = script(ingested(put(tmp_path, "d.srt", text)), width, 1080, Style("chunk-word"))[0]
+    hidden: dict[str, set[tuple[str, str]]] = {}
+    lit: dict[str, set[tuple[str, str]]] = {}
+    for event in drawn.splitlines():
+        if event.startswith("Dialogue: "):
+            f = event.split(",", 9)
+            for into, pattern in ((hidden, _HIDDEN), (lit, _LIT)):
+                if f[0] == f"Dialogue: {int(pattern is _LIT)}" and (m := pattern.search(f[9])):
+                    into.setdefault(f[1], set()).add((m[1], m[2]))
+    assert hidden == lit
+    assert len(lit) > 1
+    if lines is not None:
+        shown = [e.split(",", 9) for e in drawn.splitlines() if e.startswith("Dialogue: 0")]
+        assert {re.sub(r"\{[^}]*\}", "", f[9]) for f in shown} == lines
+    assert all("speaker" not in w.lower() for found in lit.values() for _, w in found)
+
+
 def test_braces_and_backslashes_are_drawn_as_written(tmp_path: Path) -> None:
     t = ingested(put(tmp_path, "braces.srt", HOSTILE["braces.srt"]))
     assert [c.text for c in t.chunks] == ["a{b} c\\x"]  # \{ \} its braces; {d} a block, hidden

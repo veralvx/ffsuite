@@ -20,14 +20,18 @@ TEXT = st.text(alphabet="ab xyz{}\\Nh日本語 é", min_size=1, max_size=40).map
 
 @st.composite
 def transcripts(draw: st.DrawFn) -> Transcript:
-    """Ordered, apart chunks; for some, words ordered inside their window (normalize's output)."""
+    """Ordered, apart chunks; for some, words ordered inside their window (normalize's output).
+
+    A chunk's text opens with its lead, when it has one (a highlighted sentence's speaker).
+    """
     chunks: list[Chunk] = []
     words: list[Word] = []
     at = draw(st.integers(0, 5000))
     for k in range(draw(st.integers(1, 5))):
         length = draw(st.integers(20, 6000))
-        text = draw(TEXT)
-        chunks.append(Chunk(at, at + length, text, str(k)))
+        lead = draw(st.one_of(st.just(""), TEXT))
+        text = " ".join(filter(None, (lead, draw(TEXT))))
+        chunks.append(Chunk(at, at + length, text, str(k), lead))
         if draw(st.booleans()):
             count = draw(st.integers(1, 6))
             starts = sorted(
