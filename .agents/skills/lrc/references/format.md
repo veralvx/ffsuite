@@ -165,13 +165,14 @@ lines, as a SubRip's (`subrip.file_lines`: a CR or an LF ends one, CR CR LF one 
 stamps at its start, blanks before and between them, `[m:ss.f]` -- minutes and seconds of any
 digits, the fraction optional, a decimal, a minus a time before 0, seconds past 60 of two digits;
 each stamp a line of the text after them, sorted, those of one start one, their texts joined by a
-line break (burned a space), a text shown already once, each ending at the next start, the last 3 s
-on; any other line but a tag (`[`, a letter or `#`, then `:`) or an empty one dropped; the blanks,
-the minus, the seconds, the shared starts and the dropped lines noted, each kind counted; the last
-`[offset:]` of whole ms moving every time, `+` sooner, noted, each reason another is ignored
-counted; the text as written but for Enhanced LRC's word stamps, taken off (`markup.unstamped`), its
-blanks squeezed and trimmed; a NUL U+FFFD, noted; a file of no line read refused, `no timed text
-found`, after its notes. The measured table above holds its column.
+line break (burned a space, nothing between two CJK characters), a text shown already once, each
+ending at the next start, the last 3 s on; any other line but a tag (`[`, a letter or `#`, then `:`)
+or an empty one dropped; the blanks, the minus, the seconds, the shared starts and the dropped lines
+noted, each kind counted; the last `[offset:]` of whole ms moving every time, `+` sooner, noted,
+each reason another is ignored counted; the text as written but for Enhanced LRC's word stamps,
+taken off (`markup.unstamped`), its blanks squeezed and trimmed; a NUL U+FFFD, noted; a file of no
+line read refused, `no timed text found`, after its notes. The measured table above holds its
+column.
 
 ## The writers
 

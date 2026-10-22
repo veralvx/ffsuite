@@ -234,7 +234,7 @@ sorted, cleaned of their tags, their references decoded, each cut at the next st
 | `&amp; &lt; &gt; &lrm;&rlm; &nbsp;`; `&copy; &#38; &#x26; &bogus;`         | decoded, HTML's: `& < >`, U+200E U+200F, U+00A0; `© & & &bogus;`                                                          |
 | `a < b and c > d`; `before <b ends`                                        | `a d`; `before`, noted: "1 texts cut at a < with no > after it, a tag to their end (W3C): the first, <b ends"             |
 | `{\an8}not an override {x}`; `one\Ntwo \h a\nb\tc`                         | as written                                                                                                                |
-| two lines; CRLF; leading and trailing spaces                               | joined by a space; read; trimmed                                                                                          |
+| two lines; CRLF; leading and trailing spaces                               | joined by a space, by nothing between two CJK characters (not Hangul); read; trimmed                                      |
 | a byte not UTF-8 (`caf\xe9`)                                               | refused: "not UTF-8: in.vtt (line 4)"                                                                                     |
 | a NUL in a cue's text                                                      | U+FFFD there, noted                                                                                                       |
 | CR only; CR CR LF                                                          | read; each cue of no text, so "no timed text found"                                                                       |

@@ -156,13 +156,13 @@ the next start; braces and backslashes drawn as written). *Measured*:
 | `00:00:01,5 --> 00:00:02,25`                                | 1005, 2025: milliseconds, noted      | the same                                            |
 | `00:01,000 --> 00:02,000` (no hours)                        | no cue: no timing line               | refused: "no timed text found"                      |
 | `00:00:01 --> 00:00:02` (no fraction)                       | 1000, 2000: as VLC, noted            | the same                                            |
-| `What changed:`, `2024 --> 2025`                            | `What changed: 2024 --> 2025`        | the same                                            |
-| `first`, an empty line, `second`                            | `first second`, noted                | the same                                            |
-| `first`, a line of spaces, `second`                         | `first second`, noted                | the same                                            |
+| `What changed:`, `2024 --> 2025`                            | the two lines, kept                  | `What changed: 2024 --> 2025`                       |
+| `first`, an empty line, `second`                            | `first`, `second`, noted             | `first second`                                      |
+| `first`, a line of spaces, `second`                         | `first`, `second`, noted             | `first second`                                      |
 | last line `2024`, an empty line, the next cue not indexed   | `the year`, noted                    | the same                                            |
 | last line `2024`, the next cue's timing line right after it | `the year`, noted                    | the same                                            |
 | `first`, then `2` and a timing line, no blank line          | `first`, noted                       | the same                                            |
-| `a --> b`, `c`                                              | `a --> b c`                          | the same                                            |
+| `a --> b`, `c`                                              | the two lines, kept                  | `a --> b c`                                         |
 | end before start; zero duration                             | read as written                      | dropped, end before start noted                     |
 | out of order; two identical                                 | as written; both                     | sorted; one                                         |
 | `<b>b</b> <font color="red">r</font> <v Bob>v</v>`          | as written                           | `b r v`                                             |

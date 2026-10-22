@@ -94,7 +94,7 @@ besides (the sections below).
 
 | Case                                | ffmpeg                                                                  | ffman reads                                                      | Candidate                                            |
 | ----------------------------------- | ----------------------------------------------------------------------- | ---------------------------------------------------------------- | ---------------------------------------------------- |
-| two lines, SubRip or WebVTT         | kept: lines, `\N`; into LRC a line each at the same start (*measured*)  | joined by a space: `one two`                                     | kept; into LRC, TSV and plain text joined by a space |
+| two lines, SubRip or WebVTT         | kept: lines, `\N`; into LRC a line each at the same start (*measured*)  | joined by a space (none between CJK characters): `one two`       | kept; into LRC, TSV and plain text joined by a space |
 | ASS `\n` (WrapStyle 0)              | a line break into SubRip and WebVTT (the `subrip` and `webvtt` records) | --                                                               | a space, as libass draws it (below)                  |
 | a SubRip line's spaces: `  a   b  ` | the leading and trailing trimmed by the decoder                         | kept by subverter; ffman trims them and collapses the run: `a b` | the leading and trailing trimmed, the run kept       |
 

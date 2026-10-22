@@ -448,10 +448,11 @@ EXAMPLE_ASS = [
     "Fish & chips, 1,99 €",
 ]
 EXAMPLE_SUBVERTER = [
-    [1000, 3500, "<i>Previously:</i> the road north, at night"],
+    [1000, 3500, "<i>Previously:</i> the road\nnorth, at night"],
     [4000, 6250, '{\\an8}<font color="#ffff00">CLOSED</font>'],
     [62005, 64000, "Fish & chips, 1,99 €"],
 ]
+EXAMPLE_FFMAN = "Previously: the road north, at night"  # the first cue's text, burned
 ROUND_TRIP = "00:01:02,010 --> 00:01:04,010"  # the third cue, through ASS and back
 STREAMS = {  # each command's output: its streams (the inputs' audio kept)
     "out.ass": ["ass,subtitle"],
@@ -482,12 +483,16 @@ def skill(work: Path) -> bool:
     results.append(checked("    its ASS", dialogue(script), EXAMPLE_ASS))
     if PYTHON:
         read = (
-            "import json, subverter, sys; r = subverter.read('srt', sys.stdin.buffer.read(), 'x'); "
-            "print(json.dumps([(c.start, c.end, c.text) for c in r.cues]))"
+            "import json, subverter, sys; from ffman.subs.markup import Markup, clean; "
+            "r = subverter.read('srt', sys.stdin.buffer.read(), 'x'); "
+            "print(json.dumps([[(c.start, c.end, c.text) for c in r.cues], "
+            "clean(r.cues[0].text, Markup.SUBRIP)]))"
         )
         r = subprocess.run([PYTHON, "-c", read], input=example.encode(), capture_output=True,
                            check=True)  # fmt: skip
-        results.append(checked("    subverter", json.loads(r.stdout), EXAMPLE_SUBVERTER))
+        cues, burned = json.loads(r.stdout)
+        results.append(checked("    subverter", cues, EXAMPLE_SUBVERTER))
+        results.append(checked("    ffman", burned, EXAMPLE_FFMAN))
 
     space: dict[str, object] = {}
     exec(fenced(text, "python")[0], space)  # noqa: S102 -- the skill's own rule, run as written
@@ -534,7 +539,7 @@ def stated(text: str) -> list[str]:
     """What the skill's prose must say of its example, from the measured values: those missing."""
     prose = " ".join(text.split())
     said = [f"{a / 1000:g} s for {d / 1000:g} s" for a, d, _ in EXAMPLE_FFMPEG]
-    said += [f"`{t}`" for t in EXAMPLE_ASS[:2]] + [f"`{EXAMPLE_SUBVERTER[0][2]}`"]
+    said += [f"`{t}`" for t in EXAMPLE_ASS[:2]] + [f"`{EXAMPLE_FFMAN}`"]
     start, length, _ = EXAMPLE_FFMPEG[2]
     back = [seconds(t) for t in ROUND_TRIP.split(" --> ")]
     said.append(f"{start / 1000:.3f}-{(start + length) / 1000:.3f} s came back "
