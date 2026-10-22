@@ -4010,14 +4010,20 @@ tests with 6.8.3's converters.*
       empty, a WhisperX JSON `NaN`, `null`, text or missing key, a whisper-cli offset no number, a
       time past a double's range in the `whisper` filter's JSON, a SubRip, a WebVTT, a highlighted
       sentence's first cue -- each noted once; an LRC's line, its reader's, already noted. A refusal
-      of no timed text carries it (`2dada03`; decisions' "Dropped cues", "No timed text"; the
-      `whisper-transcripts` skill's NaN cells, `7ac9564`). Tests failing first, every path; the
-      order and the refusal's notes; mutants caught; suite 2561, coverage 100% (2560 passed, the LRC
-      timing test its box's); the matrix 770; the outcome report against `d973bbb` on 3.13 and 3.14:
-      517 identical, 7 `burn/hostile` cases a note more. Reviewed: an independent reviewer's --
-      WebVTT's case untested and misdocumented as already noted, a highlighted sentence's untested,
-      the order and the refusal's notes untested, a name reused (`bare`), the skill's reference
-      cell. It found a box: notes counting what ffman then drops.*
+      of no timed text carries it (`71c61ea`; decisions' "Dropped cues", "No timed text"; the
+      `whisper-transcripts` skill's NaN cells, `df510f0`). Tests failing first, every path; the
+      order and the refusal's notes; mutants caught; suite 2561, coverage 100%, 2560 passed -- 1
+      failing, the LRC bounded-work timing test, its own found box's, base and head alike; the
+      matrix 770; the outcome report against `d973bbb` on 3.13 and 3.14: 517 identical, 7
+      `burn/hostile` cases a note more. Reviewed: an independent reviewer's -- WebVTT's case
+      untested and misdocumented as already noted, a highlighted sentence's untested, the order and
+      the refusal's notes untested, a name reused (`bare`), the skill's reference cell. It found a
+      box: notes counting what ffman then drops. Its review, end to end, at the owner's request, and
+      a second independent reviewer's: the three dropped notes one helper (`_dropped`), the timed
+      and the untimed one pass, the tests' note texts shared; behaviour unchanged, the outcome
+      report 524 identical against the box's tip on 3.13 and 3.14. Left, weighed: a cue dropped of a
+      kept one's text still noted, untimed as reversed (the same-start exemption alone); the spec's
+      example the reversed note.*
 - [ ] Found by the untimed cues box's review: notes count what ffman then drops -- whisper-cli's DTW
       fallback counts a sentence of no time (`odd-windows.json`:
       `DTW word times ... in 2 of 2 sentences: used token offsets there`, then
