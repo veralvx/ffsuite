@@ -20,6 +20,7 @@ class Chunks(NamedTuple):
     """The chunks; the texts dropped that a player shows (``cues``), each kind in order."""
 
     chunks: tuple[Chunk, ...]
+    untimed: tuple[str, ...]
     reversed: tuple[str, ...]
     same_start: tuple[str, ...]
 
@@ -28,12 +29,18 @@ def cues(raw: Sequence[Cue], markup: Markup) -> Chunks:
     """Cues to chunks: ordered by start (stably, before clamping), cleaned, clamped at 0.
 
     The untimed, the empty, the reversed and those of no length are dropped; each ends where the
-    next starts, so of those sharing a start the last alone is kept. The reversed (an ffmpeg burn
-    draws one to the next cue's start, the last to the end) and those sharing a start (libass
-    draws them together), but of the kept one's text, are returned, their text lost; one of no
-    length, or before 0, no player shows. ``markup``: the texts' (``clean``).
+    next starts, so of those sharing a start the last alone is kept. The untimed (no time read),
+    the reversed (an ffmpeg burn draws one to the next cue's start, the last to the end) and those
+    sharing a start (libass draws them together), but of the kept one's text, are returned, their
+    text lost; one of no length, or before 0, no player shows. ``markup``: the texts' (``clean``).
     """
-    timed = [(c.start, c.end, c) for c in raw if c.start is not None and c.end is not None]
+    timed: list[tuple[int, int, Cue]] = []
+    untimed: list[str] = []
+    for c in raw:
+        if c.start is not None and c.end is not None:
+            timed.append((c.start, c.end, c))
+        elif text := clean(c.text, markup):
+            untimed.append(text)
     kept: list[tuple[int, int, str, str]] = []
     reversed_: list[str] = []
     for start, end, cue in sorted(timed, key=lambda t: t[0]):
@@ -53,7 +60,7 @@ def cues(raw: Sequence[Cue], markup: Markup) -> Chunks:
         nxt = runs[r + 1][0][0] if r + 1 < len(runs) else b
         chunks.append(Chunk(a, min(b, nxt), text, segment))
         same_start += [t for _, _, t, _ in cut if t != text]  # its own text shown: none lost
-    return Chunks(tuple(chunks), tuple(reversed_), tuple(same_start))
+    return Chunks(tuple(chunks), tuple(untimed), tuple(reversed_), tuple(same_start))
 
 
 def words(

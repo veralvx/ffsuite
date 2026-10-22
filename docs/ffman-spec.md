@@ -244,9 +244,9 @@ camcorder:date=D,time=T`.
   first, <3 you`; a SubRip's is text (New).
 - A SubRip's `<` opens a tag as ffmpeg's decoder reads one -- a name it knows or likely one,
   dropped, `<br>` a line break -- else it is text: `1 < 2 and 3 > 2` as written (New).
-- A cue dropped whose text a player shows -- one ending before it begins, one beginning with
-  the next (one cue shown at a time) -- is noted: `1 cues dropped: ending before they begin, the
-  first, backwards` (New).
+- A cue dropped whose text a player shows -- one of no time read for its start or end, one
+  ending before it begins, one beginning with the next (one cue shown at a time) -- is noted:
+  `1 cues dropped: ending before they begin, the first, backwards` (New).
 - A transcript of no timed text is refused, `no timed text found in: FILE`, after its notes -- the
   lines, cues and text blocks noted as dropped, the texts noted as hidden; a cue of no text or of
   no length, which no player shows, is dropped unnoted. An ASS or SSA, passed through unread, is

@@ -24,6 +24,11 @@ DROPPED: Final = (
     "on line {at}"
 )
 NUL_NOTE: Final = "{n} NULs read as U+FFFD, as the W3C reads them: the first in line {line}"
+UNTIMED: Final = "{n} cues dropped: no time read for their start or end, the first, {text}"
+REVERSED: Final = "{n} cues dropped: ending before they begin, the first, {text}"
+SAME_START: Final = (
+    "{n} cues dropped: beginning with the next, one cue shown at a time, the first, {text}"
+)
 
 
 def put(tmp_path: Path, name: str, text: str | bytes) -> str:
@@ -294,7 +299,7 @@ def test_a_webvtts_cr_cr_lf_is_two_line_ends(tmp_path: Path) -> None:
         pytest.param(
             "x.srt",
             "1\n00:00:02,000 --> 00:00:01,000\nbackwards\n",
-            ("1 cues dropped: ending before they begin, the first, backwards",),
+            (REVERSED.format(n=1, text="backwards"),),
             id="the normaliser's",
         ),
         pytest.param(
@@ -306,10 +311,20 @@ def test_a_webvtts_cr_cr_lf_is_two_line_ends(tmp_path: Path) -> None:
             id="the markup's",
         ),
         pytest.param(
+            "x.csv",
+            "start,end,text\nabc,1,lost\n",
+            (UNTIMED.format(n=1, text="lost"),),
+            id="the normaliser's, no time",
+        ),
+        pytest.param(
             "x.srt",
-            "1\n00:00:02,000 --> 00:00:01,000\nbackwards\n\n2\n00:00:03,000 --> 00:00:04,000\n{hidden}\n",
             (
-                "1 cues dropped: ending before they begin, the first, backwards",
+                f"1\n{'9' * 400}:00:00,000 --> 00:00:01,000\nlost\n\n"
+                "2\n00:00:02,000 --> 00:00:01,000\nbackwards\n\n3\n00:00:03,000 --> 00:00:04,000\n{hidden}\n"
+            ),
+            (
+                UNTIMED.format(n=1, text="lost"),
+                REVERSED.format(n=1, text="backwards"),
                 "1 braced runs hidden, ASS's override blocks, as ffmpeg and mpv hide them: the first, {hidden}",
             ),
             id="every one, in order",
@@ -860,12 +875,6 @@ def test_what_holds_of_any_transcript(tmp_path: Path, name: str) -> None:
         assert a.segment != b.segment or a.start <= b.start
 
 
-REVERSED: Final = "{n} cues dropped: ending before they begin, the first, {text}"
-SAME_START: Final = (
-    "{n} cues dropped: beginning with the next, one cue shown at a time, the first, {text}"
-)
-
-
 def test_a_reversed_cue_is_dropped_noted(tmp_path: Path) -> None:
     # its text lost: ffmpeg shows one to the next cue's start, VLC none (measured, by source)
     srt = (
@@ -881,16 +890,102 @@ def test_a_reversed_cue_is_dropped_noted(tmp_path: Path) -> None:
 
 
 def test_a_time_past_a_doubles_range_in_ms_is_no_time(tmp_path: Path) -> None:
-    """1e306 s is a number, and 1e309 ms is none: that segment untimed, the other kept."""
+    """1e306 s is a number, and 1e309 ms is none: that segment untimed, noted, the other kept."""
     doc = {
         "segments": [
             {"start": 1e306, "end": 1e306, "text": "far"},
             {"start": 1, "end": 2, "text": "near"},
         ]
     }
-    assert ingested(put(tmp_path, "x.json", json.dumps(doc))).chunks == (
-        Chunk(1000, 2000, "near", "1"),
+    t = ingested(put(tmp_path, "x.json", json.dumps(doc)))
+    assert (t.chunks, t.notes) == (
+        (Chunk(1000, 2000, "near", "1"),),
+        (UNTIMED.format(n=1, text="far"),),
     )
+
+
+_FAR: Final = "9" * 400  # a number, but past a double's range in ms: no time
+
+
+@pytest.mark.parametrize(
+    ("name", "text"),
+    [
+        ("a.csv", "start,end,text\n0,500,kept\nabc,900,lost words\n1000,y,also lost\n"),
+        ("a.tsv", "start\tend\ttext\n0\t500\tkept\n1000\t\tlost words\nx\t9\talso lost\n"),
+        (
+            "wx.json",
+            (
+                '{"segments": [{"start": 0, "end": 0.5, "text": "kept"}, '
+                '{"start": NaN, "end": 1, "text": "lost words"}, '
+                '{"start": 1, "end": null, "text": "also lost"}]}'
+            ),
+        ),
+        (
+            "cli.json",
+            json.dumps(
+                {
+                    "transcription": [
+                        {"offsets": {"from": 0, "to": 500}, "text": "kept"},
+                        {"offsets": {"from": "x", "to": 900}, "text": " lost words"},
+                        {"offsets": {"from": 1000, "to": "y"}, "text": " also lost"},
+                    ]
+                }
+            ),
+        ),
+        (
+            "f.json",
+            (
+                f'{{"start":0,"end":500,"text":"kept"}}\n{{"start":{_FAR},"end":1,"text":"lost words"}}\n'
+                f'{{"start":1,"end":{_FAR},"text":"also lost"}}\n'
+            ),
+        ),
+        (
+            "a.srt",
+            (
+                f"1\n00:00:00,000 --> 00:00:00,500\nkept\n\n2\n{_FAR}:00:00,000 --> 00:00:01,000\n"
+                f"<i>lost</i> words\n\n3\n00:00:01,000 --> {_FAR}:00:00,000\nalso lost\n"
+            ),
+        ),
+        (
+            "a.vtt",
+            (
+                f"WEBVTT\n\n00:00.000 --> 00:00.500\nkept\n\n{_FAR}:00:00.000 --> 00:01.000\n"
+                f"lost words\n\n00:01.000 --> {_FAR}:00:00.000\nalso lost\n"
+            ),
+        ),
+        (  # a highlighted sentence takes its first cue's start: none, the sentence none
+            "a.srt",
+            (
+                f"1\n00:00:00,000 --> 00:00:00,500\n<u>kept</u>\n\n2\n{_FAR}:00:00,000 --> 00:00:01,000\n"
+                "<u>lost</u> words\n\n3\n00:00:01,000 --> 00:00:02,000\nlost <u>words</u>\n\n"
+                f"4\n{_FAR}:00:00,000 --> 00:00:03,000\n<u>also</u> lost\n\n"
+                "5\n00:00:03,000 --> 00:00:04,000\nalso <u>lost</u>\n"
+            ),
+        ),
+    ],
+    ids=[
+        "CSV",
+        "TSV",
+        "WhisperX JSON",
+        "whisper-cli JSON",
+        "whisper filter JSON",
+        "SubRip",
+        "WebVTT",
+        "highlighted",
+    ],
+)
+def test_a_cue_of_no_time_is_dropped_noted(tmp_path: Path, name: str, text: str) -> None:
+    # its text lost -- a CSV or TSV field no number, a JSON NaN, null or text, a time past a
+    # double's range: counted, the first named, as the other cues dropped (decisions' "Dropped cues")
+    t = ingested(put(tmp_path, name, text))
+    assert [c.text for c in t.chunks] == ["kept"]
+    assert t.notes == (UNTIMED.format(n=2, text="lost words"),)
+
+
+def test_a_cue_of_no_time_and_no_text_is_dropped_silently(tmp_path: Path) -> None:
+    # nothing lost: no note, as an empty cue's
+    t = ingested(put(tmp_path, "a.csv", 'start,end,text\n0,500,kept\nabc,900,\nx,9,"  "\n'))
+    assert ([c.text for c in t.chunks], t.notes) == (["kept"], ())
 
 
 def test_a_cue_the_next_one_starts_with_is_cut_to_nothing_noted(tmp_path: Path) -> None:

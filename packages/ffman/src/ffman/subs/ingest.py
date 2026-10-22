@@ -132,6 +132,11 @@ def _first(texts: Sequence[str]) -> str:
     return f"the first, {shown(texts[0])}"
 
 
+def _dropped(texts: Sequence[str], how: str) -> list[str]:
+    """The note of the cues dropped ``how``, their texts lost: counted, the first named."""
+    return [f"{len(texts)} cues dropped: {how}, {_first(texts)}"] if texts else []
+
+
 def ingest(name: str, data: bytes) -> Transcript:
     """A transcript from its bytes, as bash's ingest_subs read it: its refusals, its notes."""
     fmt = ext_of(name)
@@ -141,26 +146,22 @@ def ingest(name: str, data: bytes) -> Transcript:
         return Transcript(fmt, f".{fmt}", has_words=False, chunks=(), words=(), notes=notes)
     found = readers.read(fmt, data, name)
     markup = Markup.of(found)
-    chunks, reversed_, same_start = normalize.cues(found.cues, markup)
+    chunks, untimed, reversed_, same_start = normalize.cues(found.cues, markup)
     notes = list(found.notes)
-    if reversed_:
-        notes.append(
-            f"{len(reversed_)} cues dropped: ending before they begin, {_first(reversed_)}"
-        )
-    if same_start:
-        how = "beginning with the next, one cue shown at a time"
-        notes.append(f"{len(same_start)} cues dropped: {how}, {_first(same_start)}")
+    notes += _dropped(untimed, "no time read for their start or end")
+    notes += _dropped(reversed_, "ending before they begin")
+    notes += _dropped(same_start, "beginning with the next, one cue shown at a time")
     notes += _markup_notes(found.cues, markup)
     if not chunks:  # after every note that says why
         refuse(f"no timed text found in: {name}", tuple(notes))
     if not found.has_words:
         return Transcript(fmt, found.source, found.has_words, chunks, (), tuple(notes))
-    placed_words, placed, untimed = normalize.words(chunks, found.words, markup)
+    placed_words, placed, bare = normalize.words(chunks, found.words, markup)
     if placed:
         why = "(untimed, tied, out of order or outside their sentence)"
         notes.append(
             f"{placed} words had no usable time of their own {why}: placed between their neighbours"
         )
-    if untimed:
-        notes.append(f"{untimed} sentences had no word timings: shown without word highlighting")
+    if bare:
+        notes.append(f"{bare} sentences had no word timings: shown without word highlighting")
     return Transcript(fmt, found.source, found.has_words, chunks, placed_words, tuple(notes))
