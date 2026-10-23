@@ -1246,6 +1246,72 @@ def test_a_vtts_lt_with_no_gt_after_it_is_a_tag_to_its_texts_end_noted(tmp_path:
     assert t.notes == (f"2 texts cut at a < with no > after it, {how}: the first, <3 you",)
 
 
+_KEPT: Final = "\n\n9\n00:00:03,000 --> 00:00:04,000\nkept\n"
+_BRACED: Final = "braced runs hidden, ASS's override blocks, as ffmpeg and mpv hide them: the first"
+_CUT: Final = "texts cut at a < with no > after it, a tag to their end (W3C): the first"
+
+
+@pytest.mark.parametrize(
+    ("name", "data", "notes"),
+    [
+        pytest.param(  # its drop's note names its text: its braced run not counted again
+            "reversed.srt",
+            "1\n00:00:02,000 --> 00:00:01,000\n{aside}back" + _KEPT,
+            ("1 cues dropped: ending before they begin, the first, back",),
+            id="reversed",
+        ),
+        pytest.param(  # one of a start shown, its twin's run the same, counted once
+            "twins.srt",
+            "1\n00:00:01,000 --> 00:00:02,000\n{a}x\n\n2\n00:00:01,000 --> 00:00:02,000\n{a}x"
+            + _KEPT,
+            (f"1 {_BRACED}, {{a}}",),
+            id="twins",
+        ),
+        pytest.param(  # the cut text of a cue dropped, of no time read
+            "untimed.vtt",
+            f"WEBVTT\n\n00:01.000 --> {'9' * 400}:00:02.000\nlost <b words\n\n00:03.000 --> 00:04.000\nkept\n",
+            ("1 cues dropped: no time read for their start or end, the first, lost",),
+            id="untimed",
+        ),
+        pytest.param(  # a cue of hidden text alone: no other note names it
+            "hidden.srt",
+            "1\n00:00:02,000 --> 00:00:01,000\n{aside}" + _KEPT,
+            (f"1 {_BRACED}, {{aside}}",),
+            id="hidden alone",
+        ),
+        pytest.param(  # the one of a start shown its own, the cut one's dropped noted
+            "starts.srt",
+            "1\n00:00:01,000 --> 00:00:02,000\n{a}x\n\n2\n00:00:01,000 --> 00:00:02,000\n{b}y"
+            + _KEPT,
+            (
+                "1 cues dropped: beginning with the next, one cue shown at a time, the first, x",
+                f"1 {_BRACED}, {{b}}",
+            ),
+            id="one start",
+        ),
+        pytest.param(  # no player shows it, of no length or before 0: nor its markup
+            "unshown.srt",
+            "1\n00:00:01,000 --> 00:00:01,000\n{a}x\n\n2\n-01:00:01,000 --> -01:00:02,000\n{b}y"
+            + _KEPT,
+            (),
+            id="no player shows it",
+        ),
+        pytest.param(  # shown: counted
+            "shown.vtt",
+            "WEBVTT\n\n00:01.000 --> 00:02.000\nshown <b words\n",
+            (f"1 {_CUT}, <b words",),
+            id="shown",
+        ),
+    ],
+)
+def test_markup_notes_count_what_no_other_note_names(
+    tmp_path: Path, name: str, data: str, notes: tuple[str, ...]
+) -> None:
+    """A cue whose drop is noted, or that the one shown at its start stands for: its markup not
+    counted again -- before, `{aside}back` reversed noted twice."""
+    assert ingested(put(tmp_path, name, data)).notes == notes
+
+
 @pytest.mark.parametrize(
     ("name", "data", "shown"),
     [

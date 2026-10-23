@@ -17,12 +17,18 @@ from ffman.subs.markup import Markup, clean
 
 
 class Chunks(NamedTuple):
-    """The chunks; the texts dropped that a player shows (``cues``), each kind in order."""
+    """The chunks; the texts dropped that a player shows (``cues``), each kind in order.
+
+    ``named``: the cues those name, those the one shown at their start stands for, and those no
+    player shows (no length, before 0) -- by their place among the cues read: their markup counted
+    by no other note.
+    """
 
     chunks: tuple[Chunk, ...]
     untimed: tuple[str, ...]
     reversed: tuple[str, ...]
     same_start: tuple[str, ...]
+    named: frozenset[int]
 
 
 def cues(raw: Sequence[Cue], markup: Markup) -> Chunks:
@@ -34,36 +40,44 @@ def cues(raw: Sequence[Cue], markup: Markup) -> Chunks:
     sharing a start (libass draws them together), but of the kept one's text, are returned, their
     text lost; one of no length, or before 0, no player shows. ``markup``: the texts' (``clean``).
     """
-    timed: list[tuple[int, int, Cue]] = []
+    timed: list[tuple[int, int, int]] = []  # its start, its end, its place in ``raw``
     untimed: list[str] = []
-    for c in raw:
+    named: set[int] = set()
+    for k, c in enumerate(raw):
         if c.start is not None and c.end is not None:
-            timed.append((c.start, c.end, c))
+            timed.append((c.start, c.end, k))
         elif text := clean(c.text, markup):
             untimed.append(text)
-    kept: list[tuple[int, int, str, Cue]] = []
+            named.add(k)
+    kept: list[tuple[int, int, str, int]] = []
     reversed_: list[str] = []
-    for start, end, cue in sorted(timed, key=lambda t: t[0]):
-        text = clean(cue.text, markup)
+    for start, end, k in sorted(timed, key=lambda t: t[0]):
+        text = clean(raw[k].text, markup)
         if not text:
             continue
         a, b = max(start, 0), max(end, 0)
         if b > a:
-            kept.append((a, b, text, cue))
-        elif end < start:
+            kept.append((a, b, text, k))
+            continue
+        named.add(k)  # no player shows it: its markup not either
+        if end < start:
             reversed_.append(text)
-    runs = [list(run) for _, run in groupby(kept, key=lambda k: k[0])]  # each, one start
+    runs = [list(run) for _, run in groupby(kept, key=lambda entry: entry[0])]  # each, one start
     chunks: list[Chunk] = []
     same_start: list[str] = []
     for r, run in enumerate(runs):
-        *cut, (a, b, text, cue) = run  # the last of a start shown, to the next start
+        *cut, (a, b, text, k) = run  # the last of a start shown, to the next start
         nxt = runs[r + 1][0][0] if r + 1 < len(runs) else b
+        cue = raw[k]
         lead = clean(cue.lead, markup)  # its text's start, as cleaned, or none (a brace it opens)
         chunks.append(
             Chunk(a, min(b, nxt), text, cue.segment, lead if text.startswith(lead) else "")
         )
         same_start += [t for _, _, t, _ in cut if t != text]  # its own text shown: none lost
-    return Chunks(tuple(chunks), tuple(untimed), tuple(reversed_), tuple(same_start))
+        named.update(n for _, _, _, n in cut)
+    return Chunks(
+        tuple(chunks), tuple(untimed), tuple(reversed_), tuple(same_start), frozenset(named)
+    )
 
 
 def words(

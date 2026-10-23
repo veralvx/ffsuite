@@ -253,7 +253,9 @@ camcorder:date=D,time=T`.
   `今日は良い天気で` (New).
 - A cue dropped whose text a player shows -- one of no time read for its start or end, one
   ending before it begins, one beginning with the next (one cue shown at a time) -- is noted:
-  `1 cues dropped: ending before they begin, the first, backwards` (New).
+  `1 cues dropped: ending before they begin, the first, backwards`; its braced runs, its tag no `>`
+  closes, and a whisper-cli sentence's DTW fallback, of one of no time or none a player shows,
+  counted by no other note (New).
 - A transcript of no timed text is refused, `no timed text found in: FILE`, after its notes -- the
   lines, cues and text blocks noted as dropped, the texts noted as hidden; a cue of no text or of
   no length, which no player shows, is dropped unnoted. An ASS or SSA, passed through unread, is
