@@ -4024,12 +4024,26 @@ tests with 6.8.3's converters.*
       report 524 identical against the box's tip on 3.13 and 3.14. Left, weighed: a cue dropped of a
       kept one's text still noted, untimed as reversed (the same-start exemption alone); the spec's
       example the reversed note.*
-- [ ] Found by the untimed cues box's review: notes count what ffman then drops -- whisper-cli's DTW
+- [x] Found by the untimed cues box's review: notes count what ffman then drops -- whisper-cli's DTW
       fallback counts a sentence of no time (`odd-windows.json`:
       `DTW word times ... in 2 of 2 sentences: used token offsets there`, then
       `2 cues dropped: no time read`), the braced runs hidden counts those of a cue dropped
       (`{aside}back` reversed: `1 braced runs hidden ... {aside}` after
       `1 cues dropped: ending before they begin`). To decide: count only what is shown, or as now.
+      *Done: a note counts what no other names. whisper-cli's DTW note counts the sentences of a
+      window a player shows -- read, its end past its start and past 0; one of none has no time to
+      check DTW's against, its cue dropped -- `in 1 of 1 sentences`, before `2 of 2`; one the next
+      sentence's start cuts still counted, ffman's rule, not the reader's (`d0056cd`; decisions'
+      "Word timing"). ffman's braced runs hidden and texts cut at an unclosed `<` count no cue a
+      drop note names, none the cue shown at its start stands for, none no player shows (no
+      length, before 0) -- `normalize.cues`' `named`, by place; a cue its braces hide whole, which
+      no drop names, keeps its note (`d5a5f71`; decisions' "Dropped cues"). Tests failing first,
+      the mutants caught; suite 2609, coverage 100%, and at `d0056cd` alone 2602; the matrix 770; the outcome report against `e854351` on 3.13 and
+      3.14: 523 identical, `burn/hostile/bounds.json` its DTW note gone (its one such sentence of
+      no window) and `odd-windows.json` `1 of 1`. Reviewed: an independent reviewer's three rounds,
+      to convergence -- reversed, no-length and before-0 windows counted too, then excluded; cues
+      no player shows named; a same-start pair of two texts tested; the test's before-count
+      made exact.*
 - [x] Found by the `whisper-transcripts` box: ffmpeg's `whisper` filter (FFmpeg 8, nixpkgs'
       `ffmpeg-full`, ffman's runtime) writes `format=json` one object a line,
       `{"start":ms,"end":ms,"text":"..."}`, its text not escaped -- ffman refuses it,
