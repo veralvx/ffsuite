@@ -4227,10 +4227,26 @@ tests with 6.8.3's converters.*
       property that each lit word is a timed one, never a lead's (the strategy's chunks given
       leads); `led`, not `at`, a method's name. It found two boxes: WhisperX's JSON `speaker` never
       read; a highlighted sentence's untimed word missing from chunk-word.*
-- [ ] Found by the speaker box: WhisperX's JSON `speaker` (a segment's, a word's) is never read, so
+- [x] Found by the speaker box: WhisperX's JSON `speaker` (a segment's, a word's) is never read, so
       a diarized JSON burns no speaker in any mode, where its SubRip, WebVTT and `.txt` show
       `[SPEAKER_00]: ` before each text (`utils.py`) -- and whisper-cli's `-di` `speaker` alike. To
       decide: read it as the sentence's text and lead, as WhisperX's SubRip writes it, or as now.
+      *Done: read before its text as its writer's own SubRip writes it, its `lead` -- whisper-cli's
+      JSON and CSV `(speaker 0)` and the text as written (`cli.cpp`), WhisperX's `[SPEAKER_00]: `
+      (`utils.py`); none for an empty or null speaker, a text of none (its cue dropped, as
+      WhisperX's aligned SubRip writes none), a TSV's column (no writer's). Weighed: a speaker
+      option or ASS `Name` (new surface; no player shows `Name`), dropped as before (every writer's
+      subtitles show it). Proof: whisper-cli's and WhisperX's writers on one result each, diarized
+      or not -- 48 JSON-vs-SubRip pairs, 24 alike before, 47 after (left: WhisperX v3.1.1's spaced
+      `ja` SubRip). Its review, three rounds: a speaker not UTF-8 a traceback (now refused by its
+      path, a NUL noted, each read alone), a speaker alone burned, `chunk-word`'s space after
+      `(speaker 0)` in `zh` (now the text's), a NUL note naming a later field's (now the file's
+      first, a word's before a later text's too) (`f6113eb`; decisions' "Speakers"; `upgrading.md`
+      28). Tests failing first, the review's mutants caught; suite 2638, coverage 100%; the matrix
+      770; the outcome report against `ed503b2` on 3.13 and 3.14: 523 identical,
+      `attach/diarized.csv` and `burn/diarized.csv` changed, `(speaker 0) ` before each text; the
+      bash suite's S160 `(speaker 0)Hello`, was `Hello`; the `whisper-transcripts` and
+      `subtitle-mappings` skills (`087eac3`).*
 - [ ] Found by the speaker box's review: a word WhisperX left untimed (digits, symbols: no
       `start`) has no highlighted cue, so no `<u>`: read from a highlighted SubRip or WebVTT, it is
       no word, and chunk-word, drawn from words, leaves it out -- `[SPEAKER_00]: there you`, its
