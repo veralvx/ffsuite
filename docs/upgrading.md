@@ -76,3 +76,6 @@ Moved from that run-book; nixos-config's own couplings stay there.
     highlighted one by spaces, its `[speaker]: ` before both, its line breaks between words alone
     (`--max_line_width`), and OpenAI whisper's `--max_words_per_line 1` still writes no gap's cue:
     subverter reads highlighted cues by them (`readers/cues.py`).
+28. whisper-cli's SubRip still writes `(speaker 0)` before its text and WhisperX's `[SPEAKER_00]: `,
+    and WhisperX's no cue of no word: subverter reads a JSON's or CSV's speaker so
+    (`readers/whisper.py`, `readers/table.py`).

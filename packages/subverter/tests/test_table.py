@@ -22,7 +22,13 @@ from subverter import Cue
     ("data", "cues"),
     [
         ('start,end,text\n0,1000,"a, b"\n', (Cue(0, 1000, "a, b"),)),  # RFC 4180 quoting
-        ("speaker,end,start,text\nS1,2000,1000,hi\n", (Cue(1000, 2000, "hi"),)),  # by header
+        # by header; whisper-cli's -di speaker before its text, as its SubRip writes it
+        (
+            "speaker,end,start,text\nS1,2000,1000, hi\n",
+            (Cue(1000, 2000, "(speaker S1) hi", "", "(speaker S1)"),),
+        ),
+        ("start,end,speaker,text\n0,1,,x\n", (Cue(0, 1, "x"),)),  # an empty one: none
+        ("start,end,speaker,text\n0,1,S1, \n", (Cue(0, 1, " "),)),  # of no text: none
         ("500,900,x\n", (Cue(500, 900, "x"),)),  # no header: start, end, text
         ("start,end,text\nabc,900,y\n", (Cue(None, 900, "y"),)),  # no number: no time
         # a record short of a column: that field empty, as awk's $n past the last -- a text "", a
@@ -122,6 +128,7 @@ def test_a_tsv_texts_lines_are_its_records_in_a_refusal_and_a_nul_note() -> None
         ("text\tstart\tend\nhi\t0\t1\nmore\n", (Cue(0, 1, "hi"), Cue(None, None, "more"))),
         ("start\tend\ttext\n0\t1\tx\nan\tother\n", (Cue(0, 1, "x"), Cue(None, None, ""))),
         ("start\tend\ttext\n0\t1\nmore\n", (Cue(0, 1, ""), Cue(None, None, ""))),
+        # no TSV writer writes a speaker (WriteTSV: start, end, text): none read
         ("start\tend\ttext\tspeaker\n0\t1\thi\tS1\nmore\n", (Cue(0, 1, "hi"), Cue(None, None, ""))),
         ("start\tend\ttext\tspeaker\n0\t1\thi\nmore\n", (Cue(0, 1, "hi"), Cue(None, None, ""))),
         ("start\tend\ttext\n0\t1\tx\tS1\nmore\n", (Cue(0, 1, "x"), Cue(None, None, ""))),
@@ -232,3 +239,19 @@ def test_a_table_in_utf16_by_its_bom_reads_as_in_utf8(
 def test_a_tables_unit_not_utf16_is_refused_by_its_line(data: bytes, line: int) -> None:
     with pytest.raises(subverter.Error, match=f"^{re.escape(f'not UTF-16: a.csv (line {line})')}$"):
         _ = subverter.read("csv", data, "a.csv")
+
+
+def test_a_csv_speaker_not_utf8_is_refused_by_its_line_a_nul_noted() -> None:
+    with pytest.raises(subverter.Error, match=r"^not UTF-8: a\.csv \(line 2\)$"):
+        _ = subverter.read("csv", b"start,end,speaker,text\n0,1000,\xff,hi\n", "a.csv")
+    found = subverter.read("csv", b"start,end,speaker,text\n0,1000,\x00,hi\n", "a.csv")
+    assert found.cues == (Cue(0, 1000, "(speaker \ufffd)hi", "", "(speaker \ufffd)"),)
+    assert found.notes == ("1 NULs read as U+FFFD, as the W3C reads them: the first in line 2",)
+
+
+def test_a_csv_nul_note_names_the_first_in_the_file() -> None:
+    # whisper-cli's -di column, before its text: its NUL on line 2 the first
+    found = subverter.read("csv", b"start,end,speaker,text\n0,1,\x00,a\n1,2,0,\x00\n", "a.csv")
+    assert found.notes == ("2 NULs read as U+FFFD, as the W3C reads them: the first in line 2",)
+    with pytest.raises(subverter.Error, match=r"^not UTF-8: a\.csv \(line 2\)$"):
+        _ = subverter.read("csv", b"start,end,speaker,text\n0,1,\xe4\xbd,a\n1,2,\xa0,b\n", "a.csv")

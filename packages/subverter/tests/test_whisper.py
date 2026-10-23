@@ -293,6 +293,130 @@ def test_whisperx_segments_and_words_in_seconds() -> None:
     )
 
 
+@pytest.mark.parametrize(
+    ("segment", "text", "lead"),
+    [
+        ({"speaker": "SPEAKER_00"}, "[SPEAKER_00]: Hi there", "[SPEAKER_00]: "),
+        ({"speaker": 1}, "[1]: Hi there", "[1]: "),  # its JSON, as any value's text
+        ({"speaker": 0}, "[0]: Hi there", "[0]: "),  # a speaker 0 is one
+        ({}, " Hi there ", ""),  # a segment no speaker turn meets (`diarize.py`): none
+        ({"speaker": None}, " Hi there ", ""),
+        ({"speaker": ""}, " Hi there ", ""),
+    ],
+    ids=["diarized", "a number", "zero", "none", "null", "empty"],
+)
+def test_a_whisperx_speaker_leads_its_text_as_its_subrip_writes_it(
+    segment: dict[str, object], text: str, lead: str
+) -> None:
+    # WriteSRT, WriteVTT and WriteTXT (`utils.py`): `[SPEAKER_00]: ` before the text, stripped
+    data = json.dumps({"segments": [{"start": 0, "end": 1, "text": " Hi there ", **segment}]})
+    assert subverter.read("json", data.encode(), "a.json").cues == (Cue(0, 1000, text, "0", lead),)
+
+
+def test_a_whisper_cli_speaker_leads_its_text_as_its_subrip_writes_it() -> None:
+    # -di: `"speaker": "0"`; its SubRip, `.txt` and `.lrc` `(speaker 0)` and the text (`cli.cpp`)
+    entries: list[object] = [
+        {"offsets": {"from": 0, "to": 1000}, "text": " Hi", "speaker": "0"},
+        {"offsets": {"from": 1000, "to": 2000}, "text": " there", "speaker": "?"},
+    ]
+    assert subverter.read("json", _cli(entries), "a.json").cues == (
+        Cue(0, 1000, "(speaker 0) Hi", "0", "(speaker 0)"),
+        Cue(1000, 2000, "(speaker ?) there", "1", "(speaker ?)"),
+    )
+
+
+@pytest.mark.parametrize("text", ["", "  ", None], ids=["empty", "blank", "null"])
+def test_a_speaker_of_no_text_is_none_its_cue_empty(text: str | None) -> None:
+    # an empty cue dropped (Transcripts), as WhisperX's SubRip writes no cue of no word
+    wx = {"segments": [{"start": 0, "end": 1, "text": text, "speaker": "SPEAKER_00"}]}
+    assert [
+        (c.text.strip(), c.lead)
+        for c in subverter.read("json", json.dumps(wx).encode(), "a.json").cues
+    ] == [("", "")]
+    cli = _cli([{"offsets": {"from": 0, "to": 1000}, "text": text, "speaker": "0"}])
+    assert [(c.text.strip(), c.lead) for c in subverter.read("json", cli, "a.json").cues] == [
+        ("", "")
+    ]
+
+
+@pytest.mark.parametrize(
+    ("data", "where"),
+    [
+        (b'{"segments": [{"text": "a", "speaker": "S\xff"}]}', ".segments[0].speaker"),
+        (b'{"segments": [{"text": "a", "speaker": "\\ud800"}]}', ".segments[0].speaker"),
+        (
+            b'{"transcription": [{"offsets": {"from": 0, "to": 1}, "text": "a", "speaker": "\xff"}]}',
+            ".transcription[0].speaker",
+        ),
+    ],
+    ids=["WhisperX", "a lone surrogate", "whisper-cli"],
+)
+def test_a_speaker_not_utf8_is_refused_where_it_is(data: bytes, where: str) -> None:
+    with pytest.raises(subverter.Error, match=f"^{re.escape(f'not UTF-8: a.json ({where})')}$"):
+        _ = subverter.read("json", data, "a.json")
+
+
+def test_a_nul_in_a_speaker_reads_as_u_fffd_noted_by_its_path() -> None:
+    wx = {"segments": [{"start": 0, "end": 1, "text": "a", "speaker": "S\u0000"}]}
+    reading = subverter.read("json", json.dumps(wx).encode(), "a.json")
+    assert [c.text for c in reading.cues] == ["[S\ufffd]: a"]
+    assert reading.notes == (_NUL_NOTE.format(n=1, where=".segments[0].speaker"),)
+    cli = _cli([{"offsets": {"from": 0, "to": 1}, "text": " a", "speaker": "\u0000"}])
+    reading = subverter.read("json", cli, "a.json")
+    assert [c.text for c in reading.cues] == ["(speaker \ufffd) a"]
+    assert reading.notes == (_NUL_NOTE.format(n=1, where=".transcription[0].speaker"),)
+
+
+def test_a_nul_in_an_ojf_speaker_is_noted() -> None:
+    entry = {"offsets": {"from": 0, "to": 500}, "text": " a", "speaker": "\u0000"}
+    reading = subverter.read("json", _cli([{**entry, "tokens": [_token(" a", 0, 500)]}]), "a.json")
+    assert reading.notes == (_NUL_NOTE.format(n=1, where=".transcription[0].speaker"),)
+
+
+@pytest.mark.parametrize(
+    ("doc", "where"),
+    [
+        (
+            {"segments": [{"text": "a", "speaker": "\u0000"}, {"text": "\u0000"}]},
+            ".segments[0].speaker",
+        ),
+        (
+            {"segments": [{"text": "a", "words": [{"word": "\u0000"}]}, {"text": "\u0000"}]},
+            ".segments[0].words[0].word",
+        ),
+        (
+            {
+                "transcription": [
+                    {"text": " a", "speaker": "\u0000", "tokens": [_token(" a", 0, 1)]},
+                    {"text": " \u0000", "tokens": [_token(" \u0000", 1, 2)]},
+                ]
+            },
+            ".transcription[0].speaker",
+        ),
+        (  # its speaker after its words
+            {"segments": [{"text": "a", "speaker": "\u0000", "words": [{"word": "\u0000"}]}]},
+            ".segments[0].words[0].word",
+        ),
+        (  # two speakers': the first
+            {"segments": [{"text": "a", "speaker": "\u0000"}, {"text": "b", "speaker": "\u0000"}]},
+            ".segments[0].speaker",
+        ),
+    ],
+    ids=["a speaker", "a word", "an -ojf speaker", "a word before", "two speakers"],
+)
+def test_the_nul_note_names_the_first_in_the_file(doc: dict[str, object], where: str) -> None:
+    # its writer's order: each sentence's text, its words or tokens, then its speaker
+    notes = subverter.read("json", json.dumps(doc).encode(), "a.json").notes
+    assert [n.split(": the first in ")[1] for n in notes] == [where]
+
+
+def test_a_character_split_across_speakers_is_refused() -> None:
+    # each speaker read alone: no character joined from the next one's
+    data = b'{"segments": [{"text": "a", "speaker": "\xe4\xbd"}, {"text": "b", "speaker": "\xa0"}]}'
+    with pytest.raises(subverter.Error, match=r"^not UTF-8: a\.json \(\.segments\[0\]\.speaker\)$"):
+        _ = subverter.read("json", data, "a.json")
+
+
 def test_whisperx_values_as_typed() -> None:
     # a decimal string a number, rounded half up to the ms (1.0005 s: 1000.5 ms, 1001); true no
     # time; null text nothing; a number as text its JSON; a JSON number past a double no time

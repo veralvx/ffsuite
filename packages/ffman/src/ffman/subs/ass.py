@@ -463,7 +463,8 @@ class _Events:
             # unspaced text: its timed words abut -- its lead, a speaker, before them, no word
             sep = "" if len(words) > 1 and " " not in c.text.removeprefix(c.lead).strip() else " "
             lead, between = segments(c.lead)  # broken as a plain line's, where it may
-            gaps = [*between, " " if lead else "", *[sep] * (len(words) - 1)]
+            spaced = c.text[len(c.lead) :][:1].isspace()  # its gap the text's: `(speaker 0)你好`
+            gaps = [*between, " " if lead and spaced else "", *[sep] * (len(words) - 1)]
             self._chunk_events(c, timed, self._wrap([*lead, *words], gaps), len(lead))
 
     def _chunk_events(self, c: Chunk, timed: list[Word], lines: _Lines, led: int) -> None:

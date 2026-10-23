@@ -48,10 +48,11 @@ class Source:
 
 
 class Nuls(NamedTuple):
-    """The NULs read as U+FFFD: how many; where the first was."""
+    """The NULs read as U+FFFD: how many; where the first was, and its place in the file."""
 
     total: int
     first: str | None
+    at: tuple[int, ...] = ()  # ordered as the file: the first of several readings' (`nul_notes`)
 
 
 class Joined(NamedTuple):
@@ -61,16 +62,22 @@ class Joined(NamedTuple):
     nuls: Nuls
 
 
-def joined(texts: Sequence[str], source: Source, where: Callable[[int], str]) -> Joined:
+def joined(
+    texts: Sequence[str],
+    source: Source,
+    where: Callable[[int], str],
+    place: Callable[[int], tuple[int, ...]] = lambda k: (k,),
+) -> Joined:
     """``texts`` as UTF-8, each character joined across the texts it spans, in the one it starts.
 
-    Refused at ``where``: a byte no character takes, a character the texts end inside, a lone
+    Its first NUL ``where`` and at ``place`` in the file. Refused at ``where``: a byte no character
+    takes, a character the texts end inside, a lone
     surrogate (a JSON escape) -- but in a file not UTF-8, an escaped U+DC80-DCFF reads as the
     byte ``surrogateescape`` keeps so: the two are one string.
     """
     decoder = codecs.getincrementaldecoder("utf-8")()
     found: list[str] = []
-    total, first = 0, None  # the NULs
+    total, first, at = 0, None, ()  # the NULs
     started: int | None = None  # the text an unfinished character starts in
     for k, text in enumerate(texts):
         pending = len(decoder.getstate()[0])  # the unfinished character's bytes, in ``started``
@@ -79,10 +86,12 @@ def joined(texts: Sequence[str], source: Source, where: Callable[[int], str]) ->
         except UnicodeEncodeError:  # a lone surrogate
             refuse(f"not UTF-8: {source.name} ({where(k)})")
         except UnicodeDecodeError as e:  # a byte no character takes: in ``started``'s, or here
-            at = k if started is None or e.start >= pending else started
-            refuse(f"not UTF-8: {source.name} ({where(at)})")
+            bad = k if started is None or e.start >= pending else started
+            refuse(f"not UTF-8: {source.name} ({where(bad)})")
         if n := whole.count("\0"):  # a character alone, never a byte of a multibyte one
-            total, first = total + n, first or where(k)
+            if first is None:
+                first, at = where(k), place(k)
+            total += n
             whole = whole.replace("\0", "\ufffd")
         if started is not None and whole:  # its first character, the one started before
             found[started] += whole[0]
@@ -92,16 +101,42 @@ def joined(texts: Sequence[str], source: Source, where: Callable[[int], str]) ->
             started = k
     if started is not None:
         refuse(f"not UTF-8: {source.name} ({where(started)})")
-    return Joined(found, Nuls(total, first))
+    return Joined(found, Nuls(total, first, at))
 
 
-def by_line(texts: Sequence[tuple[int, str]], name: str) -> Joined:
+def apart(
+    texts: Sequence[str],
+    source: Source,
+    where: Callable[[int], str],
+    place: Callable[[int], tuple[int, ...]],
+) -> Joined:
+    """``joined`` on each text alone: no character joined across them (a speaker's)."""
+
+    def one(k: int, text: str) -> Joined:
+        return joined([text], source, lambda _: where(k), lambda _: place(k))
+
+    each = [one(k, t) for k, t in enumerate(texts)]
+    found = [j.nuls for j in each if j.nuls.first is not None]
+    first = min(found, key=lambda n: n.at, default=Nuls(0, None))
+    return Joined(
+        [j.texts[0] for j in each], Nuls(sum(n.total for n in found), first.first, first.at)
+    )
+
+
+def by_line(texts: Sequence[tuple[int, str]], name: str, *, alone: bool = False) -> Joined:
     """``joined`` on a text file's texts, each with its line (from 1): refused by ``line N``.
 
-    The file read as ``file_text`` reads it: each byte no character takes a surrogate.
+    The file read as ``file_text`` reads it: each byte no character takes a surrogate. Its first
+    NUL placed at its line; ``alone``: each text read alone (``apart``).
     """
     source = Source(name, "surrogateescape")
-    return joined([text for _, text in texts], source, lambda k: f"line {texts[k][0]}")
+    read = apart if alone else joined
+    return read(
+        [text for _, text in texts],
+        source,
+        lambda k: f"line {texts[k][0]}",
+        lambda k: (texts[k][0],),
+    )
 
 
 def file_text(data: bytes) -> str:
@@ -138,9 +173,12 @@ def bom_text(data: bytes, name: str, lines: Callable[[str], int]) -> str:
 
 
 def nul_notes(*nuls: Nuls) -> tuple[str, ...]:
-    """A reading's NULs (``Joined.nuls``, in order), read as U+FFFD: counted, the first named."""
+    """A reading's NULs (``Joined.nuls``), read as U+FFFD: counted, the first in the file named.
+
+    The first by place (``Nuls.at``); of places alike, or none, the first given.
+    """
     total = sum(n.total for n in nuls)
-    first = next((n.first for n in nuls if n.first is not None), None)
     if not total:
         return ()
+    first = min((n for n in nuls if n.first is not None), key=lambda n: n.at).first  # the file's
     return (f"{total} NULs read as U+FFFD, as the W3C reads them: the first in {first}",)

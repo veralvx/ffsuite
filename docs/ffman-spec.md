@@ -230,6 +230,9 @@ camcorder:date=D,time=T`.
 - A highlighted sentence's speaker, WhisperX's `[SPEAKER_00]: `, leads its `chunk-word` line, never
   lit, its words spaced as the text after it -- `[SPEAKER_00]: 今日は良い天気です`, as its plain line
   and WhisperX's gap cue show it, every word timed; before, no speaker, `今 日 は 良 い 天 気 で す` (New).
+- A diarized JSON's or CSV's speaker leads its text, as its writer's SubRip writes it: whisper-cli's
+  `(speaker 0) Hello`, WhisperX's `[SPEAKER_00]: Hello`, its JSON and SubRip burned alike; before,
+  the speaker dropped (New).
 - An LRC line whose stamps follow blanks is read, as Navidrome and Jellyfin read it (ffmpeg drops
   it), and a stamp's minus as a time before 0, as ffmpeg writes and reads it -- each noted; any
   other line but a tag or an empty one is dropped, noted: `2 LRC lines dropped, opened by no stamp

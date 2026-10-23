@@ -15,13 +15,14 @@ whole, ``""`` when nothing is decoded) -- no WhisperX JSON holds one (``asr.py``
 """
 
 import json
+from collections.abc import Callable
 from dataclasses import dataclass
 from fractions import Fraction
 from typing import Final, cast
 
 from subverter._errors import refuse
 from subverter.readers.fields import json_number, ms, number, time_ms
-from subverter.readers.utf8 import Errors, Nuls, Source, joined, nul_notes
+from subverter.readers.utf8 import Errors, Nuls, Source, apart, joined, nul_notes
 from subverter.transcript import Cue, Reading, Timing
 
 __all__ = ["read"]
@@ -109,6 +110,27 @@ def _text(value: object) -> str:
     return json.dumps(value, separators=(",", ":"), ensure_ascii=False, default=float)
 
 
+def _leads(
+    items: list[dict[str, object]],
+    texts: list[str],
+    form: str,
+    source: Source,
+    at: Callable[[int], str],
+) -> tuple[list[str], Nuls]:
+    """Each diarized text's lead: its speaker in its writer's SubRip ``form``.
+
+    Each as UTF-8 alone (``apart``, refused ``at`` its path); none for an empty or null speaker, or
+    a text of none (a cue dropped).
+    """
+    names = apart(
+        [_text(i.get("speaker")) if t.strip() else "" for i, t in zip(items, texts, strict=True)],
+        source,
+        at,
+        lambda k: (k, 2),  # after its text and words or tokens, as its writer writes them
+    )
+    return [form.format(n) if n else "" for n in names.texts], names.nuls
+
+
 # whisper-cli: .transcription[] -- offsets in ms; with -ojf, its tokens (and their DTW times)
 
 # the languages written without spaces between words: every token a word
@@ -118,14 +140,23 @@ _NO_SPACES: Final = frozenset({"zh", "yue", "ja", "th", "lo", "km", "my"})
 def _whisper_cli(doc: dict[str, object], source: Source) -> Reading:
     entries = [_obj(e) for e in _list(doc["transcription"])]
     texts = joined(
-        [_text(e.get("text")) for e in entries], source, lambda k: f".transcription[{k}].text"
+        [_text(e.get("text")) for e in entries],
+        source,
+        lambda k: f".transcription[{k}].text",
+        lambda k: (k, 0),
+    )
+    # -di: its SubRip's, `.txt`'s and `.lrc`'s `(speaker 0)` and the text (cli.cpp)
+    leads, said = _leads(
+        entries, texts.texts, "(speaker {})", source, lambda k: f".transcription[{k}].speaker"
     )
     cues = tuple(
-        Cue(*_window(e), text, str(key))
-        for key, (e, text) in enumerate(zip(entries, texts.texts, strict=True))
+        Cue(*_window(e), lead + text, str(key), lead)
+        for key, (e, text, lead) in enumerate(zip(entries, texts.texts, leads, strict=True))
     )
     if not any("tokens" in e for e in entries):
-        return Reading("whisper-cli JSON", has_words=False, cues=cues, notes=nul_notes(texts.nuls))
+        return Reading(
+            "whisper-cli JSON", has_words=False, cues=cues, notes=nul_notes(texts.nuls, said)
+        )
     language = _text(_obj(doc.get("result")).get("language"))
     sentences, nuls = _sentences(entries, source)
     words, fallback, timed = _tokens(entries, sentences, no_spaces=language in _NO_SPACES)
@@ -133,7 +164,7 @@ def _whisper_cli(doc: dict[str, object], source: Source) -> Reading:
     if fallback:
         where = f"outside their sentence or not in order in {fallback} of {timed} sentences"
         notes = (f"DTW word times were {where}: used token offsets there",)
-    notes += nul_notes(texts.nuls, nuls)
+    notes += nul_notes(texts.nuls, said, nuls)
     return Reading("whisper-cli -ojf JSON", has_words=True, cues=cues, words=words, notes=notes)
 
 
@@ -211,6 +242,7 @@ def _sentences(entries: list[dict[str, object]], source: Source) -> tuple[list[l
         [text for _, _, text, _ in found],
         source,
         lambda n: f".transcription[{found[n][0]}].tokens[{found[n][1]}].text",
+        lambda n: (found[n][0], 1, found[n][1]),
     )
     sentences: list[list[_Token]] = [[] for _ in entries]
     for (key, _, raw, t), text in zip(found, texts.texts, strict=True):
@@ -257,11 +289,25 @@ def _segments(
 ) -> tuple[tuple[Cue, ...], tuple[Timing, ...], tuple[str, ...]]:
     segments = [_obj(s) for s in _list(doc["segments"])]
     texts = joined(
-        [_text(s.get("text")) for s in segments], source, lambda k: f".segments[{k}].text"
+        [_text(s.get("text")) for s in segments],
+        source,
+        lambda k: f".segments[{k}].text",
+        lambda k: (k, 0),
+    )
+    # --diarize: WhisperX's SubRip's, WebVTT's and `.txt`'s `[SPEAKER_00]: ` before the text
+    # (utils.py); a segment no speaker turn meets has none (diarize.py)
+    leads, said = _leads(
+        segments, texts.texts, "[{}]: ", source, lambda k: f".segments[{k}].speaker"
     )
     cues = tuple(
-        Cue(time_ms(s.get("start"), 1000), time_ms(s.get("end"), 1000), text, str(key))
-        for key, (s, text) in enumerate(zip(segments, texts.texts, strict=True))
+        Cue(
+            time_ms(s.get("start"), 1000),
+            time_ms(s.get("end"), 1000),
+            f"{lead}{text.strip()}" if lead else text,
+            str(key),
+            lead,
+        )
+        for key, (s, text, lead) in enumerate(zip(segments, texts.texts, leads, strict=True))
     )
     found = [
         (key, j, cast("dict[str, object]", word))
@@ -273,9 +319,10 @@ def _segments(
         [_text(w.get("word")) for _, _, w in found],
         source,
         lambda n: f".segments[{found[n][0]}].words[{found[n][1]}].word",
+        lambda n: (found[n][0], 1, found[n][1]),
     )
     words = tuple(
         Timing(str(key), time_ms(w.get("start"), 1000), time_ms(w.get("end"), 1000), text)
         for (key, _, w), text in zip(found, spoken.texts, strict=True)
     )
-    return cues, words, nul_notes(texts.nuls, spoken.nuls)
+    return cues, words, nul_notes(texts.nuls, said, spoken.nuls)

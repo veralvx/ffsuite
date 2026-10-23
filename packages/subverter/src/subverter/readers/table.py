@@ -46,19 +46,34 @@ def split_lines(text: str) -> list[str]:
 
 
 def timed(
-    rows: Sequence[tuple[int, str, str, str]], name: str
+    rows: Sequence[tuple[int, str, str, str]],
+    name: str,
+    speakers: Sequence[str] = (),
 ) -> tuple[tuple[Cue, ...], tuple[str, ...]]:
     """Rows of a line (from 1), a start and an end in ms, a text: their cues, their NULs' notes.
 
     Each character joined across the texts it spans (``utf8.by_line``: what is still not UTF-8,
-    refused by its row's line); a time read, or none (``fields.time_ms``).
+    refused by its row's line); a time read, or none (``fields.time_ms``). Each of ``speakers``,
+    whisper-cli's ``-di`` column, before its text as its SubRip writes it, ``(speaker 0)``
+    (``cli.cpp``): its ``lead``, each read alone; none for an empty one, or a text of none (a cue
+    dropped).
     """
     whole = by_line([(line, text) for line, *_, text in rows], name)
-    cues = tuple(
-        Cue(time_ms(a, 1), time_ms(z, 1), t)
-        for (_, a, z, _), t in zip(rows, whole.texts, strict=True)
+    said = speakers or [""] * len(rows)
+    names = by_line(
+        [
+            (line, s if t.strip() else "")
+            for (line, *_), s, t in zip(rows, said, whole.texts, strict=True)
+        ],
+        name,
+        alone=True,
     )
-    return cues, nul_notes(whole.nuls)
+    leads = [f"(speaker {n})" if n else "" for n in names.texts]
+    cues = tuple(
+        Cue(time_ms(a, 1), time_ms(z, 1), lead + t, "", lead)
+        for (_, a, z, _), t, lead in zip(rows, whole.texts, leads, strict=True)
+    )
+    return cues, nul_notes(whole.nuls, names.nuls)
 
 
 def _rows(kind: str, text: str, name: str) -> tuple[tuple[Cue, ...], tuple[str, ...]]:
@@ -74,8 +89,9 @@ def _rows(kind: str, text: str, name: str) -> tuple[tuple[Cue, ...], tuple[str, 
         else csv.reader(source)
     )
     si, ei, ti, width = 1, 2, 3, 3
-    # each record's first line, start, end, its text's lines
-    found: list[tuple[int, str, str, list[str]]] = []
+    pi = 0  # whisper-cli's -di speaker column, if the header names one: no TSV writer's
+    # each record's first line, start, end, its text's lines, its speaker
+    found: list[tuple[int, str, str, list[str], str]] = []
     joined: list[tuple[int, str]] = []  # each line of no tab read into the TSV record before
     at_text = False  # the last record ended at its text, the last column: as WriteTSV writes one
     before = 0  # the lines read before a record
@@ -91,15 +107,18 @@ def _rows(kind: str, text: str, name: str) -> tuple[tuple[Cue, ...], tuple[str, 
                 si = i if column == "start" else si
                 ei = i if column == "end" else ei
                 ti = i if column == "text" else ti
+                pi = i if column == "speaker" and kind == "csv" else pi
             width = len(names)
             continue
         if kind == "tsv" and len(fields) == 1 and at_text:  # its text, broken
             found[-1][3].append(fields[0])  # its lines joined once, at the end: linear
             joined.append((line, fields[0]))
             continue
-        found.append((line, _field(fields, si), _field(fields, ei), [_field(fields, ti)]))
+        speaker = _field(fields, pi) if pi else ""
+        found.append((line, _field(fields, si), _field(fields, ei), [_field(fields, ti)], speaker))
         at_text = len(fields) == ti == width
-    cues, nuls = timed([(at, a, z, "\n".join(parts)) for at, a, z, parts in found], name)
+    rows = [(at, a, z, "\n".join(parts)) for at, a, z, parts, _ in found]
+    cues, nuls = timed(rows, name, [s for *_, s in found])
     return cues, _joined_notes(joined) + nuls
 
 

@@ -626,7 +626,8 @@ def put(tmp_path: Path, name: str, text: str) -> str:
 
 def test_hostile_transcripts(tmp_path: Path) -> None:
     bom = put(tmp_path, "bom.csv", '\ufeffstart,end,speaker,text\n1000,2000,0,"Hello"\n')
-    assert [c.text for c in ingested(bom).chunks] == ["Hello"]  # S160: the text, not the speaker id
+    # S160: the text, not the speaker id alone -- its speaker before it, as whisper-cli's SubRip
+    assert [c.text for c in ingested(bom).chunks] == ["(speaker 0)Hello"]
     types = put(
         tmp_path,
         "types.json",

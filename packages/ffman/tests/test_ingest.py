@@ -776,6 +776,77 @@ def test_a_lead_its_cleaned_text_does_not_open_with_is_none(tmp_path: Path) -> N
     assert [(c.text, c.lead) for c in t.chunks] == [("[a", "")]
 
 
+# WhisperX 3.8.6's --diarize: its JSON, a segment no speaker turn meets among them, and the
+# SubRip its WriteSRT writes of it (`utils.py`, run)
+_DIARIZED_JSON: Final = json.dumps(
+    {
+        "segments": [
+            {
+                "start": 0.5,
+                "end": 1.4,
+                "text": " Hello world.",
+                "speaker": "SPEAKER_00",
+                "words": [
+                    {"word": "Hello", "start": 0.5, "end": 0.9, "speaker": "SPEAKER_00"},
+                    {"word": "world.", "start": 1.0, "end": 1.4, "speaker": "SPEAKER_00"},
+                ],
+            },
+            {
+                "start": 2.0,
+                "end": 2.5,
+                "text": " Again.",
+                "words": [{"word": "Again.", "start": 2.0, "end": 2.5}],
+            },
+        ],
+        "language": "en",
+    }
+)
+_DIARIZED_SRT: Final = (
+    "1\n00:00:00,500 --> 00:00:01,400\n[SPEAKER_00]: Hello world.\n\n"
+    "2\n00:00:02,000 --> 00:00:02,500\nAgain.\n\n"
+)
+
+
+@pytest.mark.parametrize("mode", ["plain", "chunk-word"])
+def test_a_diarized_json_burns_its_speakers_as_its_subrip_does(tmp_path: Path, mode: str) -> None:
+    """Its speaker before each text, `chunk-word`'s lead, never lit -- before, none."""
+    json_t = ingested(put(tmp_path, "d.json", _DIARIZED_JSON))
+    srt_t = ingested(put(tmp_path, "d.srt", _DIARIZED_SRT))
+    assert [(c.text, c.lead) for c in json_t.chunks] == [
+        ("[SPEAKER_00]: Hello world.", "[SPEAKER_00]:"),
+        ("Again.", ""),
+    ]
+    assert [c.text for c in json_t.chunks] == [c.text for c in srt_t.chunks]
+    events = [e.split(",", 9) for e in script(json_t, 1920, 1080, Style(mode))[0].splitlines()]
+    base = [re.sub(r"\{[^}]*\}", "", f[9]) for f in events if f[0] == "Dialogue: 0"]
+    assert set(base) == {"[SPEAKER_00]: Hello world.", "Again."}
+    lit = [f[9] for f in events if f[0] == "Dialogue: 1"]
+    assert all("\\alpha&HFF&}[SPEAKER_00]:" in e for e in lit[:2])  # the speaker never lit
+
+
+@pytest.mark.parametrize(
+    ("text", "tokens", "line"),
+    [
+        ("你好世界", ["你好", "世界"], "(speaker 0)你好世界"),
+        (" Hello world", [" Hello", " world"], "(speaker 0) Hello world"),
+    ],
+    ids=["zh", "en"],
+)
+def test_a_whisper_cli_speaker_leads_chunk_word_spaced_as_its_text(
+    tmp_path: Path, text: str, tokens: list[str], line: str
+) -> None:
+    """Its gap after the speaker the text's: none before `zh`'s text, as whisper-cli's SubRip."""
+    toks = [
+        {"text": w, "offsets": {"from": 500 * k, "to": 500 * (k + 1)}} for k, w in enumerate(tokens)
+    ]
+    entry = {"offsets": {"from": 0, "to": 1000}, "text": text, "tokens": toks, "speaker": "0"}
+    doc = {"result": {"language": "zh" if "你" in text else "en"}, "transcription": [entry]}
+    t = ingested(put(tmp_path, "d.json", json.dumps(doc)))
+    events = [e.split(",", 9) for e in script(t, 1920, 1080, Style("chunk-word"))[0].splitlines()]
+    base = {re.sub(r"\{[^}]*\}", "", f[9]) for f in events if f[0] == "Dialogue: 0"}
+    assert base == {line.strip()}
+
+
 _HIDDEN: Final = re.compile(r"\\pos\([^,]+,([^)]+)\).*\{\\alpha&HFF&\}(.*?)\{\\alpha&H00&\}")
 _LIT: Final = re.compile(r"\\pos\([^,]+,([^)]+)\).*\{\\alpha&H00&[^}]*\}(.*?)\{\\r")
 

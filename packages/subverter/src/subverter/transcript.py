@@ -46,7 +46,8 @@ class Cue:
     end: int | None
     text: str
     segment: str = ""  # the sentence its words name, where words are timed
-    lead: str = ""  # its text's start no word holds: a highlighted sentence's speaker, WhisperX's
+    # its text's start no word holds: a speaker, a highlighted sentence's or diarized
+    lead: str = ""
 
 
 @dataclass(frozen=True, slots=True)
