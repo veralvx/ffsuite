@@ -169,13 +169,13 @@ high; libass `\fs96` from 48: 40 to 81) and `font-family: serif` (230 to 212 px 
 
 ## Speakers
 
-| Source -> target                                  | ffmpeg                | ffman reads (*measured*)                                                                 | Candidate                                                                         |
-| ------------------------------------------------- | --------------------- | ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| WebVTT `<v Bob>` -> any                           | dropped (`ffmpeg.md`) | the tag in subverter's text; dropped                                                     | a speaker in the model: ASS `Name`, WebVTT `<v>`, JSON `speaker`                  |
-| ASS `Name` -> SubRip, WebVTT, LRC                 | dropped (*measured*)  | (no ASS reader)                                                                          | the same                                                                          |
-| whisper-cli `-di` `speaker`, WhisperX's `speaker` | --                    | ignored                                                                                  | the same                                                                          |
-| WhisperX's `[SPEAKER_00]: ` in SubRip, WebVTT     | text, as written      | text; a highlighted sentence's, its `lead`, drawn before `chunk-word`'s words, never lit | the same                                                                          |
-| a speaker into SubRip, LRC, CSV, TSV, plain text  | --                    | --                                                                                       | a text prefix, as WhisperX writes one (`[SPEAKER_00]: `), or dropped -- to decide |
+| Source -> target                                  | ffmpeg                | ffman reads (*measured*)                                                                 | Candidate                                                        |
+| ------------------------------------------------- | --------------------- | ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| WebVTT `<v Bob>` -> any                           | dropped (`ffmpeg.md`) | the tag in subverter's text; dropped                                                     | a speaker in the model: ASS `Name`, WebVTT `<v>`, JSON `speaker` |
+| ASS `Name` -> SubRip, WebVTT, LRC                 | dropped (*measured*)  | (no ASS reader)                                                                          | the same                                                         |
+| whisper-cli `-di` `speaker`, WhisperX's `speaker` | --                    | before the text, as its writer's SubRip: `(speaker 0) hello`, `[SPEAKER_00]: hello`      | the same                                                         |
+| WhisperX's `[SPEAKER_00]: ` in SubRip, WebVTT     | text, as written      | text; a highlighted sentence's, its `lead`, drawn before `chunk-word`'s words, never lit | the same                                                         |
+| a speaker into SubRip, LRC, CSV, TSV, plain text  | --                    | its text's prefix in what it writes: the `--add-subs` track, the burn                    | a text prefix, its writer's, as read (above)                     |
 
 ## Identifiers, comments and titles
 

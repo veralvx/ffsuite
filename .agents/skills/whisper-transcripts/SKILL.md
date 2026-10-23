@@ -168,10 +168,10 @@ ffman convert -i talk.mp4 --add-subs talk.csv -o talk.mkv
 
 ffman burns or attaches whisper-cli's JSON and CSV, OpenAI's and WhisperX's JSON and TSV -- their
 words, where the JSON holds them, for its word modes; any CSV or TSV by its header's `start`, `end`
-(ms) and `text`, any order -- and the filter's `json` and `srt`: the `json` read as the filter
-writes it, each text as written, the `srt` a SubRip, read from its cue 0. It refuses a `.txt` (no
-times) and an `.aud`. A burn needs a video; an audio file takes a transcript as a track,
-`--add-subs` into an `.mka`.
+(ms) and `text`, any order; a JSON's or CSV's speaker before its text, as its writer's SubRip writes
+it -- and the filter's `json` and `srt`: the `json` read as the filter writes it, each text as
+written, the `srt` a SubRip, read from its cue 0. It refuses a `.txt` (no times) and an `.aud`. A
+burn needs a video; an audio file takes a transcript as a track, `--add-subs` into an `.mka`.
 
 ## Example
 
