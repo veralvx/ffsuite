@@ -90,7 +90,13 @@ def test_highlighted_cues_become_sentences_and_words(tmp_path: Path) -> None:
         "Hi you",
         "Hi you",
     ]  # the underline moved back: a new sentence
-    assert [(w.segment, w.text) for w in t.words] == [("0", "Hi"), ("0", "you"), ("1", "Hi")]
+    # the second's `you`, underlined in none of its cues, a word of no time, placed
+    assert [(w.segment, w.text) for w in t.words] == [
+        ("0", "Hi"),
+        ("0", "you"),
+        ("1", "Hi"),
+        ("1", "you"),
+    ]
 
 
 TRANSCRIPTS: Final = Path(__file__).parent / "fixtures" / "transcripts"
@@ -845,6 +851,32 @@ def test_a_whisper_cli_speaker_leads_chunk_word_spaced_as_its_text(
     events = [e.split(",", 9) for e in script(t, 1920, 1080, Style("chunk-word"))[0].splitlines()]
     base = {re.sub(r"\{[^}]*\}", "", f[9]) for f in events if f[0] == "Dialogue: 0"}
     assert base == {line.strip()}
+
+
+def test_a_highlighted_srts_untimed_words_are_placed_as_its_jsons() -> None:
+    """Its words, as WhisperX 3.8.2 wrote them (docs/upgrading.md 12, 29), and chunk-word's lines,
+    the JSON's -- before, `101` and `Hi` lost from that mode.
+
+    A sentence's window is its cues': `Hi`'s starts at its first timed word, the JSON's at its
+    segment's start, so `Hi` is placed in another span.
+    """
+    json_t, srt_t = (
+        ingested(TRANSCRIPTS / n) for n in ("wx-untimed.json", "wx-untimed-highlight.srt")
+    )
+    assert [w.text for w in srt_t.words] == [w.text for w in json_t.words]
+    assert [w.text for w in srt_t.words] == ["Room", "101", "is", "open.", "Hi", "there", "you."]
+    first = [[(w.start, w.end) for w in t.words if w.segment == "0"] for t in (json_t, srt_t)]
+    assert first[0] == first[1]
+    assert srt_t.notes == json_t.notes
+    lines = [
+        {
+            re.sub(r"\{[^}]*\}", "", e.split(",", 9)[9])
+            for e in script(t, 1920, 1080, Style("chunk-word"))[0].splitlines()
+            if e.startswith("Dialogue: 0")
+        }
+        for t in (json_t, srt_t)
+    ]
+    assert lines[0] == lines[1] == {"Room 101 is open.", "Hi there you."}
 
 
 _HIDDEN: Final = re.compile(r"\\pos\([^,]+,([^)]+)\).*\{\\alpha&HFF&\}(.*?)\{\\alpha&H00&\}")

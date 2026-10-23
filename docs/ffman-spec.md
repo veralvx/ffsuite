@@ -230,6 +230,9 @@ camcorder:date=D,time=T`.
 - A highlighted sentence's speaker, WhisperX's `[SPEAKER_00]: `, leads its `chunk-word` line, never
   lit, its words spaced as the text after it -- `[SPEAKER_00]: 今日は良い天気です`, as its plain line
   and WhisperX's gap cue show it, every word timed; before, no speaker, `今 日 は 良 い 天 気 で す` (New).
+- A highlighted sentence's word no cue underlines -- one WhisperX left untimed -- is placed between
+  its neighbours, noted, as its JSON's: `chunk-word` draws `Room 101 is open.`; before, `101` lost
+  from that mode (New).
 - A diarized JSON's or CSV's speaker leads its text, as its writer's SubRip writes it: whisper-cli's
   `(speaker 0) Hello`, WhisperX's `[SPEAKER_00]: Hello`, its JSON and SubRip burned alike; before,
   the speaker dropped (New).

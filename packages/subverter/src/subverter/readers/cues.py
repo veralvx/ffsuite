@@ -6,6 +6,7 @@ copied -- its ``ja`` and ``zh`` spaces and its speakers its own.
 """
 
 import re
+from bisect import bisect_right
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from itertools import groupby, pairwise
@@ -20,6 +21,7 @@ _UNDERLINE: Final = re.compile(r"<u>([^<]*)</u>")  # --highlight_words: the word
 _UNDERLINES: Final = re.compile(r"</?u>")  # its tags (``_plain``)
 _SPEAKER: Final = re.compile(r"\[[^\]\n]*\]: ")  # WhisperX's diarized cue opens f"[{speaker}]: "
 _LIT_WORD: Final = re.compile(r"<u>[^<]+</u>")  # a cue wholly underlined: a word, its writer's
+_RUN: Final = re.compile(r"\S+")  # a highlighted cue's word, between its spaces (``_words``)
 
 
 class Odd(NamedTuple):
@@ -294,30 +296,100 @@ def _highlighted(cues: list[Cue], *, unspaced: bool) -> tuple[list[Cue], list[Ti
     """One sentence a run of one text (new when the underline moves back); each <u> a word.
 
     A sentence's text is its first cue's without the underline -- ``unspaced``, without WhisperX's
-    spaces too, as its gap cues join its words (``_is_unspaced``); its lead, its speaker.
+    spaces too, as its gap cues join its words (``_is_unspaced``); its lead, its speaker. A word no
+    cue underlines -- one WhisperX left untimed -- is a word of no time (``_words``).
     """
     sentences: list[Cue] = []
-    words: list[Timing] = []
+    parts: list[_Part] = []
+    gaps: list[str] = []  # the sentences of no underline since the last part: their keys
     current, text, lead, cs, ce, last, sid = "", "", "", None, None, -1, -1
+    lit: list[tuple[int, Timing]] = []  # the sentence's words, each at its underline's offset
+    shown = ""  # a highlighted cue's text without its underline: its words, each where it stands
+
+    def close() -> None:
+        nonlocal gaps
+        sentences.append(Cue(cs, ce, text, str(sid), lead))
+        if not lit:
+            gaps.append(_key(text))
+            return
+        skip = _spoken(shown) if lead else 0
+        parts.append(_Part([(at - skip, w) for at, w in lit], shown[skip:], lead, tuple(gaps)))
+        gaps = []
+
     for cue in cues:
         key = _key(cue.text)
         underline = _UNDERLINE.search(cue.text)
         offset = len(_plain(cue.text[: underline.start()])) if underline else -1
         if key != current or (underline and offset <= last):
             if current:
-                sentences.append(Cue(cs, ce, text, str(sid), lead))
-            sid, current, cs, last = sid + 1, key, cue.start, -1
+                close()
+            sid, current, cs, last, lit, shown = sid + 1, key, cue.start, -1, [], ""
             text = _sentence(cue.text, unspaced=unspaced)
             lead = text[: _spoken(text)]
         ce = cue.end
         if underline:
-            words.append(Timing(str(sid), cue.start, cue.end, underline[1]))
-            last = offset
+            lit.append((offset, Timing(str(sid), cue.start, cue.end, underline[1])))
+            shown, last = shown or _plain(cue.text), offset
             if offset < len(lead):  # a word, not a speaker: OpenAI whisper's `[Music]:` underlined
                 lead = ""
     if current:
-        sentences.append(Cue(cs, ce, text, str(sid), lead))
-    return sentences, words
+        close()
+    return sentences, _words(parts)
+
+
+class _Part(NamedTuple):
+    """A highlighted sentence's words, read past its lead (``_words``).
+
+    ``lit``, its underlined words, each at its offset; ``shown``, a highlighted cue's text without
+    its underline -- its words where they stand; ``gaps``, the keys of the sentences of no
+    underline between it and the part before.
+    """
+
+    lit: list[tuple[int, Timing]]
+    shown: str
+    lead: str
+    gaps: tuple[str, ...]
+
+    def continues(self, before: "_Part") -> bool:
+        """Whether it is ``before``'s sentence, split by WhisperX v3.1.x's gap cue.
+
+        One speaker and one text; between them, cues of that text alone, no speaker (``utils.py``
+        writes a gap's cue without it); its underline past ``before``'s.
+        """
+        key = _key(self.shown)
+        return (
+            (self.lead, self.shown) == (before.lead, before.shown)
+            and all(g == key for g in self.gaps)
+            and self.lit[0][0] > before.lit[-1][0]
+        )
+
+
+def _words(parts: list[_Part]) -> list[Timing]:
+    """The sentences' words: the underlined, and each run of a text that none holds, untimed.
+
+    Parts of one sentence, split (``_Part.continues``), are one sentence's words. Within them, a run
+    of ``shown`` between its spaces no underlined word holds is a word of no time, the part's it
+    follows (the first's, before any): WhisperX joins a highlighted cue's words by spaces (a line
+    break before one it wraps at), and a word it left untimed (no ``start``: ``alignment.py``) is in
+    each cue's text but underlined in none. OpenAI whisper times every word, a space in one (``-
+    I``) its own.
+    """
+    words: list[Timing] = []
+    group: list[_Part] = []
+    for part in [*parts, None]:
+        if part and group and part.continues(group[-1]):
+            group.append(part)
+            continue
+        held = [(at, at + len(w.text)) for p in group for at, w in p.lit]
+        firsts = [p.lit[0][0] for p in group]
+        found: list[list[tuple[int, Timing]]] = [list(p.lit) for p in group]
+        for m in _RUN.finditer(group[0].shown if group else ""):
+            if not any(a < m.end() and m.start() < z for a, z in held):
+                k = max(bisect_right(firsts, m.start()) - 1, 0)
+                found[k].append((m.start(), Timing(group[k].lit[0][1].segment, None, None, m[0])))
+        words += [w for f in found for _, w in sorted(f, key=lambda r: r[0])]
+        group = [part] if part else []
+    return words
 
 
 def _sentence(text: str, *, unspaced: bool) -> str:

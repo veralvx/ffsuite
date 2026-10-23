@@ -1321,7 +1321,8 @@ def test_a_highlighted_sentence_keeps_its_markup_but_its_underline() -> None:
     )
     reading = subverter.read("srt", data, "a.srt")
     assert reading.cues == (Cue(0, 1000, "if x < 5 and <i>y</i> > 3", "0"),)
-    assert reading.words == (Timing("0", 0, 500, "if"), Timing("0", 500, 1000, "x"))
+    untimed = (Timing("0", None, None, w) for w in ("<", "5", "and", "<i>y</i>", ">", "3"))
+    assert reading.words == (Timing("0", 0, 500, "if"), Timing("0", 500, 1000, "x"), *untimed)
 
 
 def test_an_underline_moving_back_starts_a_sentence_of_the_same_text() -> None:
@@ -1336,6 +1337,264 @@ def test_an_underline_moving_back_starts_a_sentence_of_the_same_text() -> None:
         Cue(0, 1000, "la la", "0"),
         Cue(1000, 1500, "la la", "1"),
     )
+
+
+# WhisperX 3.8.2's WriteSRT (`utils.py`, run): a word it left untimed (`{"word": "101"}`) has no
+# highlighted cue, only its place in the others' text
+_UNTIMED: Final = (
+    "1\n00:00:02,500 --> 00:00:02,800\n<u>Room</u> 101 is open.\n\n"
+    "2\n00:00:02,800 --> 00:00:03,100\nRoom 101 is open.\n\n"
+    "3\n00:00:03,100 --> 00:00:03,200\nRoom 101 <u>is</u> open.\n\n"
+    "4\n00:00:03,200 --> 00:00:03,250\nRoom 101 is open.\n\n"
+    "5\n00:00:03,250 --> 00:00:03,800\nRoom 101 is <u>open.</u>\n\n"
+)
+
+
+@pytest.mark.parametrize(
+    ("data", "words"),
+    [
+        (_UNTIMED.encode(), ["Room", None, "is", "open."]),
+        (  # --max_line_width 8 --max_line_count 2: its line break before a word
+            _UNTIMED.replace("101 is", "101 \nis").replace("101 <u>is", "101 \n<u>is").encode(),
+            ["Room", None, "is", "open."],
+        ),
+        (  # diarized, its first word untimed: after its speaker
+            _srt(
+                [
+                    ("00:00:01,000", "00:00:01,300", "[SPEAKER_00]: Hi <u>there</u> you."),
+                    ("00:00:01,300", "00:00:01,400", "[SPEAKER_00]: Hi there you."),
+                    ("00:00:01,400", "00:00:01,900", "[SPEAKER_00]: Hi there <u>you.</u>"),
+                ]
+            ),
+            [None, "there", "you."],
+        ),
+        (  # `ja`, a full-width digit untimed: its highlighted cues' spaces its own, between words
+            _srt(
+                [
+                    ("00:00:01,000", "00:00:01,200", "<u>部</u> 屋 \uff11 号"),
+                    ("00:00:01,200", "00:00:01,400", "部 <u>屋</u> \uff11 号"),
+                    ("00:00:01,400", "00:00:01,800", "部屋\uff11号"),
+                    ("00:00:01,800", "00:00:02,000", "部 屋 \uff11 <u>号</u>"),
+                ]
+            ),
+            ["部", "屋", None, "号"],
+        ),
+        (  # --max_line_width 8 --max_line_count 2: an untimed word right after its line break
+            _srt(
+                [
+                    ("00:00:01,000", "00:00:01,300", "<u>Call</u> now \n911 ok"),
+                    ("00:00:01,300", "00:00:01,600", "Call <u>now</u> \n911 ok"),
+                    ("00:00:01,600", "00:00:02,000", "Call now \n911 ok"),
+                    ("00:00:02,000", "00:00:02,400", "Call now \n911 <u>ok</u>"),
+                ]
+            ),
+            ["Call", "now", None, "ok"],
+        ),
+    ],
+    ids=["en", "wrapped", "diarized, first", "ja", "after a break"],
+)
+def test_a_highlighted_sentences_word_not_underlined_is_an_untimed_word(
+    data: bytes, words: list[str | None]
+) -> None:
+    """Its text where no cue underlines it: a word of no time, placed as its JSON's (ffman)."""
+    reading = subverter.read("srt", data, "a.srt")
+    (sentence,) = reading.cues
+    found = [w.text if w.start is not None else None for w in reading.words]
+    assert found == words
+    # its words, together, its text past its speaker, without its spaces and line breaks
+    spoken = "".join(sentence.text.removeprefix(sentence.lead).split())
+    assert "".join(w.text for w in reading.words) == spoken
+    untimed = [w for w in reading.words if w.start is None]
+    assert [(w.segment, w.end) for w in untimed] == [("0", None)]
+    assert untimed[0].text in sentence.text
+
+
+# WhisperX v3.1.1's WriteSRT (`utils.py`, run), diarized: its gap cue without the speaker splits a
+# sentence into parts of one text, each underlining its own words
+_SPLIT: Final = [
+    ("00:00:00,500", "00:00:00,800", "[SPEAKER_00]: <u>One</u> two three four."),
+    ("00:00:00,800", "00:00:01,000", "[SPEAKER_00]: One <u>two</u> three four."),
+    ("00:00:01,000", "00:00:01,300", "[SPEAKER_00]: One two <u>three</u> four."),
+    ("00:00:01,300", "00:00:01,700", "[SPEAKER_00]: One two three <u>four.</u>"),
+    ("00:00:02,000", "00:00:02,300", "[SPEAKER_00]: <u>Five</u> {} seven."),
+    ("00:00:02,300", "00:00:02,700", "Five {} seven."),
+    ("00:00:02,700", "00:00:03,000", "[SPEAKER_00]: Five {} <u>seven.</u>"),
+]
+
+
+@pytest.mark.parametrize(
+    ("between", "words"),
+    [
+        ("<u>six</u>", ["Five", "six", "seven."]),  # its own cue, `six` timed
+        ("66", ["Five", None, "seven."]),  # untimed: once, in the part before it
+    ],
+    ids=["timed", "untimed"],
+)
+def test_a_sentence_split_into_parts_of_one_text_holds_each_word_once(
+    between: str, words: list[str | None]
+) -> None:
+    """A word another part underlines is that part's; an untimed one the part it follows."""
+    cues = [
+        (a, z, t.format(between.removeprefix("<u>").removesuffix("</u>"))) for a, z, t in _SPLIT
+    ]
+    if between.startswith("<u>"):  # `six`'s cue: it underlined, the parts as the writer splits them
+        cues.insert(5, ("00:00:02,300", "00:00:02,500", "[SPEAKER_00]: Five <u>six</u> seven."))
+        cues[6] = ("00:00:02,500", "00:00:02,700", cues[6][2])
+    reading = subverter.read("srt", _srt(cues), "a.srt")
+    found = [(w.segment, w.text if w.start is not None else None) for w in reading.words[4:]]
+    assert [w for _, w in found] == words
+    assert [s for s, w in found if w is None] == ["1"] * words.count(None)
+
+
+def test_an_untimed_word_after_a_later_parts_word_is_that_parts() -> None:
+    # WhisperX v3.1.1's WriteSRT (run): `88` untimed, after the second part's `seven`
+    cues = [
+        *_SPLIT[:4],
+        ("00:00:02,000", "00:00:02,300", "[SPEAKER_00]: <u>Five</u> seven 88"),
+        ("00:00:02,300", "00:00:02,700", "Five seven 88"),
+        ("00:00:02,700", "00:00:03,000", "[SPEAKER_00]: Five <u>seven</u> 88"),
+    ]
+    found = subverter.read("srt", _srt(cues), "a.srt").words[4:]
+    assert [(w.segment, w.text, w.start) for w in found] == [
+        ("1", "Five", 2000),
+        ("3", "seven", 2700),
+        ("3", "88", None),
+    ]
+
+
+def test_sentences_of_two_texts_are_never_one_sentences_words() -> None:
+    # `there` underlined past `Go`, but in another text: each sentence's untimed words its own
+    data = _srt(
+        [
+            ("00:00:00,000", "00:00:00,500", "<u>Go</u> 7"),
+            ("00:00:00,500", "00:00:01,000", "Go 7"),
+            ("00:00:01,000", "00:00:01,500", "Hi <u>there</u>"),
+            ("00:00:01,500", "00:00:02,000", "Hi there"),
+        ]
+    )
+    found = subverter.read("srt", data, "a.srt").words
+    assert [(w.segment, w.text, w.start) for w in found] == [
+        ("0", "Go", 0),
+        ("0", "7", None),
+        ("1", "Hi", None),
+        ("1", "there", 1000),
+    ]
+
+
+# a sentence of eight words, each its own cue: the file read as highlighted, whatever follows
+_EIGHT: Final = [
+    (
+        f"00:00:00,{k}00",
+        f"00:00:00,{k + 1}00",
+        " ".join(f"<u>{w}</u>" if j == k else w for j, w in enumerate("abcdefgh")),
+    )
+    for k in range(8)
+]
+
+
+@pytest.mark.parametrize(
+    ("cues", "words"),
+    [
+        (  # WhisperX 3.8.2 (run): two speakers, one text, each word untimed in the other's
+            [
+                ("00:00:01,000", "00:00:01,300", "[SPEAKER_00]: <u>Room</u> 101"),
+                ("00:00:02,300", "00:00:02,600", "[SPEAKER_01]: Room <u>101</u>"),
+            ],
+            [("1", "Room", 1000), ("1", "101", None), ("2", "Room", None), ("2", "101", 2300)],
+        ),
+        (  # WhisperX v3.1.1 (run): two speakers, one text, its gap cue without a speaker between
+            [
+                ("00:00:01,000", "00:00:01,300", "[SPEAKER_00]: <u>Room</u> 101"),
+                ("00:00:02,000", "00:00:02,300", "Room 101"),
+                ("00:00:02,300", "00:00:02,600", "[SPEAKER_01]: Room <u>101</u>"),
+            ],
+            [("1", "Room", 1000), ("1", "101", None), ("3", "Room", None), ("3", "101", 2300)],
+        ),
+        (  # WhisperX 3.8.2 (run): another speaker's of one text, no word timed, between
+            [
+                ("00:00:01,000", "00:00:01,300", "[SPEAKER_00]: <u>Room</u> 101"),
+                ("00:00:01,600", "00:00:01,900", "[SPEAKER_01]: Room 101"),
+                ("00:00:02,300", "00:00:02,600", "[SPEAKER_00]: Room <u>101</u>"),
+            ],
+            [("1", "Room", 1000), ("1", "101", None), ("3", "Room", None), ("3", "101", 2300)],
+        ),
+        (  # WhisperX 3.8.2 (run): a sentence of no word timed between two of one text
+            [
+                ("00:00:01,000", "00:00:01,300", "<u>Room</u> 101"),
+                ("00:00:01,500", "00:00:01,800", "Hmm"),
+                ("00:00:02,300", "00:00:02,600", "Room <u>101</u>"),
+            ],
+            [("1", "Room", 1000), ("1", "101", None), ("3", "Room", None), ("3", "101", 2300)],
+        ),
+        (  # WhisperX v3.1.1 (run): one text twice, its gap cues, `Hi` untimed in each
+            [
+                ("00:00:00,800", "00:00:01,000", "Hi you"),
+                ("00:00:01,000", "00:00:01,400", "[SPEAKER_00]: Hi <u>you</u>"),
+                ("00:00:01,800", "00:00:02,000", "Hi you"),
+                ("00:00:02,000", "00:00:02,400", "[SPEAKER_00]: Hi <u>you</u>"),
+            ],
+            [("2", "Hi", None), ("2", "you", 1000), ("4", "Hi", None), ("4", "you", 2000)],
+        ),
+        (  # WhisperX v3.1.1 (run): its second underlined within the first's, `A` and `c` untimed
+            [
+                ("00:00:01,000", "00:00:01,200", "[SPEAKER_00]: <u>A</u> b c"),
+                ("00:00:01,200", "00:00:01,400", "[SPEAKER_00]: A <u>b</u> c"),
+                ("00:00:01,400", "00:00:01,600", "[SPEAKER_00]: A b <u>c</u>"),
+                ("00:00:01,800", "00:00:02,000", "A b c"),
+                ("00:00:02,000", "00:00:02,200", "[SPEAKER_00]: A <u>b</u> c"),
+            ],
+            [
+                ("1", "A", 1000),
+                ("1", "b", 1200),
+                ("1", "c", 1400),
+                ("3", "A", None),
+                ("3", "b", 2000),
+                ("3", "c", None),
+            ],
+        ),
+        (  # WhisperX v3.1.1 (run): a sentence no word aligned, then one split: each part's own gaps
+            [
+                ("00:00:01,000", "00:00:01,500", "[SPEAKER_00]: Hmm"),
+                ("00:00:02,000", "00:00:02,300", "[SPEAKER_00]: <u>Five</u> six seven."),
+                ("00:00:02,300", "00:00:02,500", "[SPEAKER_00]: Five <u>six</u> seven."),
+                ("00:00:02,500", "00:00:02,700", "Five six seven."),
+                ("00:00:02,700", "00:00:03,000", "[SPEAKER_00]: Five six <u>seven.</u>"),
+            ],
+            [("2", "Five", 2000), ("2", "six", 2300), ("4", "seven.", 2700)],
+        ),
+        (  # WhisperX v3.1.1 (run): a split sentence's first word untimed, the first part's
+            [
+                ("00:00:01,800", "00:00:02,000", "55 Five six seven."),
+                ("00:00:02,000", "00:00:02,300", "[SPEAKER_00]: 55 <u>Five</u> six seven."),
+                ("00:00:02,300", "00:00:02,500", "[SPEAKER_00]: 55 Five <u>six</u> seven."),
+                ("00:00:02,500", "00:00:02,700", "55 Five six seven."),
+                ("00:00:02,700", "00:00:03,000", "[SPEAKER_00]: 55 Five six <u>seven.</u>"),
+            ],
+            [
+                ("2", "55", None),
+                ("2", "Five", 2000),
+                ("2", "six", 2300),
+                ("4", "seven.", 2700),
+            ],
+        ),
+    ],
+    ids=[
+        "two speakers",
+        "two speakers, v3.1.1",
+        "another speaker's between",
+        "a sentence between",
+        "a repeat on its last",
+        "a repeat within",
+        "after one unaligned",
+        "first",
+    ],
+)
+def test_only_a_split_sentences_parts_share_their_words(
+    cues: list[tuple[str, str, str]], words: list[tuple[str, str, int | None]]
+) -> None:
+    """One speaker, one text, only its gap cues between, its underline moving on: one sentence."""
+    found = subverter.read("srt", _srt([*_EIGHT, *cues]), "a.srt").words[8:]
+    assert [(w.segment, w.text, w.start) for w in found] == words
 
 
 def test_an_underline_alone_is_no_highlighting() -> None:

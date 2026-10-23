@@ -79,3 +79,6 @@ Moved from that run-book; nixos-config's own couplings stay there.
 28. whisper-cli's SubRip still writes `(speaker 0)` before its text and WhisperX's `[SPEAKER_00]: `,
     and WhisperX's no cue of no word: subverter reads a JSON's or CSV's speaker so
     (`readers/whisper.py`, `readers/table.py`).
+29. WhisperX's `utils.py` still writes a word it left untimed (no `start`) in each highlighted cue's
+    text, its words joined by spaces, underlined in none: subverter reads it as an untimed word
+    (`readers/cues.py`, `_untimed`).
