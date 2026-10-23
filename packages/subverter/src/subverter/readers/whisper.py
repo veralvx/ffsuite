@@ -146,7 +146,12 @@ def _window(value: dict[str, object]) -> tuple[int | None, int | None]:
 def _tokens(
     entries: list[dict[str, object]], sentences: list[list["_Token"]], *, no_spaces: bool
 ) -> tuple[tuple[Timing, ...], int, int]:
-    """Words from tokens, timed by DTW where its times sit in order inside their sentence."""
+    """Words from tokens, timed by DTW where its times sit in order inside their sentence.
+
+    The sentences counted, and those fallen back on token offsets: of a window a player shows
+    alone, read, its end past its start and past 0 -- one of none has no time to check DTW's
+    against, and a cue its consumer drops (no time, ending before it begins, no length, before 0).
+    """
     words: list[Timing] = []
     fallback: set[int] = set()
     timed: set[int] = set()
@@ -166,7 +171,7 @@ def _tokens(
                 )
             else:
                 words.append(Timing(str(key), w.start, w.end, w.text))
-        if ws and has:
+        if ws and has and a is not None and z is not None and max(a, 0) < z:
             timed.add(key)
             if not dtw_ok:
                 fallback.add(key)

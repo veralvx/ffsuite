@@ -103,6 +103,37 @@ def test_dtw_out_of_order_falls_back_to_the_offsets_and_says_so() -> None:
     )
 
 
+@pytest.mark.parametrize(
+    "window",
+    [
+        {"from": None, "to": 900},
+        {"from": 0, "to": "zz"},
+        {"from": 900, "to": 100},
+        {"from": 500, "to": 500},
+        {"from": -900, "to": 0},
+    ],
+    ids=["no start", "no end", "ending before it begins", "of no length", "before 0"],
+)
+def test_a_sentence_no_player_shows_is_no_dtw_sentence(window: dict[str, object]) -> None:
+    # no time, or none a player shows, to check its DTW times against: its cue its consumer's to
+    # drop, noted -- before, counted a fallback too (`2 of 2`, then `1 cues dropped`)
+    data = _cli(
+        [
+            {"offsets": window, "text": " gone", "tokens": [_token(" gone", 0, 900, 10)]},
+            {
+                "offsets": {"from": 1000, "to": 2000},
+                "text": " late",
+                "tokens": [_token(" late", 1000, 2000, 50)],
+            },
+        ]
+    )
+    reading = subverter.read("json", data, "a.json")
+    assert reading.notes == (
+        "DTW word times were outside their sentence or not in order in 1 of 1 sentences: used token offsets there",
+    )
+    assert [w.start for w in reading.words] == [0, 1000]  # its token offsets, as before
+
+
 def test_a_language_without_spaces_makes_every_token_a_word() -> None:
     tokens = [_token("東", 0, 300), _token("京", 300, 600)]
     data = _cli(
