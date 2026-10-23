@@ -4247,12 +4247,34 @@ tests with 6.8.3's converters.*
       `attach/diarized.csv` and `burn/diarized.csv` changed, `(speaker 0) ` before each text; the
       bash suite's S160 `(speaker 0)Hello`, was `Hello`; the `whisper-transcripts` and
       `subtitle-mappings` skills (`087eac3`).*
-- [ ] Found by the speaker box's review: a word WhisperX left untimed (digits, symbols: no
+- [x] Found by the speaker box's review: a word WhisperX left untimed (digits, symbols: no
       `start`) has no highlighted cue, so no `<u>`: read from a highlighted SubRip or WebVTT, it is
       no word, and chunk-word, drawn from words, leaves it out -- `[SPEAKER_00]: there you`, its
       plain line `[SPEAKER_00]: Hi there you` (its JSON's words keep it, placed by normalize). To
       decide: the sentence's text the words not underlined fill (an untimed word between timed ones),
       or as now.
+      *Done: each run of a highlighted cue's text, past its speaker, that no underlined word holds
+      is a word of no time, in its place; ffman places it between its neighbours, noted, as its
+      JSON's. A sentence WhisperX v3.1.x's speakerless gap cue splits is read as one (one speaker,
+      one text, only such cues between, its underline moving on); any other sentences of one text,
+      each its own. Weighed: as before (a text every player shows, lost from one mode). Proof:
+      WhisperX's tags v3.1.1 to v3.8.6, SubRip and WebVTT, `en` and `ja`, an untimed word first,
+      inside, last, two together, across two segments, diarized or not, wrapped or not -- 672
+      cases against the same result's JSON: words alike 0 before, 556 after; `chunk-word`'s lines
+      96, 538; every other traced to a cause outside the box. Every timed case of OpenAI whisper's
+      and WhisperX's writers (770) as before. Its review, three rounds: a split sentence's words
+      doubled at times not theirs, then two speakers' or two sentences' of one text read as one
+      (each fixed, each tested on its writer's own output; the mutants caught); left, a sentence of
+      that text, no speaker and no word aligned, between two of one speaker, which no reader tells
+      from v3.1.x's gap cue (decisions' "Highlighted untimed words"). Fixtures `wx-untimed.json`
+      and `wx-untimed-highlight.srt`, WhisperX 3.8.2's writers' (`4563ffe`; `upgrading.md` 29).
+      Tests failing first; suite 2656, coverage 100%; the matrix 770; the outcome report against
+      `1fe597a` on 3.13 and 3.14: 528 identical, the new fixture's three cases changed (`101` and
+      `Hi` drawn, placed, noted); the `subtitle-mappings` words table, measured (`a03567d`).*
+- [ ] Found by the untimed words box: a highlighted SubRip or WebVTT of one cue -- WhisperX's
+      sentence of one word timed, the rest untimed -- is not read as highlighted (one cue, no
+      neighbour to compare): its cue as written, its `<u>` drawn, no word. To decide: one cue with
+      `<u>` read as a highlighted sentence, or as now.
 - [x] Found by the highlighted cues box's runs: `test_lrc.py`'s bounded-work test of 20 000 equal
       stamps takes 0.90 s of its 1 s under coverage alone (0.28 s without), so a parallel run on two
       cores fails it now and then. To decide: a bound measured against the reading's own scale (a
