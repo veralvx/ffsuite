@@ -49,14 +49,20 @@ def a_cue_a_word(fmt: str) -> str:
     return cues(fmt, [(a, z, t) for s in SENTENCES for t, a, z in s])
 
 
-def highlighted(fmt: str) -> str:
+def highlighted(fmt: str, *, unaligned: bool = False) -> str:
     """OpenAI's and WhisperX's `--highlight_words` (`utils.py`, `iterate_result`): a cue a word,
-    the sentence with that word in `<u>`; a gap between words a cue of the sentence alone."""
+    the sentence with that word in `<u>`; a gap between words a cue of the sentence alone.
+
+    ``unaligned``: `two` untimed, as WhisperX 3.8.2 writes a word it left so -- no cue of its own
+    (compared once with its `WriteSRT`: equal; this script runs OpenAI whisper's alone).
+    """
     timed: list[tuple[int, int, str]] = []
     for s in SENTENCES:
         words = [t for t, _, _ in s]
         last = s[0][1]
-        for i, (_, a, z) in enumerate(s):
+        for i, (t, a, z) in enumerate(s):
+            if unaligned and t == "two":
+                continue
             if a != last:
                 timed.append((last, a, " ".join(words)))
             lit = (f"<u>{w}</u>" if j == i else w for j, w in enumerate(words))
@@ -181,6 +187,7 @@ FORMS: dict[str, tuple[str, str]] = {
     "SubRip, a cue a sentence": ("srt", a_cue_a_sentence("srt")),
     "SubRip, a cue a word": ("srt", a_cue_a_word("srt")),
     "SubRip, --highlight_words": ("srt", highlighted("srt")),
+    "SubRip, --highlight_words, a word unaligned": ("srt", highlighted("srt", unaligned=True)),
     "WebVTT, a cue a word": ("vtt", a_cue_a_word("vtt")),
     "WebVTT, --highlight_words": ("vtt", highlighted("vtt")),
     "WebVTT, timestamps": ("vtt", stamped()),
