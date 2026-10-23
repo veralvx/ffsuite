@@ -4223,10 +4223,28 @@ tests with 6.8.3's converters.*
       plain line `[SPEAKER_00]: Hi there you` (its JSON's words keep it, placed by normalize). To
       decide: the sentence's text the words not underlined fill (an untimed word between timed ones),
       or as now.
-- [ ] Found by the highlighted cues box's runs: `test_lrc.py`'s bounded-work test of 20 000 equal
+- [x] Found by the highlighted cues box's runs: `test_lrc.py`'s bounded-work test of 20 000 equal
       stamps takes 0.90 s of its 1 s under coverage alone (0.28 s without), so a parallel run on two
       cores fails it now and then. To decide: a bound measured against the reading's own scale (a
       quadratic reading takes minutes), its input halved, or as now.
+      *Done: its input sized to its scale -- the read it guards against, its text read once a stamp,
+      costs stamps times the text's length, the read itself the stamps' count: 2,000 stamps (of
+      20,000) of the same 100,000 characters, 0.03 s, 0.09 s under coverage, of its 1 s; read once
+      a stamp, 6 to 9 s, the test failing (measured on a copy so mutated) (`7e96b39`). Weighed: a bound
+      measured against the reading's own scale -- two timed runs, each as noisy; the input halved
+      -- 0.43 s under coverage alone, near half the bound before any load. Shown: the suite four
+      times in parallel under coverage, 2597 passed each, coverage 100%. Reviewed, at the owner's
+      request, and by an independent reviewer's measurements: the mutant 6 to 9 s, the comment
+      its figures alone; a read quadratic in the stamps, which no 1 s bound catches cheaply, added
+      to the found box. It found a box: the other bounded-work tests near their bound.*
+- [ ] Found by the LRC timing box: other bounded-work tests run near their 1 s under coverage
+      alone (serial, worst of three) -- `test_table.py`'s TSV of 400,000 broken lines 0.66 s,
+      `test_readers.py`'s run of 200,000 CRs 0.36 to 0.55 s, `test_ingest.py`'s unclosed WebVTT tag
+      0.30 s (failed once under load) -- and a quadratic read separates from theirs only at sizes
+      like these (a TSV joined line by line: 5.7 s at 400,000, its test's docstring). To decide: a
+      bound by operations counted rather than time -- which a read quadratic in the LRC's stamps
+      needs too (40,000 stamps: 0.64 s read, 4.1 s its list rebuilt each stamp) -- the timing asserted
+      outside coverage, or as now.
 - [ ] Found by the `whisper-transcripts` review: the OpenAI API's `verbose_json` (its
       `segments`, and with word timestamps its top-level `words`) is read by its segments alone,
       its words ignored, unnoted -- a word mode has none to show (measured: two words, `0` read, no
