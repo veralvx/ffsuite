@@ -5,7 +5,9 @@ the other reads back. The copies are deliberate (a library imports nothing of ff
 that drifted would change a message or a time unseen, so each is held to ffman's on any input.
 """
 
+from collections.abc import Callable, Iterator
 from fractions import Fraction
+from typing import SupportsIndex, final, override
 
 import ffmeta._errors
 import ffmeta._values
@@ -16,13 +18,52 @@ from hypothesis import example, given
 from hypothesis import strategies as st
 
 from ffman import errors, values
+from tests.support.quoted import QUOTED
 
 
-@given(st.text())
+@given(QUOTED)
+@example("x" * 61)  # its first 60 printable: cut only past them
+@example("x" * 60 + "\n")
 def test_each_shown_is_ffmans(text: str) -> None:
     expected = errors.shown(text)
     assert ffmeta._errors.shown(text) == expected
     assert subverter._errors.shown(text) == expected
+
+
+@final
+class _Unread(str):
+    """A text read in its first 61 characters alone: iterated, made a ``str`` or sliced past them, it fails."""
+
+    __slots__: tuple[str, ...] = ()
+
+    @override
+    def __iter__(self) -> Iterator[str]:  # ty: ignore[invalid-method-override] -- str's LiteralString
+        message = "iterated"
+        raise AssertionError(message)
+
+    @override
+    def __getitem__(self, key: SupportsIndex | slice) -> str:  # ty: ignore[invalid-method-override]
+        span = range(len(self))[key] if isinstance(key, slice) else range(1)
+        if len(span) > 61:  # shown's 60, and one to tell a text past them
+            message = f"{len(span)} characters read"
+            raise AssertionError(message)
+        return super().__getitem__(key)
+
+    @override
+    def __str__(self) -> str:
+        message = "copied whole"
+        raise AssertionError(message)
+
+
+@pytest.mark.parametrize(
+    "shown",
+    [errors.shown, ffmeta._errors.shown, subverter._errors.shown],
+    ids=["ffman", "ffmeta", "subverter"],
+)
+def test_each_shown_reads_no_more_than_it_quotes(shown: Callable[[str], str]) -> None:
+    # its first 61 characters: each one or more shown, so past 60 the quote is cut, its 57 theirs
+    assert shown(_Unread("\x00" * 10**6)) == "\\x00" * 14 + "\\..."
+    assert shown(_Unread("ab")) == "ab"
 
 
 @given(st.text(max_size=20), st.integers(min_value=-3, max_value=10**6), st.text(max_size=40))

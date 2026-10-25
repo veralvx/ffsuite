@@ -1,6 +1,8 @@
 import pytest
+from hypothesis import given
 
 from ffman.errors import FfmanError, escaped, refuse, refuse_at, shown
+from tests.support.quoted import QUOTED
 
 
 def test_refuse_says_the_message() -> None:
@@ -40,6 +42,12 @@ def test_shown_puts_input_on_one_line_of_60_characters_at_most() -> None:
     assert len(shown("y" * 1000)) == 60
     # what prints nothing, visible
     assert shown("\ufeffa\tb\x00c\xa0d") == "\\ufeffa\\tb\\x00c\\xa0d"
+
+
+@given(QUOTED)
+def test_shown_is_every_character_shown_then_cut(text: str) -> None:
+    one = "".join(char if char.isprintable() else repr(char)[1:-1] for char in text)
+    assert shown(text) == (one if len(one) <= 60 else one[:57] + "...")
 
 
 @pytest.mark.parametrize(
