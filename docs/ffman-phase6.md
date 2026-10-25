@@ -4289,7 +4289,7 @@ tests with 6.8.3's converters.*
       request, and by an independent reviewer's measurements: the mutant 6 to 9 s, the comment
       its figures alone; a read quadratic in the stamps, which no 1 s bound catches cheaply, added
       to the found box. It found a box: the other bounded-work tests near their bound.*
-- [ ] Found by the LRC timing box: other bounded-work tests run near their 1 s under coverage
+- [x] Found by the LRC timing box: other bounded-work tests run near their 1 s under coverage
       alone (serial, worst of three) -- `test_table.py`'s TSV of 400,000 broken lines 0.66 s,
       `test_readers.py`'s run of 200,000 CRs 0.36 to 0.55 s, `test_ingest.py`'s unclosed WebVTT tag
       0.30 s (failed once under load) -- and a quadratic read separates from theirs only at sizes
@@ -4297,6 +4297,27 @@ tests with 6.8.3's converters.*
       bound by operations counted rather than time -- which a read quadratic in the LRC's stamps
       needs too (40,000 stamps: 0.64 s read, 4.1 s its list rebuilt each stamp) -- the timing asserted
       outside coverage, or as now.
+      *Done: each bounded-work test timed in CPU time (`time.process_time`), its input sized to
+      the form it guards against, as the LRC box's. CPU time, not wall time: another process's load
+      is none of the read's work -- wall time doubled under two CPU hogs, CPU time steady; no
+      bounded test's work is in another process (measured: none spawned, its children's CPU time
+      0), which a test whose work were in ffmpeg would need to know. The TSV's and the whisper
+      filter's texts 40,000 lines of 100 characters (of 400,000 of one): a join one by one costs
+      their count squared times their length -- 0.09 s and 0.05 s under coverage, 6.2 s and 6.3 s
+      so joined; a run of CRs read into a SubRip's or an LRC's lines (`file_lines`), not a whole
+      read, whose lines' own work, 0.4 s under coverage, measured nothing of its split -- 0.005 s,
+      the pattern it replaced 21 s (WebVTT's, the W3C's, has none). The unclosed WebVTT tag's 0.29
+      s was `shown`'s: a message's quote read its whole input for the 60 characters shown -- now
+      its first 61 alone, in ffman and its two copies, the same quote for every text (proven; a
+      text refusing to be read whole quoted alike), a 400,000-character input 17 to 64 ms, now
+      under 0.01 ms (`edc4f9d`; decisions' "Quoted input"). Weighed: operations counted (each guard
+      its own counter, coupled to its code), timing outside coverage (the lines it covers alone).
+      Left: `drawn`'s `{\an8}` run, 0.14 s CPU, linear (no mutant found quadratic). Each reshaped
+      test failing on its mutant (6 to 22 s); the worst bounded span under the full parallel suite
+      0.14 s (`45d45b1`). Its review, two rounds, to convergence: the CR test's guard of the reads
+      (`file_lines`) lost, the perf figure measured under coverage, the property test short of the
+      cut -- each fixed. Suite 2658, coverage 100%; the matrix 770; the outcome report against
+      `9fd4eab` on 3.13 and 3.14: 531 identical.*
 - [ ] Found by the `whisper-transcripts` review: the OpenAI API's `verbose_json` (its
       `segments`, and with word timestamps its top-level `words`) is read by its segments alone,
       its words ignored, unnoted -- a word mode has none to show (measured: two words, `0` read, no
