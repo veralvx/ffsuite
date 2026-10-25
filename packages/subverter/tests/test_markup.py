@@ -44,10 +44,10 @@ def test_a_webvtt_tag_no_gt_closes_runs_to_the_texts_end(text: str, shown: str, 
     ids=["after each a", "after a tag", "closed once"],
 )
 def test_untagged_is_bounded_whatever_its_lts(text: str, subrip: str, webvtt: str) -> None:
-    began = time.monotonic()
+    began = time.process_time()
     assert subverter.untagged(text) == subrip
     assert subverter.untagged(text, webvtt=True) == webvtt
-    assert time.monotonic() - began < 1
+    assert time.process_time() - began < 1
 
 
 @given(st.lists(st.sampled_from(("<", ">", "a", "<b>", "\n")), max_size=12).map("".join))
@@ -252,9 +252,9 @@ def test_drawn_is_ffmpeg_then_libass_wherever_they_read(text: str) -> None:
     ],
 )
 def test_drawn_is_bounded_whatever_its_braces_and_lts(text: str, as_drawn: str) -> None:
-    began = time.monotonic()
+    began = time.process_time()
     assert subverter.drawn(text).text == as_drawn
-    assert time.monotonic() - began < 1
+    assert time.process_time() - began < 1
 
 
 @pytest.mark.parametrize(
@@ -276,6 +276,6 @@ def test_unstamped_takes_an_lrcs_word_stamps_off_alone(text: str, shown: str) ->
 
 def test_unstamped_is_bounded_whatever_its_lts() -> None:
     text = "<0:" * 100_000 + "0" * 100_000  # each < a stamp's start, none closed
-    began = time.monotonic()
+    began = time.process_time()
     assert subverter.unstamped(text) == text
-    assert time.monotonic() - began < 1
+    assert time.process_time() - began < 1

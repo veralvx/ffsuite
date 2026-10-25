@@ -150,13 +150,13 @@ def test_webvtts_line_ends_are_the_w3cs(text: str) -> None:
     assert webvtt.split_lines(text) == text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
 
 
-@pytest.mark.parametrize("fmt", ["srt", "vtt", "lrc"])
-def test_a_run_of_crs_is_read_in_linear_time(fmt: str) -> None:
-    # a run of CRs, no LF after it: ``\r*\n|\r`` scans the run again at each CR (18 s here)
-    data = b"WEBVTT" * (fmt == "vtt") + b"\r" * 200_000
-    began = time.monotonic()
-    assert subverter.read(fmt, data, f"a.{fmt}").cues == ()
-    assert time.monotonic() - began < 1
+def test_a_run_of_crs_is_read_into_lines_in_linear_time() -> None:
+    # a SubRip's and an LRC's lines (``file_lines``): ``\r*\n|\r`` scans a run of CRs again at
+    # each CR -- 21 s here, its split 0.005 s under coverage (WebVTT's ``\r\n|\r|\n``, the W3C's,
+    # has no such form)
+    began = time.process_time()
+    assert subrip.file_lines(b"\r" * 200_000, "a.srt") == [""] * 200_001
+    assert time.process_time() - began < 1
 
 
 # --- not UTF-8: whisper-cli -ml 1 splits a segment between tokens, so inside a character --

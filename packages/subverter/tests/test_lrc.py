@@ -254,9 +254,9 @@ def test_an_lrc_line_of_many_equal_stamps_is_read_in_bounded_work() -> None:
     # its text read once, not once a stamp: stamps times its length, squared steps -- here 0.03 s
     # (0.09 under coverage), read once a stamp 6 to 9 s
     text = "<0:0" * 25_000  # no word stamp: no ">" closes one
-    began = time.monotonic()
+    began = time.process_time()
     cues = subverter.read("lrc", f"{'[0:0]' * 2_000}{text}\n".encode(), "a.lrc").cues
-    assert time.monotonic() - began < 1
+    assert time.process_time() - began < 1
     assert cues == (Cue(0, 3000, text),)
 
 

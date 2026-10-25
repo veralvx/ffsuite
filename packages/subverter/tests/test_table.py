@@ -181,12 +181,14 @@ def test_a_tsv_whisper_wrote_is_read_back_record_by_record(
 
 
 def test_a_tsv_text_of_many_broken_lines_is_read_in_bounded_work() -> None:
-    """Its lines joined once: one by one, 400,000 of them took 5.7 s (each join a copy)."""
-    data = ("start\tend\ttext\n0\t1\tx\n" + "y\n" * 400_000).encode()
-    began = time.monotonic()
+    """Its lines joined once: 0.09 s under coverage; one by one, each join a copy of the text so
+    far, 6.2 s -- its lines' count squared times their length, so long lines, not many short."""
+    line = "y" * 100
+    data = ("start\tend\ttext\n0\t1\tx\n" + f"{line}\n" * 40_000).encode()
+    began = time.process_time()
     found = subverter.read("tsv", data, "a.tsv")
-    assert time.monotonic() - began < 1
-    assert found.cues == (Cue(0, 1, "x" + "\ny" * 400_000),)
+    assert time.process_time() - began < 1
+    assert found.cues == (Cue(0, 1, "x" + f"\n{line}" * 40_000),)
 
 
 def test_a_tsv_quotes_nothing() -> None:

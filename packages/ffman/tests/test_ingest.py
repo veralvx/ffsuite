@@ -734,9 +734,9 @@ def test_a_line_break_is_a_space_but_between_two_cjk_characters(text: str, shown
 def test_a_texts_blanks_and_breaks_are_cleaned_in_linear_time(markup: Markup) -> None:
     # `` *\n`` tried from each blank of a run no break ends scans the run again (80,000: 3.5 s)
     text = f"a{' ' * 100_000}b{'今\n' * 10_000}"
-    began = time.monotonic()
+    began = time.process_time()
     assert clean(text, markup) == f"a b{'今' * 10_000}"
-    assert time.monotonic() - began < 1
+    assert time.process_time() - began < 1
 
 
 # WhisperX 3.8.6's `--highlight_words True`, diarized (its `utils.py`, run): `ja` and `en`
@@ -1581,9 +1581,9 @@ def test_a_huge_or_long_number_is_read_in_bounded_work(
 
     A reference of 5000 digits: U+FFFD, unread.
     """
-    began = time.monotonic()
+    began = time.process_time()
     assert [c.text for c in ingested(put(tmp_path, name, BOUNDLESS[name])).chunks] == texts
-    assert time.monotonic() - began < 2  # 10**999999999 never built
+    assert time.process_time() - began < 2  # 10**999999999 never built
 
 
 _OPEN: Final = "{\\" * 60_000  # each {\ no } closes: a CSV field, under csv's 131072
@@ -1611,9 +1611,9 @@ def test_an_unclosed_override_or_tag_is_read_in_bounded_work(
 ) -> None:
     """No closer sought from each opener past the last one: squared steps, so many of them -- a
     CSV's, TSV's and JSON's seek none (plain texts), kept as guards."""
-    began = time.monotonic()
+    began = time.process_time()
     assert [c.text for c in ingested(put(tmp_path, name, data)).chunks] == [text]
-    assert time.monotonic() - began < 1
+    assert time.process_time() - began < 1
 
 
 # the marks of the formats' markup, and the plain texts' breaks

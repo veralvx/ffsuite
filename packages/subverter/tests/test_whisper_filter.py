@@ -209,11 +209,13 @@ def test_json_lines_of_its_signature_not_its_form_are_dropped_each_noted() -> No
 
 
 def test_a_record_of_many_lines_is_read_in_bounded_work() -> None:
-    data = ('{"start":0,"end":1,"text":"x' + "\ny" * 400_000 + '"}\n').encode()
-    began = time.monotonic()
+    """Its lines joined once: 0.05 s under coverage; one by one, 6.3 s (``test_table``'s TSV)."""
+    lines = f"\n{'y' * 100}" * 40_000
+    data = ('{"start":0,"end":1,"text":"x' + lines + '"}\n').encode()
+    began = time.process_time()
     found = subverter.read("json", data, "a.json")
-    assert time.monotonic() - began < 1
-    assert found.cues == (Cue(0, 1, "x" + "\ny" * 400_000),)
+    assert time.process_time() - began < 1
+    assert found.cues == (Cue(0, 1, "x" + lines),)
 
 
 def test_a_long_dropped_record_is_named_shown() -> None:

@@ -165,9 +165,9 @@ def test_a_subrip_arrows_blanks_are_read_in_linear_time(blank: str) -> None:
     # blank (36 s here)
     line = f"{blank * 200_000}x --> y"
     data = f"1\n00:00:01,000 --> 00:00:02,000\na\n{line}\n"
-    began = time.monotonic()
+    began = time.process_time()
     assert subverter.read("srt", data.encode(), "a.srt").cues == (Cue(1000, 2000, f"a\n{line}"),)
-    assert time.monotonic() - began < 1
+    assert time.process_time() - began < 1
 
 
 @pytest.mark.parametrize(
@@ -459,9 +459,9 @@ def test_a_subrip_fraction_not_of_three_digits_is_a_count_of_ms_noted(
     written: str, start: int | None, said: str | None
 ) -> None:
     data = f"1\n{written} --> 00:00:09,000\nx\n"
-    began = time.monotonic()
+    began = time.process_time()
     reading = subverter.read("srt", data.encode(), "a.srt")
-    assert time.monotonic() - began < 1  # a long fraction read in bounded work
+    assert time.process_time() - began < 1  # a long fraction read in bounded work
     quoted = _CUT.get(written, written)
     notes = () if said is None else (_ODD_SUBRIP.format(n=1, time=quoted, said=said),)
     assert (reading.cues, reading.notes) == ((Cue(start, 9000, "x"),), notes)

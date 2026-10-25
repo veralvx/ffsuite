@@ -28,9 +28,10 @@ from subverter.readers.fields import exact, ms, number
     ],
 )
 def test_a_decimal_in_bounded_work(text: str, value: Fraction | None) -> None:
-    began = time.monotonic()
+    began = time.process_time()
     assert exact(text) == value
-    assert time.monotonic() - began < 1  # no huge integer built (a Fraction of the text: minutes)
+    # no huge integer built (a Fraction of the text: minutes)
+    assert time.process_time() - began < 1
 
 
 def test_long_digits_round_as_the_text() -> None:
