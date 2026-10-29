@@ -77,7 +77,7 @@ the package's `CHANGELOG.md` (git-cliff, `cliff.toml`) and commit both. It then 
 `<package>-v<version>` and pushes the commit and that tag together. The tag runs `publish.yml`: the
 package built once, published to PyPI, then its GitHub release of the same files, its notes the
 changelog's new section; ffman's tag runs `image.yml` too, its image (`.#image-free`) to
-`ghcr.io/veramachine/ffman`. `just changelog <package> --unreleased` shows that section before the
+`ghcr.io/veralvx/ffman`. `just changelog <package> --unreleased` shows that section before the
 release.
 
 - Each package's 0.1.0 was published by hand (from 89d5487). Before the first `just release`, tag it

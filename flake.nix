@@ -53,7 +53,7 @@
         }
       );
 
-      # `nix run github:veramachine/ffsuite -- convert ...`
+      # `nix run github:veralvx/ffsuite -- convert ...`
       apps = lib.mapAttrs (_: packages: {
         default = {
           type = "app";

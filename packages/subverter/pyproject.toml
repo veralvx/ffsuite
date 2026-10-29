@@ -45,10 +45,10 @@ classifiers = [
 dependencies = [] # the standard library alone
 
 [project.urls]
-Changelog = "https://github.com/veramachine/ffsuite/blob/main/packages/subverter/CHANGELOG.md"
-Homepage = "https://github.com/veramachine/ffsuite/tree/main/packages/subverter"
-Issues = "https://github.com/veramachine/ffsuite/issues"
-Repository = "https://github.com/veramachine/ffsuite"
+Changelog = "https://github.com/veralvx/ffsuite/blob/main/packages/subverter/CHANGELOG.md"
+Homepage = "https://github.com/veralvx/ffsuite/tree/main/packages/subverter"
+Issues = "https://github.com/veralvx/ffsuite/issues"
+Repository = "https://github.com/veralvx/ffsuite"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/subverter"]

@@ -47,8 +47,8 @@ character visible (a control character as Python writes it, `\x1b`), 60 characte
 
 ## Licence
 
-Part of [ffsuite](https://github.com/veramachine/ffsuite), beside ffman: its own package.
+Part of [ffsuite](https://github.com/veralvx/ffsuite), beside ffman: its own package.
 Licensed under either of
-[MIT](https://github.com/veramachine/ffsuite/blob/main/packages/subverter/LICENSE-MIT)
-or [Apache-2.0](https://github.com/veramachine/ffsuite/blob/main/packages/subverter/LICENSE-APACHE),
+[MIT](https://github.com/veralvx/ffsuite/blob/main/packages/subverter/LICENSE-MIT)
+or [Apache-2.0](https://github.com/veralvx/ffsuite/blob/main/packages/subverter/LICENSE-APACHE),
 at your option.

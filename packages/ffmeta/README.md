@@ -15,7 +15,7 @@ dropped in silence.
 | Cue sheet      | the CDRWIN format: an album's tracks, their times and fields         |
 
 What crosses between them, field by field and with its reasons, is
-[ffsuite's mappings skill](https://github.com/veramachine/ffsuite/blob/main/.agents/skills/metadata-mappings/SKILL.md).
+[ffsuite's mappings skill](https://github.com/veralvx/ffsuite/blob/main/.agents/skills/metadata-mappings/SKILL.md).
 
 ## Installing
 
@@ -51,8 +51,8 @@ that cannot be read is refused: `ffmeta.Error`, its message the reason.
 
 ## Licence
 
-Part of [ffsuite](https://github.com/veramachine/ffsuite), beside ffman: its own package.
+Part of [ffsuite](https://github.com/veralvx/ffsuite), beside ffman: its own package.
 Licensed under either of
-[MIT](https://github.com/veramachine/ffsuite/blob/main/packages/ffmeta/LICENSE-MIT)
-or [Apache-2.0](https://github.com/veramachine/ffsuite/blob/main/packages/ffmeta/LICENSE-APACHE),
+[MIT](https://github.com/veralvx/ffsuite/blob/main/packages/ffmeta/LICENSE-MIT)
+or [Apache-2.0](https://github.com/veralvx/ffsuite/blob/main/packages/ffmeta/LICENSE-APACHE),
 at your option.

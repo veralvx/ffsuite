@@ -8,7 +8,7 @@ using it, [`AGENTS.md`](../AGENTS.md) for working on it, the plan
 in [`docs/ffman-python.md`](ffman-python.md), the command line's contract
 in [`docs/ffman-spec.md`](ffman-spec.md). One command today, `convert`;
 `concat` and `transcribe` are planned. Packaged by this repository's flake
-(`nix/packages.nix`), `nix run github:veramachine/ffsuite`; its overlay builds it on another nixpkgs
+(`nix/packages.nix`), `nix run github:veralvx/ffsuite`; its overlay builds it on another nixpkgs
 (a system's ffmpeg-full, FDK and all). Its checks (`nix/checks.nix`), each on Python 3.13 and
 3.14: `tests` (the suite, line and branch: 100% measured, 95% the floor), `matrix` (the
 combination matrix, `pytest -m slow`), `types` (basedpyright), `vulture`, `installed` (the built

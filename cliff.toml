@@ -33,7 +33,7 @@ trim = true
 
 # the compare links' repository; read from here, so --offline needs no remote
 [remote.github]
-owner = "veramachine"
+owner = "veralvx"
 repo = "ffsuite"
 
 [git]

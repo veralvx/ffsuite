@@ -52,12 +52,12 @@ classifiers = [
 dependencies = ["ffmeta>=0.1.1,<0.2", "subverter>=0.1.1,<0.2"]
 
 [project.urls]
-Changelog = "https://github.com/veramachine/ffsuite/blob/main/packages/ffman/CHANGELOG.md"
-Documentation = "https://github.com/veramachine/ffsuite"
-Homepage = "https://github.com/veramachine/ffsuite"
-Issues = "https://github.com/veramachine/ffsuite/issues"
-Releasenotes = "https://github.com/veramachine/ffsuite/releases"
-Repository = "https://github.com/veramachine/ffsuite"
+Changelog = "https://github.com/veralvx/ffsuite/blob/main/packages/ffman/CHANGELOG.md"
+Documentation = "https://github.com/veralvx/ffsuite"
+Homepage = "https://github.com/veralvx/ffsuite"
+Issues = "https://github.com/veralvx/ffsuite/issues"
+Releasenotes = "https://github.com/veralvx/ffsuite/releases"
+Repository = "https://github.com/veralvx/ffsuite"
 
 [project.scripts]
 ffman = "ffman.__main__:main"

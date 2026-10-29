@@ -12,13 +12,13 @@ tools as POSIX does). From its flake -- on Linux (x86_64, aarch64) or macOS (App
 the tools it runs come with it:
 
 ```sh
-nix run github:veramachine/ffsuite -- convert -i in.mp4 -w 1280
+nix run github:veralvx/ffsuite -- convert -i in.mp4 -w 1280
 ```
 
 Or as a container image, for amd64 and arm64, from the folder of your files:
 
 ```sh
-docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/work" ghcr.io/veramachine/ffman:0.1.1 \
+docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/work" ghcr.io/veralvx/ffman:0.1.1 \
   convert -i in.mp4 -w 1280
 ```
 
@@ -29,8 +29,8 @@ one with Fraunhofer's FDK AAC, for your own use alone: ffmpeg's build calls such
 uncompressed, keeping no second copy of it:
 
 ```sh
-nix build github:veramachine/ffsuite#image && docker load < result
-nix build github:veramachine/ffsuite#image.stream && ./result | docker load   # or this
+nix build github:veralvx/ffsuite#image && docker load < result
+nix build github:veralvx/ffsuite#image.stream && ./result | docker load   # or this
 docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/work" ffman:0.1.1 convert -i in.mp4 -w 1280
 ```
 
@@ -123,28 +123,28 @@ where it does not (`ffman: ... left out`) -- never dropped without a word:
   when wider than tall).
 
 The rules, each measured:
-[`ffman-spec.md`](https://github.com/veramachine/ffsuite/blob/main/docs/ffman-spec.md) 3.12 to 3.15.
+[`ffman-spec.md`](https://github.com/veralvx/ffsuite/blob/main/docs/ffman-spec.md) 3.12 to 3.15.
 
 ## More
 
 - The command line's contract:
-  [`ffman-spec.md`](https://github.com/veramachine/ffsuite/blob/main/docs/ffman-spec.md).
+  [`ffman-spec.md`](https://github.com/veralvx/ffsuite/blob/main/docs/ffman-spec.md).
 - Every decision, with its evidence and the module it lives in:
-  [`docs/decisions.md`](https://github.com/veramachine/ffsuite/blob/main/docs/decisions.md).
+  [`docs/decisions.md`](https://github.com/veralvx/ffsuite/blob/main/docs/decisions.md).
 - Changes, release by release:
-  [`CHANGELOG.md`](https://github.com/veramachine/ffsuite/blob/main/packages/ffman/CHANGELOG.md).
-- Working on it: [`AGENTS.md`](https://github.com/veramachine/ffsuite/blob/main/AGENTS.md).
+  [`CHANGELOG.md`](https://github.com/veralvx/ffsuite/blob/main/packages/ffman/CHANGELOG.md).
+- Working on it: [`AGENTS.md`](https://github.com/veralvx/ffsuite/blob/main/AGENTS.md).
 
 It replaced a bash ffman (retired in phase 5 of
-[`ffman-python.md`](https://github.com/veramachine/ffsuite/blob/main/docs/ffman-python.md)),
+[`ffman-python.md`](https://github.com/veralvx/ffsuite/blob/main/docs/ffman-python.md)),
 after equalling it on every invocation of the bash suites; what it changed on purpose:
-[`ffman-from-bash.md`](https://github.com/veramachine/ffsuite/blob/main/docs/ffman-from-bash.md).
+[`ffman-from-bash.md`](https://github.com/veralvx/ffsuite/blob/main/docs/ffman-from-bash.md).
 
 ## Licence
 
-Part of [ffsuite](https://github.com/veramachine/ffsuite), beside its libraries ffmeta and
+Part of [ffsuite](https://github.com/veralvx/ffsuite), beside its libraries ffmeta and
 subverter. Licensed under either of
-[MIT](https://github.com/veramachine/ffsuite/blob/main/packages/ffman/LICENSE-MIT)
-or [Apache-2.0](https://github.com/veramachine/ffsuite/blob/main/packages/ffman/LICENSE-APACHE),
+[MIT](https://github.com/veralvx/ffsuite/blob/main/packages/ffman/LICENSE-MIT)
+or [Apache-2.0](https://github.com/veralvx/ffsuite/blob/main/packages/ffman/LICENSE-APACHE),
 at your option; its fonts, IBM Plex, under the
-[OFL](https://github.com/veramachine/ffsuite/blob/main/packages/ffman/src/ffman/fonts/OFL.txt).
+[OFL](https://github.com/veralvx/ffsuite/blob/main/packages/ffman/src/ffman/fonts/OFL.txt).

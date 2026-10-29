@@ -25,7 +25,7 @@ jobs:
     # pushing to Dependabot's branch too (docs.github.com, "Contexts reference")
     if: >-
       github.event.pull_request.user.login == 'dependabot[bot]' &&
-      github.repository == 'veramachine/ffsuite'
+      github.repository == 'veralvx/ffsuite'
     steps:
       - name: Fetch Dependabot metadata
         id: metadata

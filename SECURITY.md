@@ -9,7 +9,7 @@ and that version on PyPI.
 ## Reporting a Vulnerability
 
 **Do not open a public issue for security vulnerabilities.** To report one, use
-the [Private Vulnerability Reporting](https://github.com/veramachine/ffsuite/security/advisories/new)
+the [Private Vulnerability Reporting](https://github.com/veralvx/ffsuite/security/advisories/new)
 feature in this repository.
 
 Please include the technical context needed to reproduce it:

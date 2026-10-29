@@ -26,10 +26,10 @@ From the flake, ffman with every tool it runs, on Linux (x86_64, aarch64) or mac
 silicon):
 
 ```sh
-nix run github:veramachine/ffsuite -- convert -i in.mp4 -w 1280   # in.ffman.mp4, 1280 wide
+nix run github:veralvx/ffsuite -- convert -i in.mp4 -w 1280   # in.ffman.mp4, 1280 wide
 ```
 
-ffman is also a container image, `ghcr.io/veramachine/ffman`, and runs on Windows through WSL:
+ffman is also a container image, `ghcr.io/veralvx/ffman`, and runs on Windows through WSL:
 [ffman's README](packages/ffman/README.md#running-it).
 
 Working on them: [`CONTRIBUTING.md`](CONTRIBUTING.md) and [`AGENTS.md`](AGENTS.md). Licensed under
