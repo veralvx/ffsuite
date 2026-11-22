@@ -12,11 +12,6 @@ on:
       - "dprint.json"
       - ".github/workflows/style-check-dprint.yml"
   pull_request:
-    paths:
-      - "**/*.md"
-      - "**/*.toml"
-      - "dprint.json"
-      - ".github/workflows/style-check-dprint.yml"
 
 # a pull request's newest run cancels its older ones; any other run, a group of its own: every
 # commit on main checked (in a shared group, a pending run gives way to the newest: the default)
